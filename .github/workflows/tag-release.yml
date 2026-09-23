@@ -1,0 +1,53 @@
+name: Release Limanix
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: limanix-release
+  queue: max
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: mr-chelyshkin/actions/check-tag-branch@v1
+        with:
+          branch: main
+
+  limanix-build:
+    name: limanix
+    needs: verify
+    uses: ./.github/workflows/build-limanix.yml
+    with:
+      release-tag: ${{ github.ref_name }}
+      artifact-name: limanix-bin-${{ github.sha }}
+
+  release:
+    name: Create GitHub release
+    needs: limanix-build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.limanix-build.outputs.artifact-name }}
+          path: bin
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: bin/*
