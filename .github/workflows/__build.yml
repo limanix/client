@@ -1,0 +1,58 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      commit-sha:
+        description: Client source commit SHA.
+        required: false
+        type: string
+      release-tag:
+        description: Version embedded in the binaries.
+        required: false
+        type: string
+      modules-tag:
+        description: Module catalog tag overriding the Taskfile pin.
+        required: false
+        type: string
+      artifact-name:
+        description: Artifact name for built binaries; empty skips upload.
+        required: false
+        type: string
+    outputs:
+      artifact-name:
+        description: Built binaries artifact name.
+        value: ${{ jobs.build.outputs.artifact-name }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    outputs:
+      artifact-name: ${{ inputs.artifact-name }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit-sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Build and sign macOS binaries
+        uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        env:
+          RELEASE_TAG: ${{ inputs.release-tag }}
+          MODULES_TAG: ${{ inputs.modules-tag }}
+        with:
+          command: ci/build ${MODULES_TAG:+modules_version="$MODULES_TAG"}
+      - name: Upload macOS binaries
+        if: inputs.artifact-name != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: bin/*
+          if-no-files-found: error
+          overwrite: true

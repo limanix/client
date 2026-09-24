@@ -1,0 +1,14 @@
+name: Release flow
+
+on:
+  push:
+    tags: ['v*', '!v*\+*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: ./.github/workflows/_release.yml
+    secrets:
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

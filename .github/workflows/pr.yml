@@ -1,0 +1,41 @@
+name: PR flow
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    uses: mr-chelyshkin/actions/.github/workflows/pr-golang.yml@v1
+    permissions:
+      contents: read
+    with:
+      cache-path: .cache/go
+      cache-key-prefix: limanix-go-v1
+      cache-dependency-path: '**/go.sum'
+
+  limanix-build:
+    name: limanix
+    needs: go
+    uses: ./.github/workflows/__build.yml
+    permissions:
+      contents: read
+
+  gate:
+    if: always()
+    needs: [go, limanix-build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: mr-chelyshkin/actions/check-job-results@v1
+        with:
+          results: ${{ toJSON(needs) }}

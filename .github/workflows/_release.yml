@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  workflow_call:
+    secrets:
+      RELEASE_APP_PRIVATE_KEY:
+        required: true
+
+concurrency:
+  group: limanix-release
+  queue: max
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_COUNT: &release-count '3'
+  RELEASE_BRANCH: &release-branch main
+  MODULES_TAG_FORMAT: &modules-tag-format '^v[1-9][0-9]*$'
+  CLIENT_TAG_PATTERN: &client-tag-pattern 'v[0-9]*.[0-9]*.[0-9]*'
+  CLIENT_TAG_FORMAT: &client-tag-format '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(\+[1-9][0-9]*)?$'
+
+jobs:
+  select:
+    uses: ./.github/workflows/_select.yml
+    with:
+      count: *release-count
+      pattern: *client-tag-pattern
+      modules-tag-format: *modules-tag-format
+
+  release:
+    name: Release ${{ matrix.tag }}
+    needs: select
+    if: needs.select.outputs.tags != '[]' && needs.select.outputs.tags != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.select.outputs.tags) }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      tag: ${{ matrix.tag }}
+      commit-sha: ${{ matrix.commit_sha }}
+      branch: *release-branch
+      tag-format: *client-tag-format
+      modules-tag: ${{ needs.select.outputs.modules-tag }}
+    secrets:
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+  finalize:
+    name: Finalize release
+    needs: [select, release]
+    if: ${{ !cancelled() && needs.select.result == 'success' && needs.release.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: mr-chelyshkin/actions/get-tags@v1
+        id: latest
+        with:
+          require-release: 'true'
+          pattern: ${{ env.CLIENT_TAG_PATTERN }}
+      - name: Mark the highest published version as latest
+        if: steps.latest.outputs.tags != '[]'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAGS: ${{ steps.latest.outputs.tags }}
+        run: |
+          set -euo pipefail
+          tag=$(jq -er '.[0].tag' <<< "$TAGS")
+          gh release edit "$tag" --latest
+      - name: Download the published docs versions
+        uses: actions/download-artifact@v8
+        with:
+          pattern: docs-release-*
+          path: ${{ runner.temp }}/docs-releases
+          merge-multiple: true
+      - name: Prepare the client release event
+        id: docs-event
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          receipts=("$RUNNER_TEMP"/docs-releases/*.json)
+          if (( ${#receipts[@]} == 0 )); then
+            echo 'No published docs versions in this run; skipping docs event.'
+            exit 0
+          fi
+          jq -es --arg client_format "$CLIENT_TAG_FORMAT" --arg modules_format "$MODULES_TAG_FORMAT" '
+            if all(.[];
+              type == "object" and keys == ["client_tag", "modules_tag"] and
+              (.client_tag | type == "string" and test($client_format)) and
+              (.modules_tag | type == "string" and test($modules_format))
+            ) then unique else error("Invalid published docs versions") end |
+            if any(group_by(.client_tag)[]; length != 1)
+            then error("Conflicting module versions for a client release") else . end |
+            {event_type: "limanix-client-release", client_payload: {releases: .}}
+          ' "${receipts[@]}" > "$RUNNER_TEMP/docs-event.json"
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+      - name: Create docs access token
+        if: steps.docs-event.outputs.ready == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          repositories: docs
+          owner: limanix
+      - name: Send client release event
+        if: steps.docs-event.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh api --method POST repos/limanix/docs/dispatches \
+            --input "$RUNNER_TEMP/docs-event.json"

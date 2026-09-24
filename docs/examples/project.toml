@@ -1,0 +1,36 @@
+# Save this file in your project directory as limanix.toml.
+# Apple Silicon: arm64. Intel Mac: change resources.arch to amd64.
+schema_version = 1
+name = "project-box"
+
+[resources]
+arch = "arm64"
+cpu = 4
+mem = "8GiB"
+disk = "10GiB"
+
+[user]
+name = "dev"
+home = "/home/dev"
+sudo = true
+
+[home]
+root = "~/.limanix"
+
+[nixos]
+modules = []
+
+[network]
+mode = "shared"
+
+[network.ports]
+tcp = [8080]
+udp = []
+
+[env]
+APP_ENV = "development"
+
+[[mounts]]
+source = "."
+target = "/workspace"
+mode = "rw"
