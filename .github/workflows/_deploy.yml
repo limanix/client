@@ -89,6 +89,7 @@ jobs:
           fi
           printf 'tag=%s\nmodules-tag=%s\n' "$tag" "$MODULES_TAG" >> "$GITHUB_OUTPUT"
       - name: Check module tag format
+        if: github.event_name == 'push'
         uses: mr-chelyshkin/actions/check-tag-format@v1
         with:
           tag: ${{ steps.version.outputs.modules-tag }}
