@@ -7,7 +7,7 @@ includes:
     internal: false
 
 vars:
-  limanix_modules_version: 'v0.0.1'
+  modules_version: 'v1'
   macos_version: '26.0'
   socket_vmnet:
     map:
@@ -57,7 +57,7 @@ tasks:
     cmds:
       - task: golang:_go/tool
         vars:
-          CMD: go run ./cmd/bundle-modules --root . --version {{.limanix_modules_version | shellQuote}}
+          CMD: go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}}
 
   ci/lint:
     desc: Lint Go source and tests
@@ -128,7 +128,7 @@ tasks:
       - sh: xcrun --find clang >/dev/null && xcrun --find vtool >/dev/null && command -v codesign >/dev/null
         msg: Install the Xcode command-line tools before building native binaries.
     cmds:
-      - go run ./cmd/bundle-modules --root . --version {{.limanix_modules_version | shellQuote}}
+      - go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}}
       - go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
       - go run ./cmd/bundle-guestagent --root .
       - mkdir -p bin

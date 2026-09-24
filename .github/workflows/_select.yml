@@ -1,0 +1,72 @@
+name: Select release tags
+
+on:
+  workflow_call:
+    inputs:
+      count:
+        description: Maximum number of client versions.
+        required: true
+        type: string
+      pattern:
+        description: Client tag glob.
+        required: true
+        type: string
+      modules-tag-format:
+        description: Module tag regular expression.
+        required: true
+        type: string
+    outputs:
+      tags:
+        description: Selected client tags and commit SHAs.
+        value: ${{ jobs.select.outputs.tags }}
+
+permissions:
+  contents: read
+
+jobs:
+  select:
+    runs-on: ubuntu-24.04
+    outputs:
+      tags: ${{ steps.tags.outputs.tags || steps.source.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Select the new client tag
+        if: github.event_name == 'push'
+        id: source
+        env:
+          CLIENT_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse 'HEAD^{commit}')
+          tags=$(jq -cn --arg tag "$CLIENT_TAG" --arg sha "$sha" '[{tag: $tag, commit_sha: $sha}]')
+          printf 'tags=%s\n' "$tags" >> "$GITHUB_OUTPUT"
+
+      - name: Check module tag format
+        if: github.event_name == 'repository_dispatch'
+        uses: mr-chelyshkin/actions/check-tag-format@v1
+        with:
+          tag: ${{ github.event.client_payload.tag }}
+          pattern: ${{ inputs.modules-tag-format }}
+      - name: Verify the module release
+        if: github.event_name == 'repository_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODULES_TAG: ${{ github.event.client_payload.tag }}
+        run: |
+          set -euo pipefail
+          gh api "repos/limanix/modules/releases/tags/$MODULES_TAG" |
+            jq -e --arg tag "$MODULES_TAG" \
+              '.tag_name == $tag and .draft == false and .prerelease == false and .published_at != null' > /dev/null
+      - name: Select versions
+        if: github.event_name == 'repository_dispatch'
+        id: tags
+        uses: mr-chelyshkin/actions/get-tags@v1
+        with:
+          pattern: ${{ inputs.pattern }}
+          count: ${{ inputs.count }}
+          ignore-build-metadata: 'true'
+          require-release: 'true'
+          sort: desc

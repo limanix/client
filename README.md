@@ -1,6 +1,6 @@
 # Limanix
 
-[![License: Apache-2.0](https://img.shields.io/github/license/mr-chelyshkin/limanix?label=license)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/github/license/limanix/client?label=license)](LICENSE)
 
 <p align="center">
   <img src=".github/assets/readme-header.png"
@@ -10,116 +10,64 @@
 
 Linux development environments on macOS, configured with TOML and NixOS modules.
 
-Keep your project and editor on your Mac; run tools, services, and builds inside a Linux VM. 
-Limanix uses Lima for virtualization and NixOS to configure the guest. 
-You do not need to install Lima or Nix on the host.
+Keep your project and editor on your Mac. Run Linux tools, services, and builds
+inside a VM. Limanix integrates Lima for virtualization and NixOS for guest
+configuration; you do not need a separate Lima or Nix installation on the host.
 
-[Documentation](https://limanix.mr-chelyshkin.com/) ·
-[Releases](https://github.com/mr-chelyshkin/limanix/releases) ·
-[Module catalog](https://github.com/mr-chelyshkin/limanix-modules)
+[Client guide](docs/index.md) ·
+[Releases](https://github.com/limanix/client/releases) ·
+[Module catalog](https://github.com/limanix/modules) ·
+[Release process](https://github.com/limanix/docs/tree/main/docs/pages/releases)
 
-## Installation
+## Start here
 
-Requires **macOS 26 or newer**. Use `limanix-arm64` on Apple Silicon and `limanix-amd64` on Intel; VM commands do not support running under Rosetta.
+1. [Install the client](docs/installation.md). The current build targets macOS 26
+   or newer. Use the native binary: `limanix-arm64` on Apple Silicon or
+   `limanix-amd64` on Intel.
+2. Follow [Getting started](docs/getting-started.md) to create a small guest,
+   enter its shell, add tools, and share your project.
+3. Keep the [complete project example](docs/examples/project.toml) beside your
+   code and adapt it using the [configuration guide](docs/configuration.md).
 
-From this source checkout, with the Go version declared in [go.mod](go.mod), Task, and Xcode command-line tools installed:
+No Nix language knowledge is needed for the first environment. The
+[concepts guide](docs/concepts.md) explains the host, guest, mounts, and modules.
 
-```console
-task --yes ci/build
-mkdir -p ~/.local/bin
-install -m 755 bin/limanix-arm64 ~/.local/bin/limanix
-export PATH="$HOME/.local/bin:$PATH"
-```
+## Everyday commands
 
-On Intel, replace `limanix-arm64` with `limanix-amd64`. Keep `~/.local/bin` in your shell's `PATH` for future sessions. 
-The build prepares embedded assets and signs both binaries; Docker is not required.
-
-A guest matching your Mac's architecture uses Apple's Virtualization.framework.
-Running another architecture requires an external QEMU installation and `limanix network setup` with administrator approval. 
-See [Installation](https://limanix.mr-chelyshkin.com/installation/) for QEMU setup and macOS download warnings; builds are ad-hoc signed, not Apple-notarized.
-
-## Quick start
-
-Save the following as `limanix.toml` in your project directory. 
-It creates a VM with Git, Node.js, and npm, and shares your project at `/workspace`.
-
-```toml
-schema_version = 1
-name = "dev-box"
-env = {}
-
-[resources]
-arch = "arm64"
-cpu = 2
-mem = "4GiB"
-disk = "16GiB"
-
-[nixos]
-modules = ["lmx:git", "lmx:nodejs"]
-
-[network.ports]
-tcp = [3000]
-udp = []
-
-[[mounts]]
-source = "."
-target = "/workspace"
-```
-
-On Intel, set `arch = "amd64"`. Run on your Mac:
+On your Mac, after preparing `limanix.toml` with a VM named `dev-box`:
 
 ```console
 limanix create --config limanix.toml
 limanix shell dev-box
 ```
 
-The first creation downloads the base image and Nix dependencies. 
-Once the shell opens, run inside the VM:
-
-```console
-cd /workspace
-git --version
-node --version
-npm --version
-```
-
-The default guest account is `dev`, with passwordless sudo inside the VM.
-Its home is stored under `~/.limanix` on your Mac. 
-The project mount is read-write: changes and deletions in `/workspace` affect the same host files.
-
-To access a development server, make it listen on `0.0.0.0:3000` in the guest.
-Run `limanix list` on your Mac and open `http://<ADDRESS>:3000`, using the VM's reported address. 
-Ports are opened in the guest firewall, not forwarded to your Mac's `localhost`.
-
-## Modules and updates
-
-Standard modules come from [limanix-modules](https://github.com/mr-chelyshkin/limanix-modules) and are embedded in the binary. Inspect its available selectors:
-
-```console
-limanix modules list
-```
-
-Edit `nixos.modules` in your configuration to change tools. 
-Versioned selectors such as `lmx:go-1.24` are listed alongside module defaults such as `lmx:go`.
-An empty list selects no optional modules; Limanix still provides the base system.
-
-Apply configuration changes from your Mac:
+Exit the guest shell to return to your Mac. Apply configuration changes and
+manage the VM from there:
 
 ```console
 limanix update --config limanix.toml
+limanix list
+limanix stop dev-box
+limanix start dev-box
 ```
 
-Updates restart the VM and preserve its disk and managed home. 
-Finish running jobs before updating. 
-A failed update does not automatically roll back every change already applied.
+An update restarts the VM. A read-write project mount exposes the same files on
+both systems. Deleting the VM removes its disk but preserves the managed home
+by default. Read [Storage and recovery](docs/storage-and-recovery.md) before
+removing an environment that contains data you need.
 
-Use `limanix stop dev-box` and `limanix start dev-box` between sessions.
-When you no longer need the VM, `limanix delete dev-box` removes its disk but retains its managed home and leaves external project directories in place.
+## Find the right guide
 
-## Learn more
+| Topic | Guide |
+| --- | --- |
+| Resources, mounts, users, environment | [Configuration](docs/configuration.md) |
+| Bundled tools and custom NixOS modules | [Modules](docs/modules.md) |
+| Guest IP, service ports, QEMU setup | [Networking](docs/networking.md) |
+| Updates, shell commands, and status | [Work with VMs](docs/working-with-vms.md) |
+| Failed creation, updates, and connections | [Troubleshooting](docs/troubleshooting.md) |
+| Exact command help and generated field tables | [Reference](docs/reference.md) |
+| Build, test, and contribute | [Development](docs/development.md) |
 
-- [Configuration reference](https://limanix.mr-chelyshkin.com/configuration/) - resources, users, mounts, environment, and firewall ports.
-- [NixOS modules](https://limanix.mr-chelyshkin.com/guide/modules/) - version selection and importing your own trusted modules.
-- [Manage VMs](https://limanix.mr-chelyshkin.com/guide/lifecycle/) - lifecycle commands, disk growth, and deletion options.
-- [Troubleshooting](https://limanix.mr-chelyshkin.com/troubleshooting/) - connection and update failures.
-- [Development](https://limanix.mr-chelyshkin.com/contributing/) - contributing and running checks.
+The client owns these guides and generates its CLI and configuration references.
+The [docs repository](https://github.com/limanix/docs) assembles them with the
+matching module documentation into the Sphinx site.

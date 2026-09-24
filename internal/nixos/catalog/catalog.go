@@ -13,7 +13,7 @@ import (
 )
 
 // Repository identifies the standard catalog source in download URLs and ZIP comments.
-const Repository = "github.com/mr-chelyshkin/limanix-modules"
+const Repository = "github.com/limanix/modules"
 
 var tagPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+-]*$`)
 

@@ -1,12 +1,12 @@
 // bundle-modules prepares the standard NixOS modules embedded in Limanix.
 //
-// It downloads the limanix-modules tag selected by Taskfile. The nixos package embeds the archive in Limanix,
+// It downloads the limanix/modules tag selected by Taskfile. The nixos package embeds the archive in Limanix,
 // making its modules available for VM configuration when needed.
 //
 // The --version flag selects the exact Git tag; --root selects the repository.
 // Existing valid output for that tag is reused without a download.
 //
-// Upstream: https://github.com/mr-chelyshkin/limanix-modules.
+// Upstream: https://github.com/limanix/modules.
 package main
 
 import (
@@ -26,7 +26,7 @@ func run(ctx context.Context, args []string, diagnostics io.Writer) int {
 	var (
 		flags = flag.NewFlagSet("bundle-modules", flag.ContinueOnError)
 
-		version = flags.String("version", "", "Required limanix-modules Git release tag.")
+		version = flags.String("version", "", "Required limanix/modules Git release tag.")
 		root    = flags.String("root", ".", "Repository root containing internal/nixos/resources.")
 	)
 	flags.SetOutput(diagnostics)

@@ -1,4 +1,4 @@
-name: PR validation
+name: PR flow
 
 on:
   pull_request:
@@ -15,12 +15,6 @@ permissions:
 
 jobs:
   check-label:
-    if: &regular-pr >-
-      !(vars.RELEASE_APP_SLUG != '' &&
-        github.actor == format('{0}[bot]', vars.RELEASE_APP_SLUG) &&
-        github.event.pull_request.user.login == format('{0}[bot]', vars.RELEASE_APP_SLUG) &&
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        startsWith(github.event.pull_request.head.ref, 'deps/limanix-modules/'))
     name: check label
     runs-on: ubuntu-24.04
     steps:
@@ -28,7 +22,6 @@ jobs:
       - uses: mr-chelyshkin/actions/check-changelog-label@v1
 
   go:
-    if: *regular-pr
     uses: mr-chelyshkin/actions/.github/workflows/pr-golang.yml@v1
     permissions:
       contents: read
@@ -40,12 +33,12 @@ jobs:
   limanix-build:
     name: limanix
     needs: go
-    uses: ./.github/workflows/build-limanix.yml
+    uses: ./.github/workflows/__build.yml
     permissions:
       contents: read
 
   gate:
-    if: always() && needs.check-label.result != 'skipped'
+    if: always()
     needs: [check-label, go, limanix-build]
     runs-on: ubuntu-24.04
     permissions:

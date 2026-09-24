@@ -1,4 +1,4 @@
-// Package modulegen downloads the selected limanix-modules tag and prepares its embedded catalog.
+// Package modulegen downloads the selected limanix/modules tag and prepares its embedded catalog.
 //
 // Generate reads the GitHub source archive over HTTPS, retains module trees and LICENSE,
 // and records the source repository and selected release tag. The catalog package validates the result before

@@ -1,0 +1,95 @@
+name: Release flow
+
+on:
+  push:
+    tags: ['v*', '!v*\+*']
+  repository_dispatch:
+    types: [limanix-modules-release]
+
+concurrency:
+  group: limanix-release
+  queue: max
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_COUNT: &release-count '3'
+  RELEASE_BRANCH: &release-branch main
+  MODULES_TAG_FORMAT: &modules-tag-format '^v[1-9][0-9]*$'
+  CLIENT_TAG_PATTERN: &client-tag-pattern 'v[0-9]*.[0-9]*.[0-9]*'
+  CLIENT_TAG_FORMAT: &client-tag-format '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(\+[1-9][0-9]*)?$'
+
+jobs:
+  select:
+    uses: ./.github/workflows/_select.yml
+    with:
+      count: *release-count
+      pattern: *client-tag-pattern
+      modules-tag-format: *modules-tag-format
+
+  release:
+    name: Release ${{ matrix.tag }}
+    needs: select
+    if: needs.select.outputs.tags != '[]' && needs.select.outputs.tags != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.select.outputs.tags) }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      tag: ${{ matrix.tag }}
+      commit-sha: ${{ matrix.commit_sha }}
+      branch: *release-branch
+      tag-format: *client-tag-format
+      modules-tag-format: *modules-tag-format
+    secrets:
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+  finalize:
+    name: Finalize release
+    needs: [select, release]
+    if: ${{ !cancelled() && needs.select.result == 'success' && needs.release.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: mr-chelyshkin/actions/get-tags@v1
+        id: latest
+        with:
+          require-release: 'true'
+          pattern: ${{ env.CLIENT_TAG_PATTERN }}
+      - name: Mark the highest published version as latest
+        if: steps.latest.outputs.tags != '[]'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAGS: ${{ steps.latest.outputs.tags }}
+        run: |
+          set -euo pipefail
+          tag=$(jq -er '.[0].tag' <<< "$TAGS")
+          gh release edit "$tag" --latest
+      - name: Create docs access token
+        if: steps.latest.outputs.tags != '[]'
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          repositories: docs
+          owner: limanix
+      - name: Send client release event
+        if: steps.latest.outputs.tags != '[]'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh api --method POST repos/limanix/docs/dispatches \
+            -f event_type=limanix-client-release

@@ -1,0 +1,28 @@
+schema_version = 1
+name = "dev-box"
+mounts = []
+env = {}
+
+[user]
+name = "dev"
+home = "/home/dev"
+sudo = true
+
+[resources]
+arch = "arm64"
+cpu = 2
+mem = "4GiB"
+disk = "16GiB"
+
+[home]
+root = "~/.limanix"
+
+[nixos]
+modules = []
+
+[network]
+mode = "shared"
+
+[network.ports]
+tcp = []
+udp = []

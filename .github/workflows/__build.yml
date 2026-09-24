@@ -1,19 +1,27 @@
-name: Build Limanix
+name: Build
 
 on:
   workflow_call:
     inputs:
+      commit-sha:
+        description: Client source commit SHA.
+        required: false
+        type: string
       release-tag:
-        description: Release version embedded in the binaries. Empty for development builds.
+        description: Version embedded in the binaries.
+        required: false
         type: string
-        default: ''
+      modules-tag:
+        description: Module catalog tag overriding the Taskfile pin.
+        required: false
+        type: string
       artifact-name:
-        description: Artifact to upload after building. Empty skips the upload.
+        description: Artifact name for built binaries; empty skips upload.
+        required: false
         type: string
-        default: ''
     outputs:
       artifact-name:
-        description: Name of the uploaded binary artifact.
+        description: Built binaries artifact name.
         value: ${{ jobs.build.outputs.artifact-name }}
 
 permissions:
@@ -26,6 +34,9 @@ jobs:
       artifact-name: ${{ inputs.artifact-name }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit-sha }}
+          persist-credentials: false
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -34,12 +45,14 @@ jobs:
         uses: mr-chelyshkin/actions/invoke-taskfile@v1
         env:
           RELEASE_TAG: ${{ inputs.release-tag }}
-        with: { command: ci/build }
-      - name: Upload binaries
+          MODULES_TAG: ${{ inputs.modules-tag }}
+        with:
+          command: ci/build ${MODULES_TAG:+modules_version="$MODULES_TAG"}
+      - name: Upload macOS binaries
         if: inputs.artifact-name != ''
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-name }}
           path: bin/*
           if-no-files-found: error
-          retention-days: 7
+          overwrite: true

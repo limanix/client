@@ -1,0 +1,140 @@
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Client source tag.
+        required: true
+        type: string
+      commit-sha:
+        description: Client source commit SHA.
+        required: true
+        type: string
+      branch:
+        description: Required client branch.
+        required: true
+        type: string
+      tag-format:
+        description: Client tag regular expression.
+        required: true
+        type: string
+      modules-tag-format:
+        description: Module tag regular expression.
+        required: true
+        type: string
+    secrets:
+      RELEASE_APP_PRIVATE_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      modules-tag: ${{ steps.version.outputs.modules-tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit-sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check client tag format
+        uses: mr-chelyshkin/actions/check-tag-format@v1
+        with:
+          tag: ${{ inputs.tag }}
+          pattern: ${{ inputs.tag-format }}
+      - name: Check client tag branch
+        uses: mr-chelyshkin/actions/check-tag-branch@v1
+        with:
+          tag: ${{ inputs.tag }}
+          branch: ${{ inputs.branch }}
+      - name: Prepare release version
+        id: version
+        env:
+          REBUILD: ${{ github.event_name == 'repository_dispatch' }}
+          MODULES_TAG: ${{ github.event.client_payload.tag }}
+          SOURCE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ inputs.commit-sha }}
+        run: |
+          set -euo pipefail
+          tag_sha=$(git rev-parse "refs/tags/${SOURCE_TAG}^{commit}")
+          if [[ "$tag_sha" != "$SOURCE_SHA" ]]; then
+            echo '::error::Source tag no longer points to the selected commit.'
+            exit 1
+          fi
+          tag=$SOURCE_TAG
+          if [[ "$REBUILD" == true ]]; then
+            number=0
+            if [[ "$SOURCE_TAG" == *+* ]]; then
+              number=${SOURCE_TAG#*+}
+            fi
+            next=$((number + 1))
+            if [[ "$((number))" != "$number" ]] || (( next <= number )); then
+              echo '::error::Rebuild counter is too large to increment.'
+              exit 1
+            fi
+            tag="${SOURCE_TAG%%+*}+$next"
+          else
+            MODULES_TAG=$(sed -nE "s/^  modules_version: '([^']*)'$/\1/p" Taskfile.yml)
+          fi
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            if [[ $(git rev-parse "refs/tags/${tag}^{commit}") != "$SOURCE_SHA" ]]; then
+              echo '::error::Target tag already points to another commit.'
+              exit 1
+            fi
+          fi
+          printf 'tag=%s\nmodules-tag=%s\n' "$tag" "$MODULES_TAG" >> "$GITHUB_OUTPUT"
+      - name: Check module tag format
+        uses: mr-chelyshkin/actions/check-tag-format@v1
+        with:
+          tag: ${{ steps.version.outputs.modules-tag }}
+          pattern: ${{ inputs.modules-tag-format }}
+
+  build:
+    needs: prepare
+    uses: ./.github/workflows/__build.yml
+    with:
+      commit-sha: ${{ inputs.commit-sha }}
+      release-tag: ${{ needs.prepare.outputs.tag }}
+      modules-tag: ${{ needs.prepare.outputs.modules-tag }}
+      artifact-name: limanix-bin-${{ needs.prepare.outputs.tag }}
+
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download macOS binaries
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+          path: bin
+      - name: Create client release token
+        id: release-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: limanix
+          repositories: client
+          permission-contents: write
+          permission-workflows: write
+      - name: Publish the client release
+        uses: softprops/action-gh-release@v3
+        with:
+          token: ${{ steps.release-token.outputs.token }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ inputs.commit-sha }}
+          name: ${{ needs.prepare.outputs.tag }}
+          body: |
+            Client source: `${{ inputs.commit-sha }}`
+            Module catalog: [${{ needs.prepare.outputs.modules-tag }}](https://github.com/limanix/modules/releases/tag/${{ needs.prepare.outputs.modules-tag }})
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          make_latest: 'false'
+          files: bin/*
