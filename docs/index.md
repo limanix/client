@@ -69,7 +69,8 @@ troubleshooting
 :hidden:
 :caption: Reference and development
 :maxdepth: 1
+:glob:
 
-reference
+reference**
 development
 ```

@@ -19,6 +19,9 @@ on:
       tags:
         description: Selected client tags and commit SHAs.
         value: ${{ jobs.select.outputs.tags }}
+      modules-tag:
+        description: Verified module catalog tag.
+        value: ${{ jobs.select.outputs.modules-tag }}
 
 permissions:
   contents: read
@@ -28,6 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       tags: ${{ steps.tags.outputs.tags || steps.source.outputs.tags }}
+      modules-tag: ${{ steps.modules.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -44,17 +48,26 @@ jobs:
           tags=$(jq -cn --arg tag "$CLIENT_TAG" --arg sha "$sha" '[{tag: $tag, commit_sha: $sha}]')
           printf 'tags=%s\n' "$tags" >> "$GITHUB_OUTPUT"
 
+      - name: Select the module tag
+        id: modules
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MODULES_TAG: ${{ github.event.client_payload.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == push ]]; then
+            MODULES_TAG=$(sed -nE "s/^  modules_version: '([^']*)'$/\1/p" Taskfile.yml)
+          fi
+          printf 'tag=%s\n' "$MODULES_TAG" >> "$GITHUB_OUTPUT"
       - name: Check module tag format
-        if: github.event_name == 'repository_dispatch'
         uses: mr-chelyshkin/actions/check-tag-format@v1
         with:
-          tag: ${{ github.event.client_payload.tag }}
+          tag: ${{ steps.modules.outputs.tag }}
           pattern: ${{ inputs.modules-tag-format }}
       - name: Verify the module release
-        if: github.event_name == 'repository_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
-          MODULES_TAG: ${{ github.event.client_payload.tag }}
+          MODULES_TAG: ${{ steps.modules.outputs.tag }}
         run: |
           set -euo pipefail
           gh api "repos/limanix/modules/releases/tags/$MODULES_TAG" |
