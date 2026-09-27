@@ -1,27 +1,19 @@
-# Develop the client
+# Development
 
-The client repository owns the CLI, VM lifecycle, configuration model, and
-macOS binaries. The module catalog lives in `limanix/modules`; the Sphinx site
-lives in `limanix/docs`.
-
-Use the root `Taskfile.yml` as the entry point for checks, asset generation, and
-native builds. Its tasks supply the versions and build flags expected by the
-client.
+The client repository owns the CLI, VM lifecycle, configuration model, and macOS binaries.
+The module catalog lives in `limanix/modules`; the documentation site lives in `limanix/docs`.
+Use `Taskfile.yml` for checks, bundled resources, and native builds.
 
 ## Prepare your tools
 
 | Work | Requirements |
 | --- | --- |
-| Formatting, lint, tests, vulnerability checks, generated references | Task 3.53.1 or newer, Docker with a running engine, network access for pinned tooling and dependencies |
-| Native client build | macOS, the Go version declared in `go.mod`, Task, Xcode command-line tools |
-| Try the built client | macOS 26 or newer, a binary matching the Mac's architecture |
-| Preview the Sphinx site | A sibling `limanix/docs` checkout, Task, and Docker |
+| Formatting, lint, tests, vulnerability checks, documentation preparation | Task 3.53.1 or newer, Docker with a running engine, network access for pinned tools and dependencies |
+| Native client build | macOS, the Go version in `go.mod`, Task, Xcode command-line tools |
+| Run the client | macOS 26 or newer, a binary matching the Mac's architecture |
+| Preview documentation | Sibling `client`, `modules`, and `docs` checkouts, Task, and Docker |
 
-The shared Go tasks run tools in containers. `ci/build` runs natively and does
-not require Docker. It uses CGO and Apple's tools to build and sign both macOS
-architectures.
-
-Clone the client and enter its directory:
+Clone the client and list its tasks:
 
 ```console
 git clone https://github.com/limanix/client.git
@@ -29,30 +21,26 @@ cd client
 task --list
 ```
 
-The examples use `task --yes` to accept the pinned remote Taskfile include.
+The examples use `task --yes` to accept the pinned remote Taskfile includes.
 
-## Start with the part you are changing
+## Source layout
 
 | Path | Responsibility |
 | --- | --- |
 | `cmd/limanix/`, `internal/cli/` | CLI entry point, commands, flags, output |
 | `internal/config/`, `internal/domain/` | TOML parsing, defaults, validation, domain types |
-| `internal/vm/` | VM creation, updates, lifecycle, generation handling |
+| `internal/vm/` | VM lifecycle and configuration generations |
 | `internal/lima/`, `internal/hostagent/` | Lima integration and host-side VM process |
-| `internal/state/`, `internal/managedhome/` | Saved VM records and managed home ownership |
+| `internal/state/`, `internal/managedhome/` | Saved records and managed home ownership |
 | `internal/modules/` | Local imports and module selection |
-| `internal/nixos/` | Guest configuration, bundled catalog, generated NixOS sources |
+| `internal/nixos/` | Guest configuration and bundled catalog |
 | `internal/bundle/` | Embedded guest agents and network helper |
 | `internal/docs/generator/` | CLI and configuration reference generation |
-| `guides/` | Handwritten user guides and examples |
-
-Read the existing tests near the behavior you are changing. In particular,
-resource ownership, failed updates, and deletion have behavior beyond the CLI
-flags; trace the manager and state code before changing them.
+| `guides/`, `scripts/build_docs.py` | Handwritten documentation and preparation |
 
 ## Run the checks
 
-From the client repository:
+The shared Go tasks run in containers:
 
 ```console
 task --yes ci/fmt
@@ -63,127 +51,111 @@ task --yes ci/vuln
 
 | Task | What it checks |
 | --- | --- |
-| `ci/fmt` | Formatting under `cmd/` and `internal/`; reports files without rewriting them |
-| `ci/lint` | Go source and tests with the shared linter |
-| `ci/test` | Go tests with the race detector, after preparing embedded assets |
-| `ci/vuln` | Known vulnerabilities in the client and the embedded Lima guest agent |
+| `ci/fmt` | Go formatting under `cmd/` and `internal/`, without rewriting files |
+| `ci/lint` | Go source and tests |
+| `ci/test` | Go tests with the race detector, after preparing embedded resources |
+| `ci/vuln` | Known vulnerabilities in the client and its embedded Lima guest agent |
 
-For changes to release automation, also run:
+The PR workflow runs shared Go checks and a native macOS build; its `gate` combines those results.
+A separate workflow checks the PR label.
 
-```console
-python3 -m unittest discover -s .github/scripts -p 'test_*.py'
-```
-
-The PR workflow checks these release scripts, a PR label, the shared Go checks,
-and a native macOS build. Its final `gate` combines those results. Add an
-appropriate label to your PR; an unlabeled PR fails the label check.
+For lifecycle or guest configuration changes, also exercise the operation with a disposable VM on macOS.
+Use a separate configuration and [`LIMANIX_HOME`](troubleshooting.md#state-directories) to keep its state separate from your working VMs.
+Tests and a signed build do not establish that the affected VM operation succeeds.
 
 ## Build a native client
 
-On your **Mac**:
+Run on your Mac:
 
 ```console
 task --yes ci/build
 ```
 
-The outputs are `bin/limanix-arm64` and `bin/limanix-amd64`. The task:
+This task runs natively without Docker.
+It prepares embedded resources, builds both architectures, applies an ad-hoc signature with the virtualization entitlement, and verifies the signature and macOS deployment target.
+The outputs are `bin/limanix-arm64` for Apple Silicon and `bin/limanix-amd64` for Intel.
 
-1. Downloads or prepares the pinned embedded resources.
-2. Builds both architectures with the configured macOS deployment target.
-3. Applies an ad-hoc signature with the VM entitlement.
-4. Verifies the signature and deployment target.
+To install the Apple Silicon build:
 
-Use `bin/limanix-arm64` on Apple Silicon and `bin/limanix-amd64` on Intel. A plain
-`go build` does not perform this preparation and signing sequence. Use the Taskfile
-build when testing VM behavior.
+```console
+mkdir -p ~/.local/bin
+install -m 755 bin/limanix-arm64 ~/.local/bin/limanix
+export PATH="$HOME/.local/bin:$PATH"
+limanix --version
+```
 
-For a versioned build, `RELEASE_TAG` sets the version embedded in the binary:
+Use `bin/limanix-amd64` on Intel and keep `~/.local/bin` in your shell's `PATH`.
+A plain `go build` does not perform the resource preparation and signing sequence.
+
+Set the embedded client version with `RELEASE_TAG`:
 
 ```console
 task --yes ci/build RELEASE_TAG=v1.2.3+1
 ```
 
-This command builds local files. It does not create a Git tag or publish a release.
-The central documentation describes the release process.
+This builds local files; it does not create a Git tag or publish a release.
 
-### Where the embedded files come from
+### Embedded resources
 
-| Asset | Source of truth | Preparation |
+| Resource | Source of truth | Preparation |
 | --- | --- | --- |
-| NixOS catalog and guest Nixpkgs pin | `modules_version` in `Taskfile.yml`, selecting a `limanix/modules` tag | `cmd/bundle-modules` |
-| Linux Lima guest agents | Lima dependency in `go.mod` | `cmd/bundle-guestagent` builds `amd64` and `arm64` agents |
+| NixOS catalog and Nixpkgs pin | `modules_version` in `Taskfile.yml` | `cmd/bundle-modules` downloads the selected modules tag |
+| Linux guest agents | Lima dependency in `go.mod` | `cmd/bundle-guestagent` builds `amd64` and `arm64` agents |
 | macOS network helper | `socket_vmnet` version, hashes, and sizes in `Taskfile.yml` | `cmd/bundle-socketvmnet` downloads and validates both archives |
 
-The generated archives are ignored by Git. Keep the pins and generators in source
-control, not generated binary bundles.
+Generated archives are ignored by Git.
+Tasks that prepare the catalog require the selected modules tag to exist upstream.
 
-The catalog's root `flake.lock` supplies the Nixpkgs revision for both catalog checks and guest builds.
-The client requires that pin and rejects catalogs that omit it.
-To update it, follow [Update the NixOS base](https://limanix.dev/categories/nixos/writing-modules.html#update-the-nixos-base).
+The catalog's `flake.lock` supplies the Nixpkgs revision for catalog checks and guest builds.
+The client rejects catalogs without that pin.
+Follow [Update the NixOS base](https://limanix.dev/categories/nixos/writing-modules.html#update-the-nixos-base) to change it.
 
-The client owns `internal/nixos/resources/flake.nix.tmpl` and `flake.lock.tmpl`.
-These templates keep the `nixos-lima` dependency graph; the catalog supplies the missing `nixpkgs` input when the client prepares a VM generation.
-The generated `flake.nix` and `flake.lock` must agree: guest rebuilds reject any input that would require a lock update.
-The bootstrap image, its checksums in `internal/nixos/image.go`, and `system.stateVersion` remain client-owned.
-
-```{important}
-A clean checkout needs the modules tag selected by `modules_version` to
-exist upstream. If that tag has not been published, tasks that bundle the catalog
-cannot complete. Check the configured tag and the upstream repository when a
-download fails; do not substitute a different catalog silently.
-```
-
-Tests and a signed build do not prove that a VM starts successfully. For a
-lifecycle or guest configuration change, also exercise the affected operation
-with a disposable VM on macOS. Use a separate configuration and
-[`LIMANIX_HOME`](storage-and-recovery.md) to keep that test's state separate from
-your working VMs.
+The client owns `internal/nixos/resources/flake.nix.tmpl` and `flake.lock.tmpl`, including the `nixos-lima` dependency graph.
+The catalog supplies the `nixpkgs` input when the client prepares a VM generation.
+Guest rebuilds reject inputs that would require a lock update.
+The bootstrap image, its checksums in `internal/nixos/image.go`, and `system.stateVersion` are also maintained in the client.
 
 ## Maintain the documentation
 
-Keep explanations and examples in `guides/`.
-Prepare the documentation from the client repository:
+Edit explanations and examples in `guides/`, then prepare the pages:
 
 ```console
 task --yes docs/prepare
 ```
 
-The task prepares the configured module catalog, then runs the Go generator to derive references from the runtime command definitions and configuration model.
-The generator writes intermediate files to `build/docs-generated/`.
-The Python script `scripts/build_docs.py` copies `guides/` and those references into a clean `build/docs/` tree.
-Generated references are stored under `build/docs/_generated/`:
-
-| File | Contents |
-| --- | --- |
-| `cli.md` | Commands, flags, and help text |
-| `configuration.md` | Configuration fields and their descriptions |
-| `limanix.example.toml` | Example derived from configuration defaults |
-| `metadata.json` | Client version used by the documentation build |
-
-**Do not edit generated files.**
-Update the guides, command definitions, or configuration models, then rerun the task.
+Go generates references from the local command definitions and configuration model in `build/docs-generated/`.
+Python combines them with `guides/` in a clean `build/docs/` tree.
+This task does not download the module catalog or require a published release.
 Both output directories are ignored by Git.
 
-To set the client version in the generated metadata, pass `RELEASE_TAG`:
+| File under `build/docs/_generated/` | Contents |
+| --- | --- |
+| `cli.md` | Commands, flags, and help text |
+| `configuration.md` | Fields and their descriptions |
+| `limanix.example.toml` | Example derived from model defaults |
+| `metadata.json` | Client version used by the documentation build |
+
+Update source definitions instead of editing generated files.
+To set the version recorded in the generated metadata:
 
 ```console
 task --yes docs/prepare RELEASE_TAG=v1.2.3+4
 ```
 
-`v1.2.3+4` is an example client version; replace it with the version being documented.
-The task prepares Markdown and supporting files; it does not build HTML, create a Git tag, or publish a release.
-The [docs repository](https://github.com/limanix/docs) owns Sphinx configuration, the theme, HTML builds, and site publication.
+Replace the example version with the version being documented.
+The task prepares Markdown and supporting files; the [docs repository](https://github.com/limanix/docs) owns HTML builds and publication.
 
-## Prepare a contribution
+For a local preview, run from the sibling `docs` repository:
 
-1. Update the implementation and the tests that exercise its changed behavior.
-2. Update the relevant guide or example. Regenerate references after changing
-   commands, flags, or configuration fields.
-3. Run the relevant checks and native build. For VM behavior, record the manual
-   scenario you tried and its result.
-4. Review the diff for generated archives, private VM configurations, and files
-   unrelated to the change.
-5. Open a labeled PR and describe the user-visible result and validation.
+```console
+task --yes docs/serve CLIENT_ROOT=../client MODULES_ROOT=../modules
+```
 
-For a first end-to-end scenario, follow [Getting started](getting-started.md).
-For guest module development, start with [Choose and manage modules](modules.md).
+Open `http://127.0.0.1:8040`.
+The preview uses both working trees without requiring published tags and rebuilds when their sources change.
+
+## Contribute a change
+
+Update the implementation, relevant tests, and user guide together.
+Run the checks for the changed behavior and describe any VM scenario you tested in the PR.
+Review the diff for generated archives, private configuration, and unrelated changes before submitting it.

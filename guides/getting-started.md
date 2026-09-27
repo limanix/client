@@ -1,9 +1,47 @@
 # Getting started
 
-Create a small Linux environment, enter its shell, then add tools and share your
-project. Start with an [installed native client](installation.md).
+Install the client, create a Linux VM, then add tools and share your project.
+Limanix reads your TOML configuration, uses Lima to run the VM, and configures its Linux system with NixOS.
+You do not need to know Nix or install Lima or Nix separately on macOS.
 
-## 1. Save a configuration
+In these guides, **Mac** means your host terminal; **VM** means the Linux guest shell opened by `limanix shell`.
+Keep your editor and project files on the Mac, and run Linux tools inside the VM.
+
+## Install the client
+
+The current client build requires **macOS 26 or newer** and `ssh` in the Mac's `PATH`.
+Download the binary for your Mac from [Client releases](https://github.com/limanix/client/releases):
+
+| Mac | Binary | Guest architecture for this guide |
+| --- | --- | --- |
+| Apple Silicon | `limanix-arm64` | `arm64` |
+| Intel | `limanix-amd64` | `amd64` |
+
+VM operations reject an Intel client running through Rosetta on Apple Silicon.
+Use the native client even when you need a guest with another architecture.
+
+For an Apple Silicon binary saved in `~/Downloads`, run on your **Mac**:
+
+```console
+mkdir -p ~/.local/bin
+install -m 755 ~/Downloads/limanix-arm64 ~/.local/bin/limanix
+export PATH="$HOME/.local/bin:$PATH"
+limanix --version
+limanix --help
+```
+
+On Intel, use `~/Downloads/limanix-amd64`; adjust the source path if you saved the file elsewhere.
+Keep `~/.local/bin` in your shell's `PATH` for future terminal sessions.
+
+The build applies an **ad-hoc signature** with the virtualization entitlement; the release workflow does not notarize the binary with Apple.
+If macOS asks you to approve opening the download, check its source before allowing it.
+For a source build, or if no release binary is available, follow [Build a native client](development.md#build-a-native-client).
+
+This guide uses a guest architecture matching your Mac, which requires no QEMU or `limanix network setup`.
+For a different guest architecture, follow [Choose the guest architecture](networking.md#choose-the-guest-architecture) before creating the VM.
+Run Limanix as your normal Mac user, without `sudo`.
+
+## Save a configuration
 
 On your **Mac**, make a new working directory:
 
@@ -12,8 +50,8 @@ mkdir limanix-demo
 cd limanix-demo
 ```
 
-Save this as `limanix.toml`. It uses Apple Silicon, creates a development user,
-and selects no optional modules or project mounts:
+Save this as `limanix.toml`.
+It targets Apple Silicon, creates a development user, and selects no optional modules or project mounts:
 
 ```{literalinclude} examples/minimal.toml
 :language: toml
@@ -32,15 +70,14 @@ On **Intel**, change `arch` to `"amd64"`.
 | `env = {}` | No extra environment variables |
 | Empty module and port lists | Base guest system with no optional modules or additional firewall openings |
 
-The managed home is still shared even with `mounts = []`. The empty lists and
-table are intentional: omitted collections can retain the built-in example's
-values. [Configuration](configuration.md) explains these defaults.
+The managed home is still shared even with `mounts = []`.
+The empty lists and table are intentional: omitted collections can retain the built-in example's values.
+[Configuration](configuration.md#understand-omitted-values) explains these defaults.
 
-`limanix first-config` is another way to write an editable example. It includes
-sample mounts that need review and **overwrites** an existing `limanix.toml`.
-For this walkthrough, use the explicit file above.
+`limanix first-config` writes a different example with sample mounts and **overwrites** an existing `limanix.toml`.
+Use the explicit file above for this walkthrough.
 
-## 2. Create the VM
+## Create the VM
 
 Run on your **Mac**:
 
@@ -48,12 +85,10 @@ Run on your **Mac**:
 limanix create --config limanix.toml
 ```
 
-Creation downloads the base image as needed, boots the guest, builds its NixOS
-configuration, and restarts it into that configuration. The first run needs
-network access and can take longer while dependencies are downloaded or built.
+Creation downloads the base image as needed, boots the guest, builds its NixOS configuration, and restarts it into that configuration.
+The first run needs network access for the image and Nix dependencies.
 
-Wait for the command to finish successfully. It prints the VM name and the
-managed home's host path. Then inspect the environment:
+After the command succeeds and prints the VM name and managed home's host path, inspect the environment:
 
 ```console
 limanix list
@@ -71,7 +106,7 @@ pwd
 For this configuration, the expected results are `Linux`, `dev`, and `/home/dev`.
 Return to your Mac with `exit`.
 
-## 3. Add development tools
+## Add development tools
 
 On your **Mac**, inspect the catalog embedded in your installed client:
 
@@ -79,8 +114,8 @@ On your **Mac**, inspect the catalog embedded in your installed client:
 limanix modules list
 ```
 
-Select entries from that list. For a catalog containing Git and Node.js, replace
-the existing module list in `limanix.toml`:
+Select entries from that list.
+For a catalog containing Git and Node.js, replace the existing module list in `limanix.toml`:
 
 ```toml
 [nixos]
@@ -95,12 +130,14 @@ limanix shell dev-box -- git --version
 limanix shell dev-box -- node --version
 ```
 
-**Updating restarts the VM.** The new tools come from the selected modules;
-there is no separate installation command inside the guest for this workflow.
+**Updating restarts the VM.**
+The selected modules add tools to the base NixOS system; there is no separate installation step inside the guest.
+Editing TOML or replacing the client binary alone does not change an existing VM.
 
-## 4. Share your project
+## Share your project
 
-Remove the top-level `mounts = []` line. At the end of the file, add:
+Remove the top-level `mounts = []` line.
+At the end of the file, add:
 
 ```toml
 [[mounts]]
@@ -109,8 +146,7 @@ source = "."
 target = "/workspace"
 ```
 
-Here, `.` means the directory containing the configuration file. It does not
-depend on the terminal directory from which you later run `update`.
+Here, `.` means the directory containing the configuration file, regardless of the terminal directory where you run `update`.
 
 On your **Mac**:
 
@@ -126,17 +162,16 @@ cd /workspace
 ls
 ```
 
-Your `limanix.toml` is visible along with the rest of the directory. Keep editing
-files on the Mac and run project commands here. This mount is read-write: changes
-and deletions in either system affect the same files.
+Your `limanix.toml` is visible along with the rest of the directory.
+Keep editing files on the Mac and run project commands here.
+This read-write mount shares the same files: changes and deletions in either system affect both.
 
-For a complete project template, use the example in
-[Configure an environment](configuration.md). To reach a guest HTTP server from
-your browser, follow [Networking](networking.md).
+For a complete project template, see [Configuration](configuration.md).
+To reach a guest HTTP server from your browser, follow [Networking](networking.md).
 
-## 5. Pause and return
+## Stop and resume
 
-Exit the guest shell. On your **Mac**:
+Exit the guest shell, then run on your **Mac**:
 
 ```console
 limanix stop dev-box
@@ -144,16 +179,15 @@ limanix start dev-box
 limanix shell dev-box
 ```
 
-Stopping preserves the VM disk and host files. Starting boots the existing
-configuration; it does not read your edited TOML or refresh modules.
+Stopping preserves the VM disk and host files.
+Starting boots the existing configuration; it does not read your edited TOML or refresh modules.
 
-If you want to remove the demo, read [Storage and recovery](storage-and-recovery.md)
-first. Deleting a VM removes its disk, while preserving its managed home by
-default.
+To remove the demo, follow [Delete a VM](virtual-machines.md#delete-a-vm).
+Deletion removes the VM disk and preserves its managed home by default; mounted project directories remain on your Mac.
 
 ## Where to go next
 
 - [Configuration](configuration.md): users, resources, mounts, environment, and defaults.
-- [Modules](modules.md): bundled toolchains and your own NixOS configuration.
-- [Work with VMs](working-with-vms.md): updates, shell commands, and lifecycle states.
+- [Modules](modules.md): bundled tools and your own NixOS configuration.
+- [Virtual machines](virtual-machines.md): updates, shell commands, storage, and lifecycle states.
 - [Troubleshooting](troubleshooting.md): a failed create, update, or connection.

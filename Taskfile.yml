@@ -105,7 +105,6 @@ tasks:
       linker_flags: >-
         {{if .release_tag}}-X github.com/mr-chelyshkin/limanix/internal/buildinfo.Version={{.release_tag}}{{end}}
     cmds:
-      - task: _bundle/modules
       - task: golang:_go/tool
         vars:
           CMD: >-

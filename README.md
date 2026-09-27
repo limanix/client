@@ -21,7 +21,7 @@ configuration; you do not need a separate Lima or Nix installation on the host.
 
 ## Start here
 
-1. [Install the client](guides/installation.md). The current build targets macOS 26
+1. [Install the client](guides/getting-started.md#install-the-client). The current build targets macOS 26
    or newer. Use the native binary: `limanix-arm64` on Apple Silicon or
    `limanix-amd64` on Intel.
 2. Follow [Getting started](guides/getting-started.md) to create a small guest,
@@ -30,7 +30,7 @@ configuration; you do not need a separate Lima or Nix installation on the host.
    code and adapt it using the [configuration guide](guides/configuration.md).
 
 No Nix language knowledge is needed for the first environment. The
-[concepts guide](guides/concepts.md) explains the host, guest, mounts, and modules.
+[Getting started](guides/getting-started.md) explains what runs on the Mac and in the VM.
 
 ## Everyday commands
 
@@ -53,17 +53,16 @@ limanix start dev-box
 
 An update restarts the VM. A read-write project mount exposes the same files on
 both systems. Deleting the VM removes its disk but preserves the managed home
-by default. Read [Storage and recovery](guides/storage-and-recovery.md) before
+by default. Read [Storage and data](guides/virtual-machines.md#storage-and-data) before
 removing an environment that contains data you need.
 
 ## Find the right guide
 
 | Topic | Guide |
 | --- | --- |
-| Resources, mounts, users, environment | [Configuration](guides/configuration.md) |
-| Bundled tools and custom NixOS modules | [Modules](guides/modules.md) |
-| Guest IP, service ports, QEMU setup | [Networking](guides/networking.md) |
-| Updates, shell commands, and status | [Work with VMs](guides/working-with-vms.md) |
+| Installation and first environment | [Getting started](guides/getting-started.md) |
+| Resources, mounts, users, environment, modules, and networking | [Configuration](guides/configuration.md) |
+| Shell access, updates, status, storage, and deletion | [Virtual machines](guides/virtual-machines.md) |
 | Failed creation, updates, and connections | [Troubleshooting](guides/troubleshooting.md) |
 | Exact command help and generated field tables | [Reference](guides/reference.md) |
 | Build, test, and contribute | [Development](guides/development.md) |

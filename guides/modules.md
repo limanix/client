@@ -1,7 +1,8 @@
-# Choose and manage modules
+# Modules
 
 Use the module commands on your **Mac** to list the catalog and manage imported module directories.
 Select modules in `limanix.toml` and apply them when you create or update a VM.
+Each selected module adds to the client's base NixOS configuration.
 
 | Selector | Source | How it becomes available |
 | --- | --- | --- |
@@ -43,16 +44,14 @@ modules = ["lmx:git", "third-party:my-tools"]
 Only select `third-party:my-tools` after importing it as described below.
 An empty list, `modules = []`, selects no optional modules; the Limanix base system remains.
 Repeated selectors are accepted.
-For version selectors and commands, see [Catalog](https://limanix.dev/categories/nixos/catalog.html).
 
 Apply a changed selection with `limanix update --config limanix.toml`, or use `limanix create --config limanix.toml` for a new VM.
-Read [Apply a configuration change](working-with-vms.md#apply-a-configuration-change) before updating an existing VM.
+Read [Apply a configuration change](virtual-machines.md#apply-a-configuration-change) before updating an existing VM.
 Editing TOML or installing another client does not change an existing guest by itself.
 
 ## Import a module
 
 The directory must contain a regular file named `default.nix` at its root.
-For Nix file examples, see [Write a module](https://limanix.dev/categories/nixos/writing-modules.html).
 To register an existing module saved in `./my-tools` under the name `my-tools`, run:
 
 ```console
@@ -109,7 +108,7 @@ flowchart TD
 | Remove an imported entry | Existing VM snapshots remain; future creates and updates cannot select the missing entry |
 | Reimport changed files and update a VM | That VM receives a new copy of the module |
 
-The registry belongs to the selected [Limanix state directory](storage-and-recovery.md).
+The registry belongs to the selected [Limanix state directory](troubleshooting.md#state-directories).
 An import made with one `LIMANIX_HOME` is not available when using another.
 
 ## Replace an imported module

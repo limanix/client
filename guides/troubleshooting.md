@@ -29,7 +29,8 @@ Keep the VM name, both status fields, and the error text together when investiga
 Check those paths before creating the VM.
 Do not run `first-config` over a configuration you need to preserve: it overwrites an existing file.
 
-For macOS version, native binary, SSH, QEMU, or shared-network setup errors, return to [Installation](installation.md) and [Networking](networking.md).
+For macOS version, native binary, or SSH requirements, see [Getting started](getting-started.md).
+For QEMU and shared-network setup, see [Networking](networking.md).
 
 ## `Running` appears, but the shell fails
 
@@ -47,8 +48,7 @@ After a failed configuration operation, follow the next section.
 
 ## Create or update failed during provisioning
 
-A failed operation may leave a valid VM and managed home for recovery.
-It does not necessarily leave the guest exactly as it was before the command.
+A failed operation may leave a VM and managed home for recovery, but completed changes are not automatically undone.
 
 | Failure point | What may have happened |
 | --- | --- |
@@ -57,7 +57,7 @@ It does not necessarily leave the guest exactly as it was before the command.
 | NixOS evaluation or build | New environment files have already been installed. The failed build does not trigger Limanix's post-build restart. |
 | Restart or development-user check | The NixOS build may have succeeded, but the complete operation has not been marked ready. |
 
-For a recoverable VM:
+If the backend exists and both saved records are valid:
 
 1. Fix the reported problem in the TOML file or module source.
 2. If you changed an imported module, follow [Replace an imported module](modules.md#replace-an-imported-module).
@@ -70,8 +70,7 @@ For a recoverable VM:
 4. Check the command result and `limanix list` again.
 
 Retrying `create` for a name with saved state is rejected.
-Use `update` when the existing backend and records are usable.
-If the backend is missing, use the missing-backend path below.
+If the backend is missing, follow [The backend is missing](#the-backend-is-missing).
 
 **A successful `start` is not a successful update.**
 It starts the saved VM without applying your corrected TOML file or resetting an operation error.
@@ -86,7 +85,7 @@ It starts the saved VM without applying your corrected TOML file or resetting an
 | `another operation is running for VM` | Another process holds that VM's operation lock. Let it complete or cancel it from its original terminal. |
 
 The immutable home settings are `home.root` and `user.home`.
-See [Work with a VM](working-with-vms.md) for the settings that can change in place.
+See [Virtual machines](virtual-machines.md#apply-a-configuration-change) for the settings that can change in place.
 
 ## An operation was interrupted
 
@@ -94,8 +93,9 @@ An abandoned `creating`, `updating`, or `deleting` record appears as `interrupte
 This is a listing result; the command does not rewrite the saved record or roll back the guest.
 
 - After an interrupted create or update, inspect the original output, fix the issue, and retry `update` if the backend exists.
-- After an interrupted deletion, retry the intended `delete` command. Check whether it included `--remove-home` before repeating it.
-- If the guest rebuild cancellation reports `cannot confirm guest rebuild stopped`, do not assume all guest build work has ended. Keep the service name included in that error for investigation.
+- After an interrupted deletion, check whether the command included `--remove-home` before retrying it.
+- If cancellation reports `cannot confirm guest rebuild stopped`, guest build work may still be running.
+  Keep the service name from the error for investigation.
 
 Limanix uses operating-system file locks, released when their owning process exits.
 The presence of a `.lock` file does not mean an operation is still running.
@@ -117,7 +117,7 @@ limanix delete dev-box
 
 Deletion handles a missing backend and preserves the managed home by default.
 It does not reconstruct the missing guest disk.
-Read [Storage and recovery](storage-and-recovery.md) before recreating the VM.
+Read [Virtual machines](virtual-machines.md#storage-and-data) before deleting or recreating it.
 
 ## A saved record is corrupt
 
@@ -128,6 +128,42 @@ When `instance.json` is damaged but `identity.json` is still valid, listing can 
 Deletion is an available cleanup path with valid ownership, but it still destroys the VM disk.
 Preserve needed data first.
 If `identity.json` is also unreadable, do not invent an identity or remove its checks: the CLI cannot safely establish which backend and home belong to that record.
+
+## State directories
+
+The default Limanix state root on macOS is `~/Library/Application Support/Limanix`:
+
+```text
+Limanix/
+├── instances/<name>/
+│   ├── identity.json
+│   ├── instance.json
+│   └── generations/<id>/
+│       ├── lima.yaml
+│       ├── environment
+│       ├── environment.sh
+│       └── flake/
+├── homes/
+├── modules/
+├── locks/
+└── runtime/
+```
+
+| Record | Purpose |
+| --- | --- |
+| `identity.json` | Exact backend identity and owned home. |
+| `instance.json` | Selected input generation and operation result. |
+| `homes/` | Ownership records for preserved homes; their files remain at the original host paths. |
+| `generations/` | Prepared inputs; successful updates remove older generations. |
+
+Do not edit or remove ownership records to bypass an error.
+Limanix uses them to identify the backend and managed home it may operate on.
+Generations are generated inputs, not a rollback history; edit the source TOML or module files and run `update`.
+
+`LIMANIX_HOME` overrides the Limanix state root.
+Lima keeps backend instances separately under `~/.lima`, or `LIMA_HOME` when set.
+Neither override moves existing VMs or homes.
+Use the same environment when operating existing VMs; changing a root changes the state the client can see.
 
 ## The address or application is unavailable
 

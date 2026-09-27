@@ -1,11 +1,18 @@
-# Command and configuration reference
+# Reference
 
-Use the guides to learn the workflow. Use the client's built-in help for the exact
-commands and flags supported by the binary you installed.
+Use the references for exact commands and configuration fields:
 
-## Ask the installed client
+| Page | Contents |
+| --- | --- |
+| [CLI reference](reference/cli.md) | Commands, arguments, flags, and help text |
+| [Configuration reference](reference/configuration.md) | Field types, defaults, and a downloadable TOML example |
 
-On your **Mac**:
+Both are generated from the client's command definitions and configuration model.
+For preparation commands, see [Development](development.md#maintain-the-documentation).
+
+## Help for the installed client
+
+Run on your Mac to check the version and commands available in your binary:
 
 ```console
 limanix --version
@@ -13,40 +20,31 @@ limanix --help
 limanix create --help
 limanix shell --help
 limanix modules --help
+limanix network --help
 ```
 
-| Need | Command or guide |
-| --- | --- |
-| Create or update a VM | `limanix create --help`, `limanix update --help` |
-| Lifecycle and shell access | [Work with VMs](working-with-vms.md) |
-| Module selectors and imports | `limanix modules --help`, [Modules](modules.md) |
-| Network helper setup | `limanix network --help`, [Networking](networking.md) |
-| TOML fields, defaults, and examples | [Configuration](configuration.md) |
-| JSON output for scripts | `limanix list --json`, `limanix modules list --json` |
+`limanix list --json` and `limanix modules list --json` provide JSON output for scripts.
 
-## Generate an editable TOML example
+## Generate a configuration example
 
-Use a new, empty directory on your Mac:
+Create a directory and write the client's example into it:
 
 ```console
 mkdir config-example
 limanix first-config config-example
 ```
 
-The command writes `config-example/limanix.toml`. Review the architecture, sample
-mounts, ports, and environment before using it. It **overwrites an existing file**
-with that name; it does not merge configuration or create missing directories.
+The command writes `config-example/limanix.toml`.
+It **overwrites an existing file** with that name and does not create missing directories.
+Review the architecture, mounts, ports, and environment before using it.
 
-For a small first-run configuration without sample mounts, use
-[Getting started](getting-started.md).
+The example contains model defaults and sample paths, not the configuration of an existing VM.
+[Configuration](configuration.md#understand-omitted-values) explains how omitted settings and empty collections behave.
+For a minimal first environment, use [Getting started](getting-started.md).
 
-## Generated references
+```{toctree}
+:hidden:
 
-The `docs/prepare` task includes a CLI reference, a configuration field reference, and a downloadable generated TOML example in `build/docs/`.
-The references are derived from the same command definitions and configuration model used by the client.
-
-The generated example shows model defaults, including example paths.
-It is not a record of any VM on your Mac.
-The configuration field tables also describe those defaults; the [configuration guide](configuration.md) explains how omitted and empty collections behave when loading a file.
-
-For preparation commands and version metadata, see [Develop the client](development.md#maintain-the-documentation).
+reference/cli
+reference/configuration
+```
