@@ -23,6 +23,7 @@ type Catalog struct {
 
 	files   fs.FS
 	modules map[string]selection
+	nixpkgs nixpkgsPin
 }
 
 // Module exposes a complete source tree and the selected NixOS entry point within it.
@@ -69,12 +70,22 @@ func Open(data []byte) (*Catalog, error) {
 		return nil, fmt.Errorf("%w: read LICENSE: %w", ErrArchive, err)
 	}
 
+	pin, err := readNixpkgs(archive)
+	if err != nil {
+		return nil, err
+	}
+
 	metadata, err := readModules(archive)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Catalog{Version: tag, files: archive, modules: metadata}, nil
+	return &Catalog{Version: tag, files: archive, modules: metadata, nixpkgs: pin}, nil
+}
+
+// Nixpkgs returns the declared input URL and an independent copy of its locked node.
+func (catalog *Catalog) Nixpkgs() (url string, node []byte) {
+	return catalog.nixpkgs.url, bytes.Clone(catalog.nixpkgs.node)
 }
 
 // Modules returns a copy of the local module names and their descriptions.

@@ -63,8 +63,10 @@ The single quotes keep your Mac's shell from expanding `$HOME` before the comman
 
 ## Apply a configuration change
 
-1. Save running work. An update interrupts guest sessions and services.
-2. Edit the existing TOML file. See [Configuration](configuration.md) and [Modules](modules.md).
+1. Save running work.
+   An update interrupts guest sessions and services.
+2. Edit the existing TOML file.
+   See [Configuration](configuration.md) and [Choose and manage modules](modules.md).
 3. Apply it from your Mac:
 
    ```console
@@ -75,14 +77,14 @@ The single quotes keep your Mac's shell from expanding `$HOME` before the comman
 
 ```{mermaid}
 flowchart TD
-    A["Check configuration and prepare inputs"] --> B["Stop VM and apply Lima settings"]
+    A["Check configuration and prepare inputs"] --> B["Stop VM if running; apply Lima settings"]
     B --> C["Start guest and build NixOS"]
     C --> D["Restart, check user, record ready"]
 ```
 
 The NixOS build prepares the system for the next boot.
 Limanix restarts the guest after a successful build and checks that the configured development user can run a command.
-A stopped VM is also started by `update`.
+A successful update leaves the VM running, even if it was stopped before the update.
 
 | Can change through `update` | Requires a new VM |
 | --- | --- |

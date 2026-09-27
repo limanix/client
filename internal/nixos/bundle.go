@@ -44,6 +44,9 @@ func Prepare(cfg config.Config, runtimeDir string, sources []modules.Source, uid
 	if err = copyResource("resources/base", flakeDir); err != nil {
 		return "", err
 	}
+	if err = writeFlake(flakeDir); err != nil {
+		return "", err
+	}
 
 	imports, err := copyModules(flakeDir, sources)
 	if err != nil {

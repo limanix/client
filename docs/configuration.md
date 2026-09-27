@@ -15,6 +15,9 @@ home for the `dev` account.
 
 ```{literalinclude} examples/project.toml
 :language: toml
+:linenos:
+:name: project-configuration
+:class: code-example
 ```
 
 {download}`Download the project configuration <examples/project.toml>`.
@@ -44,13 +47,13 @@ port `8080` does not start an application. Choose tools in
 
 ## Read the TOML structure
 
-| Form | Meaning | Example |
-| --- | --- | --- |
-| `key = value` before any table | A top-level setting | `name = "project-box"` |
-| `[resources]` | A group of settings | `cpu = 4` belongs to `resources` |
-| `[network.ports]` | A group inside another group | `tcp = [8080]` belongs to `network.ports` |
-| `[[mounts]]` | One item in a list of mounts | Repeat the table for each directory |
-| `[...]` after `=` | A list of values | `modules = ["lmx:git"]` |
+| Code | Meaning |
+| --- | --- |
+| [3–4](#project-configuration.3-4){.external .code-lines} | Settings before any table belong to the top level |
+| [6–10](#project-configuration.6-10){.external .code-lines} | A table groups settings: the architecture, CPU, memory, and disk belong to `resources` |
+| [26–28](#project-configuration.26-28){.external .code-lines} | A dotted table name groups settings inside another group: TCP and UDP ports belong to `network.ports` |
+| [33–36](#project-configuration.33-36){.external .code-lines} | Double brackets add one item to the list of mounts; repeat the table for each directory |
+| [27–28](#project-configuration.27-28){.external .code-lines} | Square brackets after `=` hold a list of values, which can be empty |
 
 A table continues until the next table header. To disable explicit mounts, put
 `mounts = []` **before the first table**, then remove every `[[mounts]]` block.

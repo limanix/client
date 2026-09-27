@@ -88,6 +88,9 @@ func TestApplyInstallsEnvironmentAndRebootsOnlyAfterBuild(t *testing.T) {
 	if build.capture || !slices.Contains(build.args, "/run/current-system/sw/bin/nixos-rebuild") {
 		t.Fatalf("rebuild must stream its output: %v", build)
 	}
+	if !slices.Contains(build.args, "--no-update-lock-file") || !slices.Contains(build.args, "--no-write-lock-file") {
+		t.Fatalf("rebuild must use the prepared lock without resolving new inputs: %v", build.args)
+	}
 	if client.calls[4].operation != "stop" || client.calls[5].operation != "start" || client.calls[6].args[len(client.calls[6].args)-1] != "true" {
 		t.Fatalf("unexpected rebuild/reboot order: %v", client.calls)
 	}

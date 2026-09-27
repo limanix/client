@@ -10,5 +10,5 @@ var (
 	ErrBundleExists = errors.New("NixOS bundle already exists")
 
 	// ErrImageRelease reports a lock file without the base image's release reference.
-	ErrImageRelease = errors.New("nixos-lima release is missing from the base flake lock")
+	ErrImageRelease = errors.New("nixos-lima release is missing from the platform lock template")
 )

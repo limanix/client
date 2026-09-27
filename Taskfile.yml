@@ -7,7 +7,7 @@ includes:
     internal: false
 
 vars:
-  modules_version: 'v1'
+  modules_version: 'v4'
   macos_version: '26.0'
   socket_vmnet:
     map:

@@ -11,7 +11,7 @@ import (
 	"github.com/mr-chelyshkin/limanix/internal/nixos/catalog"
 )
 
-//go:embed resources/base resources/modules.zip
+//go:embed resources/base resources/*.tmpl resources/modules.zip
 var resources embed.FS
 
 var systemCatalog = sync.OnceValues(func() (*catalog.Catalog, error) {

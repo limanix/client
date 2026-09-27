@@ -60,7 +60,7 @@ It does not necessarily leave the guest exactly as it was before the command.
 For a recoverable VM:
 
 1. Fix the reported problem in the TOML file or module source.
-2. If you changed an imported module, replace its registry copy as described in [Modules](modules.md).
+2. If you changed an imported module, follow [Replace an imported module](modules.md#replace-an-imported-module).
 3. Retry on your **Mac**, using a file with the same VM name:
 
    ```console

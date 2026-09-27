@@ -110,12 +110,21 @@ The central documentation describes the release process.
 
 | Asset | Source of truth | Preparation |
 | --- | --- | --- |
-| NixOS catalog | `modules_version` in `Taskfile.yml`, selecting a `limanix/modules` tag | `cmd/bundle-modules` |
+| NixOS catalog and guest Nixpkgs pin | `modules_version` in `Taskfile.yml`, selecting a `limanix/modules` tag | `cmd/bundle-modules` |
 | Linux Lima guest agents | Lima dependency in `go.mod` | `cmd/bundle-guestagent` builds `amd64` and `arm64` agents |
 | macOS network helper | `socket_vmnet` version, hashes, and sizes in `Taskfile.yml` | `cmd/bundle-socketvmnet` downloads and validates both archives |
 
 The generated archives are ignored by Git. Keep the pins and generators in source
 control, not generated binary bundles.
+
+The catalog's root `flake.lock` supplies the Nixpkgs revision for both catalog checks and guest builds.
+The client requires that pin and rejects catalogs that omit it.
+To update it, follow [Update the NixOS base](https://limanix.dev/categories/nixos/writing-modules.html#update-the-nixos-base).
+
+The client owns `internal/nixos/resources/flake.nix.tmpl` and `flake.lock.tmpl`.
+These templates keep the `nixos-lima` dependency graph; the catalog supplies the missing `nixpkgs` input when the client prepares a VM generation.
+The generated `flake.nix` and `flake.lock` must agree: guest rebuilds reject any input that would require a lock update.
+The bootstrap image, its checksums in `internal/nixos/image.go`, and `system.stateVersion` remain client-owned.
 
 ```{important}
 A clean checkout needs the modules tag selected by `modules_version` to

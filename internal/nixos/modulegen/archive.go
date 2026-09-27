@@ -65,7 +65,9 @@ func pack(ctx context.Context, source io.Reader, version string) (data []byte, f
 			return nil, fmt.Errorf("%w: multiple source roots", catalog.ErrArchive)
 		}
 
-		if relative != "LICENSE" && !strings.HasPrefix(relative, "modules/") {
+		if module, ok := strings.CutPrefix(relative, "catalog/"); ok {
+			relative = "modules/" + module
+		} else if relative != "LICENSE" && relative != "flake.lock" {
 			continue
 		}
 		if header.Typeflag == tar.TypeDir {
