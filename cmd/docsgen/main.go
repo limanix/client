@@ -1,10 +1,10 @@
 // docsgen prepares generated content for the Limanix documentation site.
 //
 // It writes CLI and configuration references, a TOML example, and release metadata
-// to docs/_generated using the runtime command definitions and models.
+// to build/docs-generated using the runtime command definitions and models.
 //
-// The documentation repository consumes these files when building the site.
-// The --root flag selects the directory under which docs/_generated is created.
+// scripts/build_docs.py combines these files with guides/ in build/docs/ for the site.
+// The --root flag selects the repository root.
 package main
 
 import (
@@ -32,7 +32,7 @@ func parseOptions(args []string, diagnostics io.Writer) (options, error) {
 	)
 
 	flags.SetOutput(diagnostics)
-	flags.StringVar(&opts.root, "root", ".", "Root directory for docs/_generated output.")
+	flags.StringVar(&opts.root, "root", ".", "Root directory for build/docs-generated output.")
 
 	if err := flags.Parse(args); err != nil {
 		return options{}, err

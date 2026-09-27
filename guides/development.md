@@ -44,7 +44,7 @@ The examples use `task --yes` to accept the pinned remote Taskfile include.
 | `internal/nixos/` | Guest configuration, bundled catalog, generated NixOS sources |
 | `internal/bundle/` | Embedded guest agents and network helper |
 | `internal/docs/generator/` | CLI and configuration reference generation |
-| `docs/` | Handwritten user guides and examples |
+| `guides/` | Handwritten user guides and examples |
 
 Read the existing tests near the behavior you are changing. In particular,
 resource ownership, failed updates, and deletion have behavior beyond the CLI
@@ -141,73 +141,38 @@ your working VMs.
 
 ## Maintain the documentation
 
-Keep explanations and examples in `docs/`. CLI flags and configuration fields
-have generated references derived from the runtime definitions.
-
-The docs repository owns Sphinx configuration, theme, navigation assembly, and
-site publication. The client supplies its `docs/` tree. The examples below use
-sibling checkouts named `client`, `modules`, and `docs`.
-
-### Preview the handwritten guides
-
-Before generating references, enter the documentation repository and start the
-local preview:
+Keep explanations and examples in `guides/`.
+Prepare the documentation from the client repository:
 
 ```console
-cd ../docs
-task --yes docs/serve DOCS="../client ../modules"
+task --yes docs/prepare
 ```
 
-Open `http://127.0.0.1:8050`. This path works with a client checkout that has no
-`docs/_generated/` directory. The preview copies project documentation as-is; it
-does not connect generated references to the navigation. Once you have generated
-them, use the assembled build below, or use a separate clean client checkout for
-handwritten previews.
+The task prepares the configured module catalog, then runs the Go generator to derive references from the runtime command definitions and configuration model.
+The generator writes intermediate files to `build/docs-generated/`.
+The Python script `scripts/build_docs.py` copies `guides/` and those references into a clean `build/docs/` tree.
+Generated references are stored under `build/docs/_generated/`:
 
-### Generate and assemble the complete documentation
-
-From the **client repository**, generate references with the client version to
-use in the assembled documentation:
-
-```console
-task --yes docs/generate RELEASE_TAG=v1.2.3+1
-```
-
-`v1.2.3+1` is an example label for this local build. Choose your intended client
-version and match its `+N` to `modules_version: 'vN'` in `Taskfile.yml`.
-Use a modules checkout matching that catalog version. These commands do not
-create a Git tag or publish a release.
-
-The generator writes:
-
-| File under `docs/_generated/` | Contents |
+| File | Contents |
 | --- | --- |
 | `cli.md` | Commands, flags, and help text |
 | `configuration.md` | Configuration fields and their descriptions |
 | `limanix.example.toml` | Example derived from configuration defaults |
 | `metadata.json` | Client version used by the documentation build |
 
-**Do not edit these generated files.** Update command definitions or configuration
-models, then regenerate. The directory is ignored by Git. The task bundles the
-catalog first, even when the change only concerns reference text.
+**Do not edit generated files.**
+Update the guides, command definitions, or configuration models, then rerun the task.
+Both output directories are ignored by Git.
 
-Enter the **documentation repository**, assemble all three sources, and build
-the HTML:
+To set the client version in the generated metadata, pass `RELEASE_TAG`:
 
 ```console
-cd ../docs
-task --yes docs/assemble CLIENT=../client MODULES=../modules RELEASE_TAG=v1.2.3+1 DOCS_SOURCE=build/client-docs-source
-task --yes ci/docs DOCS_SOURCE=build/client-docs-source DOCS_OUTPUT=build/client-docs
+task --yes docs/prepare RELEASE_TAG=v1.2.3+4
 ```
 
-Use the same client version for generation and assembly. Assembly checks the
-catalog pin and generated version metadata, adds reference navigation, and gives
-generated pages their titles. It writes a separate source tree; `DOCS_SOURCE`
-must not already exist. Choose another `DOCS_SOURCE` directory when repeating
-assembly and pass it to both tasks.
-
-The completed site starts at `build/client-docs/index.html`. The Sphinx build
-treats warnings as errors, including broken internal links and missing pages.
+`v1.2.3+4` is an example client version; replace it with the version being documented.
+The task prepares Markdown and supporting files; it does not build HTML, create a Git tag, or publish a release.
+The [docs repository](https://github.com/limanix/docs) owns Sphinx configuration, the theme, HTML builds, and site publication.
 
 ## Prepare a contribution
 

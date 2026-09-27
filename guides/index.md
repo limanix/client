@@ -38,9 +38,8 @@ before deleting an environment you have used for real work.
 
 ## Find an exact command or field
 
-[Command and configuration reference](reference.md) explains the built-in help
-and the references generated from the client source. The release documentation
-includes the reference for that exact client version.
+[Command and configuration reference](reference.md) explains the built-in help and the references generated from the client source.
+The `docs/prepare` task includes these references in the prepared documentation.
 
 ```{toctree}
 :hidden:

@@ -6,19 +6,19 @@
 //
 // # Generated artifacts
 //
-//	config.Default + field tags → docs/_generated/limanix.example.toml
-//	                           └→ docs/_generated/configuration.md
-//	cli.Command                → docs/_generated/cli.md
-//	buildinfo.Version          → docs/_generated/metadata.json
+//	config.Default + field tags → build/docs-generated/limanix.example.toml
+//	                           └→ build/docs-generated/configuration.md
+//	cli.Command                → build/docs-generated/cli.md
+//	buildinfo.Version          → build/docs-generated/metadata.json
 //
-// These files are inputs for a separate documentation build. This package owns their content;
-// the documentation repository owns the handwritten guides, theme, and site publication.
+// These files are inputs for scripts/build_docs.py, which combines them with this repository's guides/
+// in build/docs/. The separate documentation repository owns the theme and site publication.
 //
 // Generate renders all documents before writing them. Each file is replaced atomically, but the output set is
 // not a multi-file transaction. Cancellation or an I/O error can leave a mixture of old and new files;
 // rerunning Generate refreshes the set.
 //
-// The repository's docs/generate task runs this generator.
+// The repository's docs/prepare task runs this generator before the Python assembly script.
 // This package does not embed website output into the Limanix runtime binary.
 //
 // Read render.go for the artifact list and source models, and generate.go for directory preparation, cancellation,

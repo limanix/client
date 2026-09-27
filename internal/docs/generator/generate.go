@@ -11,7 +11,7 @@ import (
 	"github.com/mr-chelyshkin/limanix/internal/filesystem"
 )
 
-// Generate renders the example, references, and version metadata, then writes each file atomically to root/docs/_generated.
+// Generate renders the example, references, and version metadata, then writes each file atomically to root/build/docs-generated.
 func Generate(ctx context.Context, root string, diagnostics io.Writer) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -27,7 +27,7 @@ func Generate(ctx context.Context, root string, diagnostics io.Writer) error {
 		return err
 	}
 
-	if err = os.MkdirAll(filepath.Join(root, "docs", "_generated"), 0o755); err != nil {
+	if err = os.MkdirAll(filepath.Join(root, "build", "docs-generated"), 0o755); err != nil {
 		return fmt.Errorf("prepare generated documentation directory: %w", err)
 	}
 

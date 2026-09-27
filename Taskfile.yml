@@ -5,6 +5,9 @@ includes:
   golang:
     taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.3/taskfiles/golang/Taskfile.yml
     internal: false
+  python:
+    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.4/taskfiles/python/Taskfile.yml
+    internal: true
 
 vars:
   modules_version: 'v4'
@@ -95,8 +98,8 @@ tasks:
           TEST_ARGS: -race -tags=osusergo -ldflags {{.build_flags | shellQuote}} ./...
           CONTAINER_ENVS: USER=limanix
 
-  docs/generate:
-    desc: Generate CLI and configuration references, a TOML example, and version metadata
+  docs/prepare:
+    desc: Build docs for the LimaNix site
     vars:
       release_tag: '{{.RELEASE_TAG | default ""}}'
       linker_flags: >-
@@ -109,6 +112,9 @@ tasks:
             go run -tags=osusergo -ldflags {{.linker_flags | trim | shellQuote}}
             ./cmd/docsgen --root .
           CONTAINER_ENVS: USER=limanix
+      - task: python:_uv/tool
+        vars:
+          CMD: python scripts/build_docs.py
 
   ci/build:
     desc: Build and sign native macOS amd64 and arm64 binaries
