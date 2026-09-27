@@ -10,5 +10,7 @@ permissions:
 jobs:
   release:
     uses: ./.github/workflows/_release.yml
+    with:
+      client-tag: ${{ github.ref_name }}
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

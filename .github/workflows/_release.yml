@@ -2,6 +2,15 @@ name: Release
 
 on:
   workflow_call:
+    inputs:
+      client-tag:
+        description: New client source tag; empty for a module catalog event.
+        required: false
+        type: string
+      modules-tag:
+        description: New module catalog tag; empty for a client tag push.
+        required: false
+        type: string
     secrets:
       RELEASE_APP_PRIVATE_KEY:
         required: true
@@ -14,36 +23,70 @@ permissions:
   contents: read
 
 env:
-  RELEASE_COUNT: &release-count '3'
-  RELEASE_BRANCH: &release-branch main
-  MODULES_TAG_FORMAT: &modules-tag-format '^v[1-9][0-9]*$'
-  CLIENT_TAG_PATTERN: &client-tag-pattern 'v[0-9]*.[0-9]*.[0-9]*'
-  CLIENT_TAG_FORMAT: &client-tag-format '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(\+[1-9][0-9]*)?$'
+  RELEASE_COUNT: '3'
+  MODULES_TAG_FORMAT: '^v[1-9][0-9]*$'
+  CLIENT_TAG_PATTERN: 'v[0-9]*.[0-9]*.[0-9]*'
 
 jobs:
   select:
-    uses: ./.github/workflows/_select.yml
-    with:
-      count: *release-count
-      pattern: *client-tag-pattern
-      modules-tag-format: *modules-tag-format
+    name: Prepare release versions
+    runs-on: ubuntu-24.04
+    outputs:
+      releases: ${{ steps.plan.outputs.releases }}
+      modules-tag: ${{ steps.modules.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select the module catalog
+        id: modules
+        env:
+          CLIENT_TAG: ${{ inputs.client-tag }}
+          MODULES_TAG: ${{ inputs.modules-tag }}
+        run: python3 scripts/release.py modules
+      - name: Check module tag format
+        uses: mr-chelyshkin/actions/check-tag-format@v1
+        with:
+          tag: ${{ steps.modules.outputs.tag }}
+          pattern: ${{ env.MODULES_TAG_FORMAT }}
+      - name: Verify the module release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODULES_TAG: ${{ steps.modules.outputs.tag }}
+        run: python3 scripts/release.py verify-modules
+      - name: Select published client versions
+        if: inputs.modules-tag != ''
+        id: tags
+        uses: mr-chelyshkin/actions/get-tags@v1
+        with:
+          pattern: ${{ env.CLIENT_TAG_PATTERN }}
+          count: ${{ env.RELEASE_COUNT }}
+          ignore-build-metadata: 'true'
+          require-release: 'true'
+          sort: desc
+      - name: Prepare the release matrix
+        id: plan
+        env:
+          CLIENT_TAG: ${{ inputs.client-tag }}
+          MODULES_TAG: ${{ steps.modules.outputs.tag }}
+          TAGS: ${{ steps.tags.outputs.tags || '[]' }}
+        run: python3 scripts/release.py plan
 
   release:
-    name: Release ${{ matrix.tag }}
+    name: Release ${{ matrix.source_tag }}
     needs: select
-    if: needs.select.outputs.tags != '[]' && needs.select.outputs.tags != ''
+    if: needs.select.outputs.releases != '[]' && needs.select.outputs.releases != ''
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.select.outputs.tags) }}
-    permissions:
-      contents: read
+        include: ${{ fromJSON(needs.select.outputs.releases) }}
     uses: ./.github/workflows/_deploy.yml
     with:
-      tag: ${{ matrix.tag }}
+      source-tag: ${{ matrix.source_tag }}
       commit-sha: ${{ matrix.commit_sha }}
-      branch: *release-branch
-      tag-format: *client-tag-format
+      release-tag: ${{ matrix.release_tag }}
+      preparation-error: ${{ matrix.error }}
       modules-tag: ${{ needs.select.outputs.modules-tag }}
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
@@ -66,15 +109,11 @@ jobs:
           require-release: 'true'
           pattern: ${{ env.CLIENT_TAG_PATTERN }}
       - name: Mark the highest published version as latest
-        if: steps.latest.outputs.tags != '[]'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAGS: ${{ steps.latest.outputs.tags }}
-        run: |
-          set -euo pipefail
-          tag=$(jq -er '.[0].tag' <<< "$TAGS")
-          gh release edit "$tag" --latest
+        run: python3 scripts/release.py latest
       - name: Download the published docs versions
         uses: actions/download-artifact@v8
         with:
@@ -83,25 +122,7 @@ jobs:
           merge-multiple: true
       - name: Prepare the client release event
         id: docs-event
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          receipts=("$RUNNER_TEMP"/docs-releases/*.json)
-          if (( ${#receipts[@]} == 0 )); then
-            echo 'No published docs versions in this run; skipping docs event.'
-            exit 0
-          fi
-          jq -es --arg client_format "$CLIENT_TAG_FORMAT" --arg modules_format "$MODULES_TAG_FORMAT" '
-            if all(.[];
-              type == "object" and keys == ["client_tag", "modules_tag"] and
-              (.client_tag | type == "string" and test($client_format)) and
-              (.modules_tag | type == "string" and test($modules_format))
-            ) then unique else error("Invalid published docs versions") end |
-            if any(group_by(.client_tag)[]; length != 1)
-            then error("Conflicting module versions for a client release") else . end |
-            {event_type: "limanix-client-release", client_payload: {releases: .}}
-          ' "${receipts[@]}" > "$RUNNER_TEMP/docs-event.json"
-          echo 'ready=true' >> "$GITHUB_OUTPUT"
+        run: python3 scripts/release.py docs-event
       - name: Create docs access token
         if: steps.docs-event.outputs.ready == 'true'
         id: app-token
@@ -116,7 +137,6 @@ jobs:
         if: steps.docs-event.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          gh api --method POST repos/limanix/docs/dispatches \
-            --input "$RUNNER_TEMP/docs-event.json"
+        run: >-
+          gh api --method POST repos/limanix/docs/dispatches
+          --input "$RUNNER_TEMP/docs-event.json"

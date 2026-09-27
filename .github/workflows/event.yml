@@ -10,5 +10,7 @@ permissions:
 jobs:
   release:
     uses: ./.github/workflows/_release.yml
+    with:
+      modules-tag: ${{ github.event.client_payload.tag }}
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

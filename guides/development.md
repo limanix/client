@@ -37,6 +37,7 @@ The examples use `task --yes` to accept the pinned remote Taskfile includes.
 | `internal/bundle/` | Embedded guest agents and network helper |
 | `internal/docs/generator/` | CLI and configuration reference generation |
 | `guides/`, `scripts/build_docs.py` | Handwritten documentation and preparation |
+| `scripts/release.py` | Release version preparation and documentation publication records |
 
 ## Run the checks
 
@@ -56,8 +57,19 @@ task --yes ci/vuln
 | `ci/test` | Go tests with the race detector, after preparing embedded resources |
 | `ci/vuln` | Known vulnerabilities in the client and its embedded Lima guest agent |
 
+Formatting, linting, and vulnerability checks do not require a published module catalog.
+Tests and native builds prepare the embedded resources before running.
+
 The PR workflow runs shared Go checks and a native macOS build; its `gate` combines those results.
 A separate workflow checks the PR label.
+
+To check release automation locally, run its fixtures with Python and Git:
+
+```console
+python3 -m unittest discover -s tests
+```
+
+These fixtures use temporary repositories and mocked GitHub calls; they do not publish releases.
 
 For lifecycle or guest configuration changes, also exercise the operation with a disposable VM on macOS.
 Use a separate configuration and [`LIMANIX_HOME`](troubleshooting.md#state-directories) to keep its state separate from your working VMs.
