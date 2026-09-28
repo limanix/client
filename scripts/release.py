@@ -78,7 +78,6 @@ def next_release(tag: str) -> str:
         raise ValueError("Invalid client source tag")
     base, separator, counter = tag.partition("+")
     if separator:
-        # Keep the previous shell implementation's signed 64-bit counter limit.
         maximum = str(MAX_REBUILD)
         if len(counter) > len(maximum) or (
             len(counter) == len(maximum) and counter >= maximum

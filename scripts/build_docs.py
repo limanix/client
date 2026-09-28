@@ -1,4 +1,4 @@
-"""Prepare this repository's Markdown section for the Limanix documentation site."""
+"""Prepare this repository's Markdown section for the LimaNix documentation site."""
 
 from __future__ import annotations
 

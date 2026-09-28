@@ -2,12 +2,6 @@
 
 [![License: Apache-2.0](https://img.shields.io/github/license/limanix/client?label=license)](LICENSE)
 
-<p align="center">
-  <img src=".github/assets/readme-header.png"
-       alt="Limanix"
-       width="800">
-</p>
-
 Linux development environments on macOS, configured with TOML and NixOS modules.
 
 Keep your project and editor on your Mac. Run Linux tools, services, and builds
