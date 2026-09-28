@@ -36,10 +36,12 @@ jobs:
         run: test -n "$MODULES_TAG"
 
   go:
+    needs: modules
     uses: mr-chelyshkin/actions/.github/workflows/pr-golang.yml@v1
     permissions:
       contents: read
     with:
+      environment: modules_version=${{ needs.modules.outputs.tag }}
       cache-path: .cache/go
       cache-key-prefix: limanix-go-v1
       cache-dependency-path: '**/go.sum'
