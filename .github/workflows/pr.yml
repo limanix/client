@@ -13,6 +13,9 @@ permissions:
   contents: read
 
 jobs:
+  modules:
+    uses: ./.github/workflows/_modules.yml
+
   go:
     uses: mr-chelyshkin/actions/.github/workflows/pr-golang.yml@v1
     permissions:
@@ -24,14 +27,16 @@ jobs:
 
   limanix-build:
     name: limanix
-    needs: go
+    needs: [modules, go]
     uses: ./.github/workflows/_build.yml
     permissions:
       contents: read
+    with:
+      modules-tag: ${{ needs.modules.outputs.tag }}
 
   gate:
     if: always()
-    needs: [go, limanix-build]
+    needs: [modules, go, limanix-build]
     runs-on: ubuntu-24.04
     permissions:
       contents: read

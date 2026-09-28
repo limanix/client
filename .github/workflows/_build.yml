@@ -12,8 +12,8 @@ on:
         required: false
         type: string
       modules-tag:
-        description: Module catalog tag overriding the Taskfile pin.
-        required: false
+        description: Explicit module catalog tag to bundle.
+        required: true
         type: string
       artifact-name:
         description: Artifact name for built binaries; empty skips upload.
@@ -47,7 +47,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release-tag }}
           MODULES_TAG: ${{ inputs.modules-tag }}
         with:
-          command: ci/build ${MODULES_TAG:+modules_version="$MODULES_TAG"}
+          command: ci/build modules_version="$MODULES_TAG"
       - name: Upload macOS binaries
         if: inputs.artifact-name != ''
         uses: actions/upload-artifact@v7

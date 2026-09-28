@@ -39,20 +39,13 @@ def command(*args: str) -> str:
 
 
 def modules() -> None:
-    client_tag = os.environ.get("CLIENT_TAG", "")
-    modules_tag = os.environ.get("MODULES_TAG", "")
-    if bool(client_tag) == bool(modules_tag):
-        raise ValueError("Set exactly one of CLIENT_TAG and MODULES_TAG")
-    if client_tag:
-        matches = re.findall(
-            r"^  modules_version: '([^']*)'$",
-            Path("Taskfile.yml").read_text(encoding="utf-8"),
-            re.MULTILINE,
-        )
-        if len(matches) != 1 or not matches[0]:
-            raise ValueError("Expected one modules_version pin in Taskfile.yml")
-        modules_tag = matches[0]
-    output("tag", modules_tag)
+    tags = selected_tags()
+    if not tags:
+        raise ValueError("No published module catalog tag was found")
+    tag = tags[0]["tag"]
+    if not MODULES_TAG.fullmatch(tag):
+        raise ValueError(f"Invalid module catalog tag: {tag!r}")
+    output("tag", tag)
 
 
 def verify_modules() -> None:

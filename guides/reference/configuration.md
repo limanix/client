@@ -1,8 +1,8 @@
 # Configuration reference
 
-```{include} ../_generated/configuration.md
+```{include} ../generated/configuration.md
 ```
 
-[Download the generated TOML example](../_generated/limanix.example.toml)
+[Download the generated TOML example](../generated/limanix.example.toml)
 
-[Release metadata](../_generated/metadata.json)
+[Release metadata](../generated/metadata.json)

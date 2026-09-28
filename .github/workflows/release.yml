@@ -8,9 +8,14 @@ permissions:
   contents: write
 
 jobs:
+  modules:
+    uses: ./.github/workflows/_modules.yml
+
   release:
+    needs: modules
     uses: ./.github/workflows/_release.yml
     with:
       client-tag: ${{ github.ref_name }}
+      modules-tag: ${{ needs.modules.outputs.tag }}
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

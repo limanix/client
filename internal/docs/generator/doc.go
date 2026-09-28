@@ -11,8 +11,9 @@
 //	cli.Command                → build/docs-generated/cli.md
 //	buildinfo.Version          → build/docs-generated/metadata.json
 //
-// These files are inputs for scripts/build_docs.py, which combines them with this repository's guides/
-// in build/docs/. The separate documentation repository owns the theme and site publication.
+// These files are inputs for scripts/build_docs.py, which copies this repository's guides/ tree to build/docs/
+// and places the generated files in build/docs/generated/. The separate documentation repository owns the theme
+// and site publication.
 //
 // Generate renders all documents before writing them. Each file is replaced atomically, but the output set is
 // not a multi-file transaction. Cancellation or an I/O error can leave a mixture of old and new files;

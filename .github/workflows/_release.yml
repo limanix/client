@@ -8,8 +8,8 @@ on:
         required: false
         type: string
       modules-tag:
-        description: New module catalog tag; empty for a client tag push.
-        required: false
+        description: Explicit module catalog tag selected by the caller.
+        required: true
         type: string
     secrets:
       RELEASE_APP_PRIVATE_KEY:
@@ -33,30 +33,23 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       releases: ${{ steps.plan.outputs.releases }}
-      modules-tag: ${{ steps.modules.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Select the module catalog
-        id: modules
-        env:
-          CLIENT_TAG: ${{ inputs.client-tag }}
-          MODULES_TAG: ${{ inputs.modules-tag }}
-        run: python3 scripts/release.py modules
       - name: Check module tag format
         uses: mr-chelyshkin/actions/check-tag-format@v1
         with:
-          tag: ${{ steps.modules.outputs.tag }}
+          tag: ${{ inputs.modules-tag }}
           pattern: ${{ env.MODULES_TAG_FORMAT }}
       - name: Verify the module release
         env:
           GH_TOKEN: ${{ github.token }}
-          MODULES_TAG: ${{ steps.modules.outputs.tag }}
+          MODULES_TAG: ${{ inputs.modules-tag }}
         run: python3 scripts/release.py verify-modules
       - name: Select published client versions
-        if: inputs.modules-tag != ''
+        if: inputs.client-tag == ''
         id: tags
         uses: mr-chelyshkin/actions/get-tags@v1
         with:
@@ -69,7 +62,7 @@ jobs:
         id: plan
         env:
           CLIENT_TAG: ${{ inputs.client-tag }}
-          MODULES_TAG: ${{ steps.modules.outputs.tag }}
+          MODULES_TAG: ${{ inputs.modules-tag }}
           TAGS: ${{ steps.tags.outputs.tags || '[]' }}
         run: python3 scripts/release.py plan
 
@@ -87,7 +80,7 @@ jobs:
       commit-sha: ${{ matrix.commit_sha }}
       release-tag: ${{ matrix.release_tag }}
       preparation-error: ${{ matrix.error }}
-      modules-tag: ${{ needs.select.outputs.modules-tag }}
+      modules-tag: ${{ inputs.modules-tag }}
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 

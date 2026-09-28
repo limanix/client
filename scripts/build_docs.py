@@ -29,7 +29,7 @@ def prepare(root: Path) -> Path:
         shutil.rmtree(output)
     shutil.copytree(guides, output)
 
-    references = output / "_generated"
+    references = output / "generated"
     references.mkdir()
     for name in REFERENCES:
         shutil.copyfile(generated / name, references / name)

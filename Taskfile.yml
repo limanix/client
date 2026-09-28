@@ -3,14 +3,13 @@ version: '3.53.1'
 
 includes:
   golang:
-    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.3/taskfiles/golang/Taskfile.yml
+    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.4/taskfiles/golang/Taskfile.yml
     internal: false
   python:
     taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.4/taskfiles/python/Taskfile.yml
     internal: true
 
 vars:
-  modules_version: 'v4'
   macos_version: '26.0'
   socket_vmnet:
     map:
@@ -45,21 +44,34 @@ tasks:
           CMD: python scripts/build_docs.py
 
   ci/fmt:
-    desc: Check Go formatting
+    desc: Run Go fmt check
     cmds:
       - task: golang:gofumpt
         vars:
           FMT_ARGS: '-l cmd internal'
 
   ci/lint:
-    desc: Lint Go source and tests
+    desc: Run Go lint
     cmds:
       - task: golang:golangci
 
-  ci/test:
-    desc: Run Go tests with the race detector
+  ci/vuln:
+    desc: Run Go vuln check
     cmds:
-      - task: _bundle/modules
+      - task: golang:govulncheck
+        vars:
+          VULN_ARGS: './... github.com/lima-vm/lima/v2/cmd/lima-guestagent'
+
+  ci/test:
+    desc: Run Go tests
+    preconditions:
+      - &modules_version_required
+        sh: test -n {{.modules_version | default "" | shellQuote}}
+        msg: 'modules_version is required; pass it explicitly as modules_version=vN.'
+    cmds:
+      - task: golang:_go/tool
+        vars:
+          CMD: go run ./cmd/bundle-modules --root . --version {{.modules_version | default "" | shellQuote}}
       - task: golang:_go/tool
         vars:
           CMD: go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
@@ -71,16 +83,28 @@ tasks:
           TEST_ARGS: -race -tags=osusergo -ldflags {{.build_flags | shellQuote}} ./...
           CONTAINER_ENVS: USER=limanix
 
-  ci/vuln:
-    desc: Check vulnerabilities in Limanix and its embedded Linux guest agent
-    cmds:
-      - task: golang:govulncheck
-        vars:
-          VULN_ARGS: './... github.com/lima-vm/lima/v2/cmd/lima-guestagent'
-
   ci/build:
-    desc: Build and sign native macOS amd64 and arm64 binaries
+    desc: Build client binaries
+    preconditions:
+      - *modules_version_required
+      - sh: test "$(uname -s)" = Darwin
+        msg: Native builds require macOS.
+      - sh: xcrun --find clang >/dev/null && xcrun --find vtool >/dev/null && command -v codesign >/dev/null
+        msg: Install the Xcode command-line tools before building native binaries.
+    cmds:
+      - go run ./cmd/bundle-modules --root . --version {{.modules_version | default "" | shellQuote}}
+      - go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
+      - go run ./cmd/bundle-guestagent --root .
+      - for: [amd64, arm64]
+        task: _build/darwin
+        vars:
+          TARGET_ARCH: '{{.ITEM}}'
+          RELEASE_TAG: '{{.RELEASE_TAG | default ""}}'
+
+  _build/darwin:
+    internal: true
     vars:
+      binary: 'bin/limanix-{{.TARGET_ARCH}}'
       release_flags: *release_flags
       lima_module: github.com/lima-vm/lima/v2
       lima_version:
@@ -90,33 +114,6 @@ tasks:
         {{.build_flags}}
         -X {{.lima_module}}/pkg/version.Version={{.lima_version}}
         {{.release_flags}}
-    preconditions:
-      - sh: test "$(uname -s)" = Darwin
-        msg: Native builds require macOS.
-      - sh: xcrun --find clang >/dev/null && xcrun --find vtool >/dev/null && command -v codesign >/dev/null
-        msg: Install the Xcode command-line tools before building native binaries.
-    cmds:
-      - go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}}
-      - go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
-      - go run ./cmd/bundle-guestagent --root .
-      - mkdir -p bin
-      - for: [amd64, arm64]
-        task: _build/darwin
-        vars:
-          TARGET_ARCH: '{{.ITEM}}'
-          LINKER_FLAGS: '{{.linker_flags}}'
-
-  _bundle/modules:
-    internal: true
-    cmds:
-      - task: golang:_go/tool
-        vars:
-          CMD: go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}}
-
-  _build/darwin:
-    internal: true
-    vars:
-      binary: 'bin/limanix-{{.TARGET_ARCH}}'
     env:
       CGO_CFLAGS: '-mmacosx-version-min={{.macos_version}}'
       CGO_LDFLAGS: '-mmacosx-version-min={{.macos_version}}'
@@ -127,7 +124,7 @@ tasks:
     cmds:
       - >-
         go build -mod=readonly -trimpath
-        -ldflags {{.LINKER_FLAGS | trim | shellQuote}}
+        -ldflags {{.linker_flags | trim | shellQuote}}
         -o {{.binary | shellQuote}} ./cmd/limanix
       - >-
         codesign --force --sign -

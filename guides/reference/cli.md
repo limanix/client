@@ -1,4 +1,4 @@
 # CLI reference
 
-```{include} ../_generated/cli.md
+```{include} ../generated/cli.md
 ```

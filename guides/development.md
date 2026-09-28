@@ -41,12 +41,13 @@ The examples use `task --yes` to accept the pinned remote Taskfile includes.
 
 ## Run the checks
 
-The shared Go tasks run in containers:
+The shared Go tasks run in containers.
+For tests, choose a published module catalog tag and pass it as `modules_version`; replace `v4` below with that tag.
 
 ```console
 task --yes ci/fmt
 task --yes ci/lint
-task --yes ci/test
+task --yes ci/test modules_version=v4
 task --yes ci/vuln
 ```
 
@@ -63,27 +64,20 @@ Tests and native builds prepare the embedded resources before running.
 The PR workflow runs shared Go checks and a native macOS build; its `gate` combines those results.
 A separate workflow checks the PR label.
 
-To check release automation locally, run its fixtures with Python and Git:
-
-```console
-python3 -m unittest discover -s tests
-```
-
-These fixtures use temporary repositories and mocked GitHub calls; they do not publish releases.
-
 For lifecycle or guest configuration changes, also exercise the operation with a disposable VM on macOS.
 Use a separate configuration and [`LIMANIX_HOME`](troubleshooting.md#state-directories) to keep its state separate from your working VMs.
 Tests and a signed build do not establish that the affected VM operation succeeds.
 
 ## Build a native client
 
-Run on your Mac:
+Run on your Mac with the module catalog tag you want to bundle:
 
 ```console
-task --yes ci/build
+task --yes ci/build modules_version=v4
 ```
 
 This task runs natively without Docker.
+`modules_version` is required; Task does not select or look up a catalog version.
 It prepares embedded resources, builds both architectures, applies an ad-hoc signature with the virtualization entitlement, and verifies the signature and macOS deployment target.
 The outputs are `bin/limanix-arm64` for Apple Silicon and `bin/limanix-amd64` for Intel.
 
@@ -102,7 +96,7 @@ A plain `go build` does not perform the resource preparation and signing sequenc
 Set the embedded client version with `RELEASE_TAG`:
 
 ```console
-task --yes ci/build RELEASE_TAG=v1.2.3+1
+task --yes ci/build modules_version=v4 RELEASE_TAG=v1.2.3+1
 ```
 
 This builds local files; it does not create a Git tag or publish a release.
@@ -111,7 +105,7 @@ This builds local files; it does not create a Git tag or publish a release.
 
 | Resource | Source of truth | Preparation |
 | --- | --- | --- |
-| NixOS catalog and Nixpkgs pin | `modules_version` in `Taskfile.yml` | `cmd/bundle-modules` downloads the selected modules tag |
+| NixOS catalog and Nixpkgs pin | Explicit `modules_version` task argument | `cmd/bundle-modules` downloads the selected modules tag |
 | Linux guest agents | Lima dependency in `go.mod` | `cmd/bundle-guestagent` builds `amd64` and `arm64` agents |
 | macOS network helper | `socket_vmnet` version, hashes, and sizes in `Taskfile.yml` | `cmd/bundle-socketvmnet` downloads and validates both archives |
 
@@ -136,11 +130,11 @@ task --yes docs/prepare
 ```
 
 Go generates references from the local command definitions and configuration model in `build/docs-generated/`.
-Python combines them with `guides/` in a clean `build/docs/` tree.
+Python copies `guides/` into a clean `build/docs/` directory and adds the generated files under `build/docs/generated/`.
 This task does not download the module catalog or require a published release.
 Both output directories are ignored by Git.
 
-| File under `build/docs/_generated/` | Contents |
+| File under `build/docs/generated/` | Contents |
 | --- | --- |
 | `cli.md` | Commands, flags, and help text |
 | `configuration.md` | Fields and their descriptions |
