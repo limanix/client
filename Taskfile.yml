@@ -5,9 +5,6 @@ includes:
   golang:
     taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.4/taskfiles/golang/Taskfile.yml
     internal: false
-  python:
-    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.4/taskfiles/python/Taskfile.yml
-    internal: true
 
 vars:
   macos_version: '26.0'
@@ -37,11 +34,8 @@ tasks:
         vars:
           CMD: >-
             go run -tags=osusergo -ldflags {{.release_flags | trim | shellQuote}}
-            ./cmd/docsgen --root .
+            ./cmd/build-docs --root .
           CONTAINER_ENVS: USER=limanix
-      - task: python:_uv/tool
-        vars:
-          CMD: python scripts/build_docs.py
 
   ci/fmt:
     desc: Run Go fmt check

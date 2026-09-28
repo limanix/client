@@ -1,0 +1,45 @@
+name: Notify docs
+
+on:
+  workflow_call:
+    inputs:
+      modules-tag:
+        required: true
+        type: string
+      clients:
+        description: JSON array of published client tags.
+        required: true
+        type: string
+    secrets:
+      RELEASE_APP_PRIVATE_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Create docs access token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          repositories: docs
+          owner: limanix
+      - name: Send client release event
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          MODULES_TAG: ${{ inputs.modules-tag }}
+          CLIENTS: ${{ inputs.clients }}
+        run: |
+          set -euo pipefail
+          jq -n --arg modules_tag "$MODULES_TAG" --argjson clients "$CLIENTS" '{
+            event_type: "limanix-client-release",
+            client_payload: {releases: [
+              $clients[] | {client_tag: .tag, modules_tag: $modules_tag}
+            ]}
+          }' | gh api --method POST repos/limanix/docs/dispatches --input -

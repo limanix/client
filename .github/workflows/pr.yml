@@ -6,7 +6,7 @@ on:
     types: [opened, reopened, synchronize]
 
 concurrency:
-  group: pr-validation-${{ github.event.pull_request.number }}
+  group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
@@ -14,7 +14,26 @@ permissions:
 
 jobs:
   modules:
-    uses: ./.github/workflows/_modules.yml
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ fromJSON(steps.tags.outputs.tags)[0].tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: limanix/modules
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: mr-chelyshkin/actions/get-tags@v1
+        id: tags
+        with:
+          repository: limanix/modules
+          pattern: '^v[1-9][0-9]*$'
+          require-release: 'true'
+          count: '1'
+      - name: Require a module release
+        env:
+          MODULES_TAG: ${{ fromJSON(steps.tags.outputs.tags)[0].tag }}
+        run: test -n "$MODULES_TAG"
 
   go:
     uses: mr-chelyshkin/actions/.github/workflows/pr-golang.yml@v1
@@ -25,7 +44,7 @@ jobs:
       cache-key-prefix: limanix-go-v1
       cache-dependency-path: '**/go.sum'
 
-  limanix-build:
+  build:
     name: limanix
     needs: [modules, go]
     uses: ./.github/workflows/_build.yml
@@ -36,7 +55,7 @@ jobs:
 
   gate:
     if: always()
-    needs: [modules, go, limanix-build]
+    needs: [modules, go, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: read

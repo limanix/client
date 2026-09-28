@@ -36,19 +36,19 @@ func render() ([]document, error) {
 
 	return []document{
 		{
-			path:    "build/docs-generated/limanix.example.toml",
+			path:    "build/docs/generated/limanix.example.toml",
 			content: example,
 		},
 		{
-			path:    "build/docs-generated/configuration.md",
+			path:    "build/docs/generated/configuration.md",
 			content: []byte(configuration),
 		},
 		{
-			path:    "build/docs-generated/cli.md",
+			path:    "build/docs/generated/cli.md",
 			content: []byte(cli.Reference()),
 		},
 		{
-			path:    "build/docs-generated/metadata.json",
+			path:    "build/docs/generated/metadata.json",
 			content: append(metadata, '\n'),
 		},
 	}, nil

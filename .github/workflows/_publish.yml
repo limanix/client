@@ -1,23 +1,15 @@
-name: Deploy
+name: Publish client version
 
 on:
   workflow_call:
     inputs:
-      source-tag:
-        description: Client source tag.
-        required: true
-        type: string
       commit-sha:
         description: Client source commit SHA.
         required: true
         type: string
       release-tag:
-        description: Prepared version to build and publish.
+        description: Client tag to publish.
         required: true
-        type: string
-      preparation-error:
-        description: Preparation failure for this version; other versions can proceed.
-        required: false
         type: string
       modules-tag:
         description: Verified module catalog tag.
@@ -31,34 +23,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    runs-on: ubuntu-24.04
-    steps:
-      # Use this workflow's automation even when rebuilding an older client commit.
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Check client tag format
-        uses: mr-chelyshkin/actions/check-tag-format@v1
-        with:
-          tag: ${{ inputs.source-tag }}
-          pattern: '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(\+[1-9][0-9]*)?$'
-      - name: Check client tag branch
-        uses: mr-chelyshkin/actions/check-tag-branch@v1
-        with:
-          tag: ${{ inputs.source-tag }}
-          branch: main
-      - name: Verify source and release commits
-        env:
-          SOURCE_TAG: ${{ inputs.source-tag }}
-          SOURCE_SHA: ${{ inputs.commit-sha }}
-          RELEASE_TAG: ${{ inputs.release-tag }}
-          PREPARATION_ERROR: ${{ inputs.preparation-error }}
-        run: python3 scripts/release.py verify
-
   build:
-    needs: verify
     uses: ./.github/workflows/_build.yml
     with:
       commit-sha: ${{ inputs.commit-sha }}
@@ -66,19 +31,45 @@ jobs:
       modules-tag: ${{ inputs.modules-tag }}
       artifact-name: limanix-bin-${{ inputs.release-tag }}
 
-  publish:
-    needs: [verify, build]
+  docs:
+    name: Prepare documentation
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
-          sparse-checkout: scripts
+          ref: ${{ inputs.commit-sha }}
           persist-credentials: false
+      - name: Prepare documentation sources
+        uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        env:
+          RELEASE_TAG: ${{ inputs.release-tag }}
+        with:
+          command: docs/prepare RELEASE_TAG="$RELEASE_TAG"
+      - name: Package documentation
+        run: tar -czf build/docs.tar.gz -C build/docs .
+      - name: Upload documentation archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: client-docs-${{ inputs.release-tag }}
+          path: build/docs.tar.gz
+          if-no-files-found: error
+          overwrite: true
+
+  publish:
+    name: Create GitHub release
+    needs: [build, docs]
+    runs-on: ubuntu-24.04
+    steps:
       - name: Download macOS binaries
         uses: actions/download-artifact@v8
         with:
           name: ${{ needs.build.outputs.artifact-name }}
           path: bin
+      - name: Download documentation archive
+        uses: actions/download-artifact@v8
+        with:
+          name: client-docs-${{ inputs.release-tag }}
+          path: build
       - name: Create client release token
         id: release-token
         uses: actions/create-github-app-token@v3
@@ -103,17 +94,7 @@ jobs:
           prerelease: false
           generate_release_notes: true
           fail_on_unmatched_files: true
-          make_latest: 'false'
-          files: bin/*
-      - name: Record the published docs versions
-        env:
-          CLIENT_TAG: ${{ inputs.release-tag }}
-          MODULES_TAG: ${{ inputs.modules-tag }}
-        run: python3 scripts/release.py receipt
-      - name: Upload the published docs versions
-        uses: actions/upload-artifact@v7
-        with:
-          name: docs-release-${{ inputs.release-tag }}
-          path: ${{ runner.temp }}/docs-release-${{ inputs.release-tag }}.json
-          if-no-files-found: error
-          overwrite: true
+          make_latest: legacy
+          files: |
+            bin/*
+            build/docs.tar.gz

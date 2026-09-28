@@ -35,9 +35,9 @@ The examples use `task --yes` to accept the pinned remote Taskfile includes.
 | `internal/modules/` | Local imports and module selection |
 | `internal/nixos/` | Guest configuration and bundled catalog |
 | `internal/bundle/` | Embedded guest agents and network helper |
-| `internal/docs/generator/` | CLI and configuration reference generation |
-| `guides/`, `scripts/build_docs.py` | Handwritten documentation and preparation |
-| `scripts/release.py` | Release version preparation and documentation publication records |
+| `cmd/build-docs/`, `internal/docs/generator/` | Documentation preparation and reference generation |
+| `guides/` | Handwritten documentation |
+| `.github/workflows/` | CI checks, release version preparation, publication, and documentation events |
 
 ## Run the checks
 
@@ -129,10 +129,9 @@ Edit explanations and examples in `guides/`, then prepare the pages:
 task --yes docs/prepare
 ```
 
-Go generates references from the local command definitions and configuration model in `build/docs-generated/`.
-Python copies `guides/` into a clean `build/docs/` directory and adds the generated files under `build/docs/generated/`.
+The Go command `cmd/build-docs` copies `guides/` into a clean `build/docs/` directory and generates references under `build/docs/generated/` from the local command definitions and configuration model.
 This task does not download the module catalog or require a published release.
-Both output directories are ignored by Git.
+The output directory is ignored by Git.
 
 | File under `build/docs/generated/` | Contents |
 | --- | --- |
@@ -150,6 +149,8 @@ task --yes docs/prepare RELEASE_TAG=v1.2.3+4
 
 Replace the example version with the version being documented.
 The task prepares Markdown and supporting files; the [docs repository](https://github.com/limanix/docs) owns HTML builds and publication.
+Client releases package these files as `docs.tar.gz` alongside the binaries.
+The docs release workflow downloads this archive and the matching modules archive to build the site.
 
 For a local preview, run from the sibling `docs` repository:
 
