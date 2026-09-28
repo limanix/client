@@ -16,12 +16,12 @@ on:
         required: true
         type: string
       artifact-name:
-        description: Artifact name for built binaries; empty skips upload.
+        description: Prefix for binary artifact names; empty skips upload.
         required: false
         type: string
     outputs:
       artifact-name:
-        description: Built binaries artifact name.
+        description: Prefix for built binary artifact names.
         value: ${{ jobs.build.outputs.artifact-name }}
 
 permissions:
@@ -29,7 +29,16 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-26
+    name: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: amd64
+            runner: macos-26-intel
+    runs-on: ${{ matrix.runner }}
     outputs:
       artifact-name: ${{ inputs.artifact-name }}
     steps:
@@ -41,18 +50,18 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
-      - name: Build and sign macOS binaries
+      - name: Build and sign macOS binary
         uses: mr-chelyshkin/actions/invoke-taskfile@v1
         env:
           RELEASE_TAG: ${{ inputs.release-tag }}
           MODULES_TAG: ${{ inputs.modules-tag }}
         with:
-          command: ci/build modules_version="$MODULES_TAG"
-      - name: Upload macOS binaries
+          command: ci/build modules_version="$MODULES_TAG" TARGET_ARCH=${{ matrix.arch }}
+      - name: Upload macOS binary
         if: inputs.artifact-name != ''
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.artifact-name }}
-          path: bin/*
+          name: ${{ inputs.artifact-name }}-${{ matrix.arch }}
+          path: bin/limanix-${{ matrix.arch }}
           if-no-files-found: error
           overwrite: true

@@ -63,7 +63,8 @@ jobs:
       - name: Download macOS binaries
         uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.build.outputs.artifact-name }}
+          pattern: ${{ needs.build.outputs.artifact-name }}-*
+          merge-multiple: true
           path: bin
       - name: Download documentation archive
         uses: actions/download-artifact@v8

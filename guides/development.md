@@ -78,8 +78,16 @@ task --yes ci/build modules_version=v4
 
 This task runs natively without Docker.
 `modules_version` is required; Task does not select or look up a catalog version.
-It prepares embedded resources, builds both architectures, applies an ad-hoc signature with the virtualization entitlement, and verifies the signature and macOS deployment target.
+By default, it prepares embedded resources, builds both architectures, applies an ad-hoc signature with the virtualization entitlement, and verifies the signature and macOS deployment target.
 The outputs are `bin/limanix-arm64` for Apple Silicon and `bin/limanix-amd64` for Intel.
+
+To build only one architecture, pass `TARGET_ARCH=arm64` or `TARGET_ARCH=amd64`:
+
+```console
+task --yes ci/build modules_version=v4 TARGET_ARCH=arm64
+```
+
+CI builds both architectures in parallel, each on a matching macOS runner.
 
 To install the Apple Silicon build:
 

@@ -79,6 +79,8 @@ tasks:
 
   ci/build:
     desc: Build client binaries
+    vars:
+      target_archs: '{{.TARGET_ARCH | default "amd64 arm64"}}'
     preconditions:
       - *modules_version_required
       - sh: test "$(uname -s)" = Darwin
@@ -89,7 +91,7 @@ tasks:
       - go run ./cmd/bundle-modules --root . --version {{.modules_version | default "" | shellQuote}}
       - go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
       - go run ./cmd/bundle-guestagent --root .
-      - for: [amd64, arm64]
+      - for: { var: target_archs }
         task: _build/darwin
         vars:
           TARGET_ARCH: '{{.ITEM}}'
