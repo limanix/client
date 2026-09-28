@@ -1,8 +1,7 @@
-// build-docs prepares the LimaNix documentation tree in build/docs.
+// build-docs assembles the documentation source tree used by the LimaNix docs site and client release.
 //
-// Prepare repo docs.
-//
-// The --root flag selects the repository root.
+// Run this command through task docs/prepare.
+// The --root flag selects the repository directory.
 package main
 
 import (
@@ -18,7 +17,6 @@ import (
 	"github.com/mr-chelyshkin/limanix/internal/docs/generator"
 )
 
-// options holds the command's repository selection.
 type options struct {
 	root string
 }

@@ -2,7 +2,7 @@ name: Events flow
 
 on:
   repository_dispatch:
-    types: [limanix-modules-release]
+    types: [modules-release]
 
 concurrency:
   group: release
