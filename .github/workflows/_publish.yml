@@ -1,4 +1,4 @@
-name: Publish client version
+name: Publish release
 
 on:
   workflow_call:
@@ -26,28 +26,28 @@ jobs:
   build:
     uses: ./.github/workflows/_build.yml
     with:
-      commit-sha: ${{ inputs.commit-sha }}
+      artifact-name: limanix-bin-${{ inputs.release-tag }}
       release-tag: ${{ inputs.release-tag }}
       modules-tag: ${{ inputs.modules-tag }}
-      artifact-name: limanix-bin-${{ inputs.release-tag }}
+      commit-sha: ${{ inputs.commit-sha }}
 
   docs:
-    name: Prepare documentation
+    name: Prepare docs
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.commit-sha }}
           persist-credentials: false
-      - name: Prepare documentation sources
+      - name: Prepare doc sources
         uses: mr-chelyshkin/actions/invoke-taskfile@v1
         env:
           RELEASE_TAG: ${{ inputs.release-tag }}
         with:
           command: docs/prepare RELEASE_TAG="$RELEASE_TAG"
-      - name: Package documentation
+      - name: Package docs
         run: tar -czf build/docs.tar.gz -C build/docs .
-      - name: Upload documentation archive
+      - name: Upload docs
         uses: actions/upload-artifact@v7
         with:
           name: client-docs-${{ inputs.release-tag }}
@@ -60,18 +60,18 @@ jobs:
     needs: [build, docs]
     runs-on: ubuntu-24.04
     steps:
-      - name: Download macOS binaries
+      - name: Download binaries
         uses: actions/download-artifact@v8
         with:
           pattern: ${{ needs.build.outputs.artifact-name }}-*
           merge-multiple: true
           path: bin
-      - name: Download documentation archive
+      - name: Download docs archive
         uses: actions/download-artifact@v8
         with:
           name: client-docs-${{ inputs.release-tag }}
           path: build
-      - name: Create client release token
+      - name: Create release token
         id: release-token
         uses: actions/create-github-app-token@v3
         with:
@@ -81,7 +81,7 @@ jobs:
           repositories: client
           permission-contents: write
           permission-workflows: write
-      - name: Publish the client release
+      - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
           token: ${{ steps.release-token.outputs.token }}

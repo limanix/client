@@ -30,13 +30,12 @@ jobs:
           pattern: '^v[1-9][0-9]*$'
           require-release: 'true'
           count: '1'
-      - name: Report selected module release
+      - name: Report
         env:
           MODULES_TAG: ${{ fromJSON(steps.tags.outputs.tags)[0].tag }}
         run: |
           test -n "$MODULES_TAG"
-          printf '## Modules\n\nSelected release: [limanix/modules %s](https://github.com/limanix/modules/releases/tag/%s)\n' \
-            "$MODULES_TAG" "$MODULES_TAG" >> "$GITHUB_STEP_SUMMARY"
+          printf '## Metadata\n\nModules release: [%s](https://github.com/limanix/modules/releases/tag/%s)\n' "$MODULES_TAG" "$MODULES_TAG" >> "$GITHUB_STEP_SUMMARY"
 
   go:
     needs: modules
@@ -44,13 +43,12 @@ jobs:
     permissions:
       contents: read
     with:
-      environment: modules_version=${{ needs.modules.outputs.tag }}
       cache-path: .cache/go
       cache-key-prefix: limanix-go-v1
       cache-dependency-path: '**/go.sum'
+      environment: modules_version=${{ needs.modules.outputs.tag }}
 
   build:
-    name: limanix
     needs: [modules, go]
     uses: ./.github/workflows/_build.yml
     permissions:

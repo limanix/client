@@ -4,6 +4,7 @@ on:
   workflow_call:
     inputs:
       modules-tag:
+        description: Verified module catalog tag.
         required: true
         type: string
       clients:
@@ -21,7 +22,7 @@ jobs:
   notify:
     runs-on: ubuntu-24.04
     steps:
-      - name: Create docs access token
+      - name: Create access token
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
@@ -30,7 +31,7 @@ jobs:
           permission-contents: write
           repositories: docs
           owner: limanix
-      - name: Send client release event
+      - name: Send event
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           MODULES_TAG: ${{ inputs.modules-tag }}

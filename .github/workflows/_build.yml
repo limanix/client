@@ -1,8 +1,12 @@
-name: Build
+name: Build binaries
 
 on:
   workflow_call:
     inputs:
+      modules-tag:
+        description: Explicit module catalog tag to bundle.
+        required: true
+        type: string
       commit-sha:
         description: Client source commit SHA.
         required: false
@@ -11,12 +15,8 @@ on:
         description: Version embedded in the binaries.
         required: false
         type: string
-      modules-tag:
-        description: Explicit module catalog tag to bundle.
-        required: true
-        type: string
       artifact-name:
-        description: Prefix for binary artifact names; empty skips upload.
+        description: Prefix for binary artifact names.
         required: false
         type: string
     outputs:
@@ -50,14 +50,14 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
-      - name: Build and sign macOS binary
+      - name: Build binary
         uses: mr-chelyshkin/actions/invoke-taskfile@v1
         env:
           RELEASE_TAG: ${{ inputs.release-tag }}
           MODULES_TAG: ${{ inputs.modules-tag }}
         with:
           command: ci/build modules_version="$MODULES_TAG" TARGET_ARCH=${{ matrix.arch }}
-      - name: Upload macOS binary
+      - name: Upload binary
         if: inputs.artifact-name != ''
         uses: actions/upload-artifact@v7
         with:

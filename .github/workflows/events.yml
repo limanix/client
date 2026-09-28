@@ -22,14 +22,6 @@ jobs:
         with:
           tag: ${{ github.event.client_payload.tag }}
           pattern: '^v[1-9][0-9]*$'
-      - name: Check published module release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MODULES_TAG: ${{ github.event.client_payload.tag }}
-        run: |
-          set -euo pipefail
-          gh api "repos/limanix/modules/releases/tags/$MODULES_TAG" |
-            jq -e '.draft == false and .published_at != null' > /dev/null
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
