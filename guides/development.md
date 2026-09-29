@@ -6,12 +6,12 @@ Use `Taskfile.yml` for checks, bundled resources, and native builds.
 
 ## Prepare your tools
 
-| Work | Requirements |
-| --- | --- |
+| Work                                                                     | Requirements                                                                                         |
+|--------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
 | Formatting, lint, tests, vulnerability checks, documentation preparation | Task 3.53.1 or newer, Docker with a running engine, network access for pinned tools and dependencies |
-| Native client build | macOS, the Go version in `go.mod`, Task, Xcode command-line tools |
-| Run the client | macOS 26 or newer, a binary matching the Mac's architecture |
-| Preview documentation | Sibling `client`, `modules`, and `docs` checkouts, Task, and Docker |
+| Native client build                                                      | macOS, the Go version in `go.mod`, Task, Xcode command-line tools                                    |
+| Run the client                                                           | macOS 26 or newer, a binary matching the Mac's architecture                                          |
+| Preview documentation                                                    | Sibling `client`, `modules`, and `docs` checkouts, Task, and Docker                                  |
 
 Clone the client and list its tasks:
 
@@ -25,19 +25,19 @@ The examples use `task --yes` to accept the pinned remote Taskfile includes.
 
 ## Source layout
 
-| Path | Responsibility |
-| --- | --- |
-| `cmd/limanix/`, `internal/cli/` | CLI entry point, commands, flags, output |
-| `internal/config/`, `internal/domain/` | TOML parsing, defaults, validation, domain types |
-| `internal/vm/` | VM lifecycle and configuration generations |
-| `internal/lima/`, `internal/hostagent/` | Lima integration and host-side VM process |
-| `internal/state/`, `internal/managedhome/` | Saved records and managed home ownership |
-| `internal/modules/` | Local imports and module selection |
-| `internal/nixos/` | Guest configuration and bundled catalog |
-| `internal/bundle/` | Embedded guest agents and network helper |
-| `cmd/build-docs/`, `internal/docs/generator/` | Documentation preparation and reference generation |
-| `guides/` | Handwritten documentation |
-| `.github/workflows/` | CI checks, release version preparation, publication, and documentation events |
+| Path                                          | Responsibility                                                                |
+|-----------------------------------------------|-------------------------------------------------------------------------------|
+| `cmd/limanix/`, `internal/cli/`               | CLI entry point, commands, flags, output                                      |
+| `internal/config/`, `internal/domain/`        | TOML parsing, defaults, validation, domain types                              |
+| `internal/vm/`                                | VM lifecycle and configuration generations                                    |
+| `internal/lima/`, `internal/hostagent/`       | Lima integration and host-side VM process                                     |
+| `internal/state/`, `internal/managedhome/`    | Saved records and managed home ownership                                      |
+| `internal/modules/`                           | Local imports and module selection                                            |
+| `internal/nixos/`                             | Guest configuration and bundled catalog                                       |
+| `internal/bundle/`                            | Embedded guest agents and network helper                                      |
+| `cmd/build-docs/`, `internal/docs/generator/` | Documentation preparation and reference generation                            |
+| `guides/`                                     | Handwritten documentation                                                     |
+| `.github/workflows/`                          | CI checks, release version preparation, publication, and documentation events |
 
 ## Run the checks
 
@@ -51,11 +51,11 @@ task --yes ci/test modules_version=v4
 task --yes ci/vuln
 ```
 
-| Task | What it checks |
-| --- | --- |
-| `ci/fmt` | Go formatting under `cmd/` and `internal/`, without rewriting files |
-| `ci/lint` | Go source and tests |
-| `ci/test` | Go tests with the race detector, after preparing embedded resources |
+| Task      | What it checks                                                        |
+|-----------|-----------------------------------------------------------------------|
+| `ci/fmt`  | Go formatting under `cmd/` and `internal/`, without rewriting files   |
+| `ci/lint` | Go source and tests                                                   |
+| `ci/test` | Go tests with the race detector, after preparing embedded resources   |
 | `ci/vuln` | Known vulnerabilities in the client and its embedded Lima guest agent |
 
 Formatting, linting, and vulnerability checks do not require a published module catalog.
@@ -111,11 +111,11 @@ This builds local files; it does not create a Git tag or publish a release.
 
 ### Embedded resources
 
-| Resource | Source of truth | Preparation |
-| --- | --- | --- |
-| NixOS catalog and Nixpkgs pin | Explicit `modules_version` task argument | `cmd/bundle-modules` downloads the selected modules tag |
-| Linux guest agents | Lima dependency in `go.mod` | `cmd/bundle-guestagent` builds `amd64` and `arm64` agents |
-| macOS network helper | `socket_vmnet` version, hashes, and sizes in `Taskfile.yml` | `cmd/bundle-socketvmnet` downloads and validates both archives |
+| Resource                      | Source of truth                                             | Preparation                                                    |
+|-------------------------------|-------------------------------------------------------------|----------------------------------------------------------------|
+| NixOS catalog and Nixpkgs pin | Explicit `modules_version` task argument                    | `cmd/bundle-modules` downloads the selected modules tag        |
+| Linux guest agents            | Lima dependency in `go.mod`                                 | `cmd/bundle-guestagent` builds `amd64` and `arm64` agents      |
+| macOS network helper          | `socket_vmnet` version, hashes, and sizes in `Taskfile.yml` | `cmd/bundle-socketvmnet` downloads and validates both archives |
 
 Generated archives are ignored by Git.
 Tasks that prepare the catalog require the selected modules tag to exist upstream.
@@ -131,7 +131,9 @@ The bootstrap image, its checksums in `internal/nixos/image.go`, and `system.sta
 
 ## Maintain the documentation
 
-Edit explanations and examples in `guides/`, then prepare the pages:
+Edit explanations and examples in `guides/`.
+The TOML blocks in `getting-started.md` and `configuration.md` mirror the downloadable files in `guides/examples/`; update both copies together.
+Then prepare the pages:
 
 ```console
 task --yes docs/prepare
@@ -141,12 +143,12 @@ The Go command `cmd/build-docs` copies `guides/` into a clean `build/docs/` dire
 This task does not download the module catalog or require a published release.
 The output directory is ignored by Git.
 
-| File under `build/docs/generated/` | Contents |
-| --- | --- |
-| `cli.md` | Commands, flags, and help text |
-| `configuration.md` | Fields and their descriptions |
-| `limanix.example.toml` | Example derived from model defaults |
-| `metadata.json` | Client version used by the documentation build |
+| File under `build/docs/generated/` | Contents                                       |
+|------------------------------------|------------------------------------------------|
+| `cli.md`                           | Commands, flags, and help text                 |
+| `configuration.md`                 | Fields and their descriptions                  |
+| `limanix.example.toml`             | Example derived from model defaults            |
+| `metadata.json`                    | Client version used by the documentation build |
 
 Update source definitions instead of editing generated files.
 To set the version recorded in the generated metadata:

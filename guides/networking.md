@@ -45,13 +45,46 @@ For an HTTP application, open `http://<guest-ip>:8080`, replacing `<guest-ip>` w
 The address is discovered from the running guest's shared-network IPv4 interface; it is not a configured static address.
 Check the current value when reconnecting.
 
+### Try an HTTP connection
+
+To check this path without your own application, serve a temporary file with the Python module.
+On your **Mac**, run `limanix modules list` and confirm that `lmx:python` is available in your client.
+Edit the existing `[nixos]` and `[network.ports]` tables in `limanix.toml` so their lists include the module and port:
+
+```toml
+[nixos]
+modules = ["lmx:python"]
+
+[network.ports]
+tcp = [8080]
+```
+
+These are the relevant parts of the file; do not add a second copy of either table.
+If either list already has entries, keep them and add `lmx:python` or `8080` only if missing.
+Apply both changes with `limanix update --config ./limanix.toml`.
+
+Open the guest with `limanix shell NAME`, replacing `NAME` with your VM's name.
+Inside the **VM**, run:
+
+```console
+mkdir -p /tmp/limanix-http-demo
+printf 'Hello from Limanix\n' > /tmp/limanix-http-demo/index.html
+cd /tmp/limanix-http-demo
+python -m http.server --bind 0.0.0.0 8080
+```
+
+Keep that shell open.
+In another terminal on your **Mac**, run `limanix list` and open `http://<guest-ip>:8080/` in a browser, replacing `<guest-ip>` with the VM's `ADDRESS`.
+The page should show `Hello from Limanix`.
+Return to the guest shell and press Ctrl+C to stop the server.
+
 ### Ports are firewall rules
 
-| Setting | Effect |
-| --- | --- |
-| `tcp = [8080]` | Allow inbound TCP port `8080` through the guest firewall |
-| `udp = [5353]` | Allow inbound UDP port `5353` through the guest firewall |
-| `tcp = []` or `udp = []` | Add no openings from that configuration field |
+| Setting                  | Effect                                                   |
+|--------------------------|----------------------------------------------------------|
+| `tcp = [8080]`           | Allow inbound TCP port `8080` through the guest firewall |
+| `udp = [5353]`           | Allow inbound UDP port `5353` through the guest firewall |
+| `tcp = []` or `udp = []` | Add no openings from that configuration field            |
 
 These lists do not install or start services or map Mac ports to guest ports.
 Limanix disables Lima's automatic application port forwarding: `localhost:8080` on the Mac is not an alias for the guest's port `8080`.
@@ -61,12 +94,12 @@ Base NixOS configuration and selected modules can add their own firewall rules, 
 
 The guest architecture and Mac hardware determine the backend:
 
-| Mac hardware | `resources.arch` | Backend | Network |
-| --- | --- | --- | --- |
-| Apple Silicon | `arm64` | Apple Virtualization framework (VZ) | Native NAT |
-| Intel | `amd64` | Apple Virtualization framework (VZ) | Native NAT |
-| Apple Silicon | `amd64` | QEMU | Lima shared network using `socket_vmnet` |
-| Intel | `arm64` | QEMU | Lima shared network using `socket_vmnet` |
+| Mac hardware  | `resources.arch` | Backend                             | Network                                  |
+|---------------|------------------|-------------------------------------|------------------------------------------|
+| Apple Silicon | `arm64`          | Apple Virtualization framework (VZ) | Native NAT                               |
+| Intel         | `amd64`          | Apple Virtualization framework (VZ) | Native NAT                               |
+| Apple Silicon | `amd64`          | QEMU                                | Lima shared network using `socket_vmnet` |
+| Intel         | `arm64`          | QEMU                                | Lima shared network using `socket_vmnet` |
 
 Always run the client binary for your Mac's hardware.
 VM operations reject the Intel client running under Rosetta on Apple Silicon.
@@ -79,10 +112,10 @@ It does not require QEMU or `socket_vmnet`.
 
 For a guest with a different architecture, install QEMU and make the guest's executable available in your Mac's `PATH`:
 
-| Guest architecture | Executable |
-| --- | --- |
-| `amd64` | `qemu-system-x86_64` |
-| `arm64` | `qemu-system-aarch64` |
+| Guest architecture | Executable            |
+|--------------------|-----------------------|
+| `amd64`            | `qemu-system-x86_64`  |
+| `arm64`            | `qemu-system-aarch64` |
 
 Run as your regular Mac user in an interactive terminal:
 
@@ -93,14 +126,14 @@ limanix network setup
 The command checks the existing Lima network setup.
 When installation is needed, it shows the helper and sudoers paths and asks for confirmation before invoking `sudo`.
 
-| Setup item | Location |
-| --- | --- |
+| Setup item             | Location                             |
+|------------------------|--------------------------------------|
 | Bundled network helper | `/opt/socket_vmnet/bin/socket_vmnet` |
-| Lima sudoers rules | `/private/etc/sudoers.d/lima` |
+| Lima sudoers rules     | `/private/etc/sudoers.d/lima`        |
 
 The helper is installed when missing; an existing helper must pass the setup checks.
 An existing sudoers file is backed up before replacement.
-Limanix and QEMU continue running as the regular user.
+LimaNix and QEMU continue running as the regular user.
 
 Creating or updating a QEMU guest can offer the same interactive installation.
 A noninteractive command reports that setup is required instead of prompting.

@@ -6,24 +6,56 @@ It describes the VM's resources, guest account, shared directories, environment,
 The **Mac** is the host; the **Linux VM** is the guest.
 A path on one side does not automatically exist on the other.
 
-| Related guide | Configure |
-| --- | --- |
-| [Modules](modules.md) | Tools and services from the catalog or your own NixOS modules |
-| [Networking](networking.md) | Guest service access, firewall ports, and QEMU networking |
+| Related guide               | Configure                                                     |
+|-----------------------------|---------------------------------------------------------------|
+| [Modules](modules.md)       | Tools and services from the catalog or your own NixOS modules |
+| [Networking](networking.md) | Guest service access, firewall ports, and QEMU networking     |
 
 ## Start with a complete configuration
 
 Save this example as `limanix.toml` in an existing project directory.
 It shares that directory with the guest at `/workspace` and creates a separate persistent home for the `dev` account.
 
-```{literalinclude} examples/project.toml
-:language: toml
-:linenos:
-:name: project-configuration
-:class: code-example
+```toml
+# Save this file in your project directory as limanix.toml.
+# Apple Silicon: arm64. Intel Mac: change resources.arch to amd64.
+schema_version = 1
+name = "project-box"
+
+[resources]
+arch = "arm64"
+cpu = 4
+mem = "8GiB"
+disk = "10GiB"
+
+[user]
+name = "dev"
+home = "/home/dev"
+sudo = true
+
+[home]
+root = "~/.limanix"
+
+[nixos]
+modules = []
+
+[network]
+mode = "shared"
+
+[network.ports]
+tcp = [8080]
+udp = []
+
+[env]
+APP_ENV = "development"
+
+[[mounts]]
+source = "."
+target = "/workspace"
+mode = "rw"
 ```
 
-{download}`Download the project configuration <examples/project.toml>`.
+[Open or download the project configuration](examples/project.toml).
 
 The example targets **Apple Silicon**.
 On an **Intel Mac**, set `resources.arch = "amd64"`.
@@ -47,13 +79,13 @@ Select tools in [Modules](modules.md), then apply the edited configuration with 
 
 ## Read the TOML structure
 
-| Code | Meaning |
-| --- | --- |
-| [3–4](#project-configuration.3-4){.external .code-lines} | Settings before any table belong to the top level |
-| [6–10](#project-configuration.6-10){.external .code-lines} | A table groups settings: the architecture, CPU, memory, and disk belong to `resources` |
-| [26–28](#project-configuration.26-28){.external .code-lines} | A dotted table name groups settings inside another group: TCP and UDP ports belong to `network.ports` |
-| [33–36](#project-configuration.33-36){.external .code-lines} | Double brackets add one item to the list of mounts; repeat the table for each directory |
-| [27–28](#project-configuration.27-28){.external .code-lines} | Square brackets after `=` hold a list of values, which can be empty |
+| In the example                                     | Meaning                                                                          |
+|----------------------------------------------------|----------------------------------------------------------------------------------|
+| `schema_version` and `name` before the first table | Settings at the top level                                                        |
+| `[resources]`                                      | A table grouping the guest architecture, CPU, memory, and disk                   |
+| `[network.ports]`                                  | A table inside `network` for TCP and UDP ports                                   |
+| `[[mounts]]`                                       | One entry in the list of shared directories; repeat the block for each directory |
+| `tcp = [8080]` and `udp = []`                      | Lists of values inside square brackets; an empty list selects none               |
 
 A table continues until the next table header.
 To disable explicit mounts, put `mounts = []` **before the first table**, then remove every `[[mounts]]` block.
@@ -63,14 +95,14 @@ Unknown fields and wrong types are rejected, including typos such as `resources.
 
 ## Choose resources and identity
 
-| Setting | What to choose |
-| --- | --- |
-| `name` | A local VM name: 1–63 lowercase letters, digits, or hyphens; start and end with a letter or digit. |
+| Setting          | What to choose                                                                                            |
+|------------------|-----------------------------------------------------------------------------------------------------------|
+| `name`           | A local VM name: 1–63 lowercase letters, digits, or hyphens; start and end with a letter or digit.        |
 | `resources.arch` | `arm64` for Apple Silicon or `amd64` for Intel. These spellings differ from Nix's `aarch64` and `x86_64`. |
-| `resources.cpu` | A positive whole number of virtual CPUs. |
-| `resources.mem` | A positive whole number of GiB, written as a quoted string such as `"8GiB"`. |
-| `resources.disk` | The guest system disk size, also in whole GiB. Shared host directories are separate from this disk. |
-| `schema_version` | Keep `1`; this is the configuration contract version, independent of the client release. |
+| `resources.cpu`  | A positive whole number of virtual CPUs.                                                                  |
+| `resources.mem`  | A positive whole number of GiB, written as a quoted string such as `"8GiB"`.                              |
+| `resources.disk` | The guest system disk size, also in whole GiB. Shared host directories are separate from this disk.       |
+| `schema_version` | Keep `1`; this is the configuration contract version, independent of the client release.                  |
 
 Sizes such as `"8GB"`, `"1.5GiB"`, `"0GiB"`, and `"08GiB"` are rejected.
 
@@ -79,18 +111,18 @@ Changing it in the file does not rename an existing VM.
 
 ## Keep the three home paths distinct
 
-| Setting or directory | Side | Purpose |
-| --- | --- | --- |
-| `home.root = "~/.limanix"` | Mac | Parent directory for managed guest homes. |
-| `<home.root>/<name>-<id>` | Mac | The particular home allocated to this VM. Limanix creates it. |
-| `user.home = "/home/dev"` | Guest | Where that managed directory appears inside Linux. |
+| Setting or directory       | Side  | Purpose                                                       |
+|----------------------------|-------|---------------------------------------------------------------|
+| `home.root = "~/.limanix"` | Mac   | Parent directory for managed guest homes.                     |
+| `<home.root>/<name>-<id>`  | Mac   | The particular home allocated to this VM. Limanix creates it. |
+| `user.home = "/home/dev"`  | Guest | Where that managed directory appears inside Linux.            |
 
-The Mac's `~` belongs to the account running Limanix, not the guest user.
+The Mac's `~` belongs to the account running LimaNix, not the guest user.
 The Mac filesystem root `/` cannot be used as `home.root`.
 
 `user.name` creates the regular account used by `limanix shell`.
 The guest account uses the Mac account's numeric UID for shared-file ownership; its name can be different from the Mac account's name.
-Limanix creates a guest group for that account.
+LimaNix creates a guest group for that account.
 
 Guest usernames start with a lowercase letter or `_`, followed by lowercase letters, digits, `_`, or `-`, up to 32 characters.
 `root` and `limanix-admin` are reserved.
@@ -130,12 +162,12 @@ Create the sibling directory `../fixtures` on the Mac before using the second mo
 
 If your file is `/Users/alex/work/api/limanix.toml`:
 
-| Host path in the file | Resolved path |
-| --- | --- |
-| `"."` | `/Users/alex/work/api` |
-| `"./fixtures"` | `/Users/alex/work/api/fixtures` |
-| `"../shared"` | `/Users/alex/work/shared` |
-| `"~/projects"` | `projects` in the current Mac user's home |
+| Host path in the file | Resolved path                             |
+|-----------------------|-------------------------------------------|
+| `"."`                 | `/Users/alex/work/api`                    |
+| `"./fixtures"`        | `/Users/alex/work/api/fixtures`           |
+| `"../shared"`         | `/Users/alex/work/shared`                 |
+| `"~/projects"`        | `projects` in the current Mac user's home |
 
 Relative `mounts.source` and `home.root` values are resolved from the configuration file's directory, regardless of the directory where you run the command.
 If the configuration is a symlink, the real file's location is used.
@@ -145,7 +177,7 @@ Only a leading `~` is expanded.
 `$HOME` and `${PROJECT}` stay literal; they do not read shell environment variables.
 
 Mount sources must be directories that already exist when you create or update the VM.
-Limanix creates its managed home separately.
+LimaNix creates its managed home separately.
 
 ### Choose guest destinations
 
@@ -197,18 +229,18 @@ Omitting a setting keeps its model default.
 **The generated defaults contain example paths and application settings.**
 Use explicit empty lists and tables to remove unwanted defaults:
 
-| Your file | Effective behavior |
-| --- | --- |
-| No `mounts` setting | Keep the two example mounts: `~/projects/my-project` → `/workspace` and `~/.ssh/limanix` → `/mnt/git-keys`. These source directories must exist. |
-| `mounts = []` | No explicit mounts. |
-| One or more `[[mounts]]` entries | Use those entries instead of the example mounts. |
-| No `[env]` table | Keep `APP_ENV = "development"` and `APP_LOG_LEVEL = "debug"`. |
-| An empty `[env]` table | Set no Limanix environment variables. |
-| A nonempty `[env]` table | Use exactly those entries; example environment keys are not added. |
-| No `network.ports.tcp` setting | Keep TCP port `8080`. |
-| `tcp = []` | Add no TCP openings from this field. Base configuration and modules can declare their own firewall rules. |
-| `modules = []` | Add no optional NixOS modules; retain the guest base. |
-| `[resources]` with only `cpu = 2` | Change CPU count; keep the default architecture, memory, and disk values. |
+| Your file                         | Effective behavior                                                                                                                               |
+|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| No `mounts` setting               | Keep the two example mounts: `~/projects/my-project` → `/workspace` and `~/.ssh/limanix` → `/mnt/git-keys`. These source directories must exist. |
+| `mounts = []`                     | No explicit mounts.                                                                                                                              |
+| One or more `[[mounts]]` entries  | Use those entries instead of the example mounts.                                                                                                 |
+| No `[env]` table                  | Keep `APP_ENV = "development"` and `APP_LOG_LEVEL = "debug"`.                                                                                    |
+| An empty `[env]` table            | Set no Limanix environment variables.                                                                                                            |
+| A nonempty `[env]` table          | Use exactly those entries; example environment keys are not added.                                                                               |
+| No `network.ports.tcp` setting    | Keep TCP port `8080`.                                                                                                                            |
+| `tcp = []`                        | Add no TCP openings from this field. Base configuration and modules can declare their own firewall rules.                                        |
+| `modules = []`                    | Add no optional NixOS modules; retain the guest base.                                                                                            |
+| `[resources]` with only `cpu = 2` | Change CPU count; keep the default architecture, memory, and disk values.                                                                        |
 
 An empty string does not request a default.
 For example, `source = ""` is an error; `APP_ENV = ""` is a literal empty environment value.

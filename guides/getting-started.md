@@ -1,7 +1,7 @@
 # Getting started
 
 Install the client, create a Linux VM, then add tools and share your project.
-Limanix reads your TOML configuration, uses Lima to run the VM, and configures its Linux system with NixOS.
+LimaNix reads your TOML configuration, uses Lima to run the VM, and configures its Linux system with NixOS.
 You do not need to know Nix or install Lima or Nix separately on macOS.
 
 In these guides, **Mac** means your host terminal; **VM** means the Linux guest shell opened by `limanix shell`.
@@ -12,10 +12,10 @@ Keep your editor and project files on the Mac, and run Linux tools inside the VM
 The current client build requires **macOS 26 or newer** and `ssh` in the Mac's `PATH`.
 Download the binary for your Mac from [Client releases](https://github.com/limanix/client/releases):
 
-| Mac | Binary | Guest architecture for this guide |
-| --- | --- | --- |
-| Apple Silicon | `limanix-arm64` | `arm64` |
-| Intel | `limanix-amd64` | `amd64` |
+| Mac           | Binary          | Guest architecture for this guide |
+|---------------|-----------------|-----------------------------------|
+| Apple Silicon | `limanix-arm64` | `arm64`                           |
+| Intel         | `limanix-amd64` | `amd64`                           |
 
 VM operations reject an Intel client running through Rosetta on Apple Silicon.
 Use the native client even when you need a guest with another architecture.
@@ -39,7 +39,21 @@ For a source build, or if no release binary is available, follow [Build a native
 
 This guide uses a guest architecture matching your Mac, which requires no QEMU or `limanix network setup`.
 For a different guest architecture, follow [Choose the guest architecture](networking.md#choose-the-guest-architecture) before creating the VM.
-Run Limanix as your normal Mac user, without `sudo`.
+Run LimaNix as your normal Mac user, without `sudo`.
+
+## Know where your files live
+
+This guide uses three kinds of storage:
+
+| Place         | Where the files are                                                                    | After `limanix delete`                      |
+|---------------|----------------------------------------------------------------------------------------|---------------------------------------------|
+| Guest disk    | Inside the VM, outside shared directories; holds NixOS and data written outside mounts | Removed                                     |
+| Managed home  | On the Mac beneath `~/.limanix`; appears at `/home/dev` inside the VM                  | Kept by default; `--remove-home` removes it |
+| Project mount | A Mac directory that appears at `/workspace` after you add the mount                   | Kept on the Mac                             |
+
+The managed home and project mount share files with the Mac; edits or deletions inside the VM affect those files on the Mac.
+The first configuration has no project mount; you add one later.
+The [storage guide](virtual-machines.md#storage-and-data) explains what to preserve before deleting a VM.
 
 ## Save a configuration
 
@@ -53,21 +67,48 @@ cd limanix-demo
 Save this as `limanix.toml`.
 It targets Apple Silicon, creates a development user, and selects no optional modules or project mounts:
 
-```{literalinclude} examples/minimal.toml
-:language: toml
+```toml
+schema_version = 1
+name = "dev-box"
+mounts = []
+env = {}
+
+[user]
+name = "dev"
+home = "/home/dev"
+sudo = true
+
+[resources]
+arch = "arm64"
+cpu = 2
+mem = "4GiB"
+disk = "16GiB"
+
+[home]
+root = "~/.limanix"
+
+[nixos]
+modules = []
+
+[network]
+mode = "shared"
+
+[network.ports]
+tcp = []
+udp = []
 ```
 
-You can also {download}`download the file <examples/minimal.toml>`.
+You can also [open or download the TOML file](examples/minimal.toml).
 On **Intel**, change `arch` to `"amd64"`.
 
-| Setting | Effect |
-| --- | --- |
-| `name = "dev-box"` | Name used by lifecycle and shell commands |
-| `cpu`, `mem`, `disk` | VM resources; `GiB` is the required memory and disk unit |
-| `user` | Your Linux account; this example permits passwordless sudo inside the VM |
-| `home.root` | Host directory beneath which Limanix creates this VM's managed home |
-| `mounts = []` | No extra project directories are shared |
-| `env = {}` | No extra environment variables |
+| Setting                     | Effect                                                                     |
+|-----------------------------|----------------------------------------------------------------------------|
+| `name = "dev-box"`          | Name used by lifecycle and shell commands                                  |
+| `cpu`, `mem`, `disk`        | VM resources; `GiB` is the required memory and disk unit                   |
+| `user`                      | Your Linux account; this example permits passwordless sudo inside the VM   |
+| `home.root`                 | Host directory beneath which Limanix creates this VM's managed home        |
+| `mounts = []`               | No extra project directories are shared                                    |
+| `env = {}`                  | No extra environment variables                                             |
 | Empty module and port lists | Base guest system with no optional modules or additional firewall openings |
 
 The managed home is still shared even with `mounts = []`.
@@ -115,10 +156,9 @@ limanix modules list
 ```
 
 Select entries from that list.
-For a catalog containing Git and Node.js, replace the existing module list in `limanix.toml`:
+If it contains Git and Node.js, replace only the `modules = []` line under the existing `[nixos]` table in `limanix.toml` with:
 
 ```toml
-[nixos]
 modules = ["lmx:git", "lmx:nodejs"]
 ```
 

@@ -4,10 +4,10 @@ Use the module commands on your **Mac** to list the catalog and manage imported 
 Select modules in `limanix.toml` and apply them when you create or update a VM.
 Each selected module adds to the client's base NixOS configuration.
 
-| Selector | Source | How it becomes available |
-| --- | --- | --- |
+| Selector                         | Source                                     | How it becomes available                  |
+|----------------------------------|--------------------------------------------|-------------------------------------------|
 | `lmx:NAME` or `lmx:NAME-VERSION` | The catalog embedded in your client binary | Install a client containing that selector |
-| `third-party:NAME` | A local directory in your module registry | Run `limanix modules add NAME DIRECTORY` |
+| `third-party:NAME`               | A local directory in your module registry  | Run `limanix modules add NAME DIRECTORY`  |
 
 For available tools and version behavior, see [Catalog](https://limanix.dev/categories/nixos/catalog.html).
 To write Nix code, start with [Write a module](https://limanix.dev/categories/nixos/writing-modules.html).
@@ -22,12 +22,12 @@ limanix modules list --json
 Listing reads the bundled catalog and local registry; it does not download a new catalog or evaluate Nix code.
 The JSON output is an array with these fields:
 
-| Field | Value |
-| --- | --- |
-| `name` | Full selector, such as `lmx:git` or `third-party:my-tools` |
-| `source` | `lmx` or `third-party` |
-| `description` | Catalog description or `Locally imported NixOS module` |
-| `error` | `null` when the entry passes registry checks, or a diagnostic string for an invalid import |
+| Field         | Value                                                                                      |
+|---------------|--------------------------------------------------------------------------------------------|
+| `name`        | Full selector, such as `lmx:git` or `third-party:my-tools`                                 |
+| `source`      | `lmx` or `third-party`                                                                     |
+| `description` | Catalog description or `Locally imported NixOS module`                                     |
+| `error`       | `null` when the entry passes registry checks, or a diagnostic string for an invalid import |
 
 The `error` field is always present.
 A damaged import can be reported alongside healthy entries without failing the whole listing.
@@ -42,7 +42,7 @@ modules = ["lmx:git", "third-party:my-tools"]
 ```
 
 Only select `third-party:my-tools` after importing it as described below.
-An empty list, `modules = []`, selects no optional modules; the Limanix base system remains.
+An empty list, `modules = []`, selects no optional modules; the LimaNix base system remains.
 Repeated selectors are accepted.
 
 Apply a changed selection with `limanix update --config limanix.toml`, or use `limanix create --config limanix.toml` for a new VM.
@@ -72,11 +72,11 @@ Syntax errors, missing packages, or conflicting options surface when the guest c
 
 Use the unqualified name with `add` and `remove`: `my-tools`, not `third-party:my-tools`.
 
-| Rule | Examples |
-| --- | --- |
-| Start with a lowercase letter | `tools2` is valid; `2tools` is not |
+| Rule                                                             | Examples                                                                      |
+|------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| Start with a lowercase letter                                    | `tools2` is valid; `2tools` is not                                            |
 | Use lowercase letters, digits, and single hyphens between groups | `my-tools` is valid; `MyTools`, `my_tools`, `my--tools`, and `tools-` are not |
-| Use at most 63 characters | The limit applies to the name without `third-party:` |
+| Use at most 63 characters                                        | The limit applies to the name without `third-party:`                          |
 
 ### Keep imports self-contained
 
@@ -101,14 +101,14 @@ flowchart TD
     VM -->|"guest build"| System["Applied NixOS system"]
 ```
 
-| Action | Result |
-| --- | --- |
-| Edit or delete the original directory | The imported copy and existing VMs stay unchanged |
-| Import under another name | A separate registry entry becomes available |
-| Remove an imported entry | Existing VM snapshots remain; future creates and updates cannot select the missing entry |
-| Reimport changed files and update a VM | That VM receives a new copy of the module |
+| Action                                 | Result                                                                                   |
+|----------------------------------------|------------------------------------------------------------------------------------------|
+| Edit or delete the original directory  | The imported copy and existing VMs stay unchanged                                        |
+| Import under another name              | A separate registry entry becomes available                                              |
+| Remove an imported entry               | Existing VM snapshots remain; future creates and updates cannot select the missing entry |
+| Reimport changed files and update a VM | That VM receives a new copy of the module                                                |
 
-The registry belongs to the selected [Limanix state directory](troubleshooting.md#state-directories).
+The registry belongs to the selected [LimaNix state directory](troubleshooting.md#state-directories).
 An import made with one `LIMANIX_HOME` is not available when using another.
 
 ## Replace an imported module

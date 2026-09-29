@@ -14,16 +14,16 @@ Keep the VM name, both status fields, and the error text together when investiga
 
 ## Creation fails before the VM starts
 
-| Diagnostic | What to do |
-| --- | --- |
-| `required flag --config was not provided` | Pass the file explicitly: `limanix create --config limanix.toml`. |
-| Invalid TOML, unsupported schema, or unknown field | Fix the field identified in the error. See [Configuration](configuration.md). |
-| A host mount directory cannot be found | Create the intended source directory or correct its path. Relative sources are resolved against the TOML file's directory. |
-| `set home.root to a writable directory` | Choose a host directory your normal Mac account can write to. |
-| `run Limanix as your regular host user, not root` | Run `create` or `update` without `sudo`. |
-| `VM '…' already has state; use update or delete` | Inspect `list`. Use `update` to retry an existing VM; use `delete` only when you intend to remove it. |
-| A module cannot be found | Compare the selection with `limanix modules list`. Import local modules before selecting them. See [Modules](modules.md). |
-| `SSH socket path needs … bytes` | Use a shorter VM name or a shorter Lima storage root. Changing a root does not relocate existing instances. |
+| Diagnostic                                         | What to do                                                                                                                 |
+|----------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| `required flag --config was not provided`          | Pass the file explicitly: `limanix create --config limanix.toml`.                                                          |
+| Invalid TOML, unsupported schema, or unknown field | Fix the field identified in the error. See [Configuration](configuration.md).                                              |
+| A host mount directory cannot be found             | Create the intended source directory or correct its path. Relative sources are resolved against the TOML file's directory. |
+| `set home.root to a writable directory`            | Choose a host directory your normal Mac account can write to.                                                              |
+| `run Limanix as your regular host user, not root`  | Run `create` or `update` without `sudo`.                                                                                   |
+| `VM '…' already has state; use update or delete`   | Inspect `list`. Use `update` to retry an existing VM; use `delete` only when you intend to remove it.                      |
+| A module cannot be found                           | Compare the selection with `limanix modules list`. Import local modules before selecting them. See [Modules](modules.md).  |
+| `SSH socket path needs … bytes`                    | Use a shorter VM name or a shorter Lima storage root. Changing a root does not relocate existing instances.                |
 
 `first-config` writes an editable example, including example mount paths.
 Check those paths before creating the VM.
@@ -50,12 +50,13 @@ After a failed configuration operation, follow the next section.
 
 A failed operation may leave a VM and managed home for recovery, but completed changes are not automatically undone.
 
-| Failure point | What may have happened |
-| --- | --- |
-| Input validation or preparation | Guest application has not started. A rejected update can leave the previous operation state unchanged. |
-| Stopping or editing the backend | The VM may already be stopped or have new Lima settings. |
-| NixOS evaluation or build | New environment files have already been installed. The failed build does not trigger Limanix's post-build restart. |
-| Restart or development-user check | The NixOS build may have succeeded, but the complete operation has not been marked ready. |
+| Failure point                             | What may have happened                                                                                                                                                                  |
+|-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `create`: input validation or preparation | The new VM has not started.                                                                                                                                                             |
+| `update`: input validation or preparation | The existing VM has not yet been stopped for this update. If it was running, its applications may still be running. A rejected update can leave the previous operation state unchanged. |
+| `update`: stopping or editing the backend | The VM may already be stopped or have new Lima settings.                                                                                                                                |
+| NixOS evaluation or build                 | New environment files have already been installed. The failed build does not trigger Limanix's post-build restart.                                                                      |
+| Restart or development-user check         | The NixOS build may have succeeded, but the complete operation has not been marked ready.                                                                                               |
 
 If the backend exists and both saved records are valid:
 
@@ -77,12 +78,12 @@ It starts the saved VM without applying your corrected TOML file or resetting an
 
 ## An update is rejected
 
-| Diagnostic | Meaning and next step |
-| --- | --- |
-| `an update cannot change architecture, username, or managed-home paths` | These are fixed at creation. Revert that change or create a different VM and migrate the files you need. |
-| `shrinking the guest disk is not supported` | Set the requested disk to at least the actual allocated size. A failed earlier update may already have enlarged it. |
-| `lima did not report the disk size; update was not started` | Limanix cannot validate disk safety. Inspect the backend diagnostic before attempting another update. |
-| `another operation is running for VM` | Another process holds that VM's operation lock. Let it complete or cancel it from its original terminal. |
+| Diagnostic                                                              | Meaning and next step                                                                                               |
+|-------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| `an update cannot change architecture, username, or managed-home paths` | These are fixed at creation. Revert that change or create a different VM and migrate the files you need.            |
+| `shrinking the guest disk is not supported`                             | Set the requested disk to at least the actual allocated size. A failed earlier update may already have enlarged it. |
+| `lima did not report the disk size; update was not started`             | Limanix cannot validate disk safety. Inspect the backend diagnostic before attempting another update.               |
+| `another operation is running for VM`                                   | Another process holds that VM's operation lock. Let it complete or cancel it from its original terminal.            |
 
 The immutable home settings are `home.root` and `user.home`.
 See [Virtual machines](virtual-machines.md#apply-a-configuration-change) for the settings that can change in place.
@@ -97,7 +98,7 @@ This is a listing result; the command does not rewrite the saved record or roll 
 - If cancellation reports `cannot confirm guest rebuild stopped`, guest build work may still be running.
   Keep the service name from the error for investigation.
 
-Limanix uses operating-system file locks, released when their owning process exits.
+LimaNix uses operating-system file locks, released when their owning process exits.
 The presence of a `.lock` file does not mean an operation is still running.
 Do not remove lock files to bypass a live lock.
 
@@ -121,7 +122,7 @@ Read [Virtual machines](virtual-machines.md#storage-and-data) before deleting or
 
 ## A saved record is corrupt
 
-Limanix reads VM ownership separately from the mutable operation record.
+LimaNix reads VM ownership separately from the mutable operation record.
 When `instance.json` is damaged but `identity.json` is still valid, listing can still show the backend and home; start, stop, and delete use that identity independently.
 `update` needs a valid operation record and cannot repair arbitrary corrupt JSON.
 
@@ -149,18 +150,18 @@ Limanix/
 └── runtime/
 ```
 
-| Record | Purpose |
-| --- | --- |
-| `identity.json` | Exact backend identity and owned home. |
-| `instance.json` | Selected input generation and operation result. |
-| `homes/` | Ownership records for preserved homes; their files remain at the original host paths. |
-| `generations/` | Prepared inputs; successful updates remove older generations. |
+| Record          | Purpose                                                                               |
+|-----------------|---------------------------------------------------------------------------------------|
+| `identity.json` | Exact backend identity and owned home.                                                |
+| `instance.json` | Selected input generation and operation result.                                       |
+| `homes/`        | Ownership records for preserved homes; their files remain at the original host paths. |
+| `generations/`  | Prepared inputs; successful updates remove older generations.                         |
 
 Do not edit or remove ownership records to bypass an error.
-Limanix uses them to identify the backend and managed home it may operate on.
+LimaNix uses them to identify the backend and managed home it may operate on.
 Generations are generated inputs, not a rollback history; edit the source TOML or module files and run `update`.
 
-`LIMANIX_HOME` overrides the Limanix state root.
+`LIMANIX_HOME` overrides the LimaNix state root.
 Lima keeps backend instances separately under `~/.lima`, or `LIMA_HOME` when set.
 Neither override moves existing VMs or homes.
 Use the same environment when operating existing VMs; changing a root changes the state the client can see.

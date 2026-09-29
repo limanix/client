@@ -1,13 +1,14 @@
 # Reference
 
-Use the references for exact commands and configuration fields:
+The reference pages contain exact commands and configuration fields in the built documentation.
+In GitHub's source view, they point to handwritten guides and the installed client's help.
 
-| Page | Contents |
-| --- | --- |
-| [CLI reference](reference/cli.md) | Commands, arguments, flags, and help text |
+| Page                                                  | Contents                                               |
+|-------------------------------------------------------|--------------------------------------------------------|
+| [CLI reference](reference/cli.md)                     | Commands, arguments, flags, and help text              |
 | [Configuration reference](reference/configuration.md) | Field types, defaults, and a downloadable TOML example |
 
-Both are generated from the client's command definitions and configuration model.
+Their detailed content is generated from the client's command definitions and configuration model.
 For preparation commands, see [Development](development.md#maintain-the-documentation).
 
 ## Help for the installed client
