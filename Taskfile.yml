@@ -7,7 +7,9 @@ includes:
     internal: false
 
 vars:
+  RELEASE_TAG: '{{.RELEASE_TAG | default ""}}'
   macos_version: '26.0'
+
   socket_vmnet:
     map:
       version: '1.2.2'
@@ -18,17 +20,18 @@ vars:
         amd64:
           sha256: 2968a82c97e692c2d36f87230152e8018e00589c1b598e8257775adfe83800a1
           size: 20212
+
   build_flags: >-
     -X 'github.com/mr-chelyshkin/limanix/internal/buildinfo.MinimumMacOSVersion={{.macos_version}}'
     -X 'github.com/mr-chelyshkin/limanix/internal/bundle.SocketVMNetVersion={{.socket_vmnet.version}}'
     -X 'github.com/mr-chelyshkin/limanix/internal/bundle.socketVMNetArchives={{.socket_vmnet.archives | toJson}}'
 
+  release_flags: >-
+    {{if .RELEASE_TAG}}-X github.com/mr-chelyshkin/limanix/internal/buildinfo.Version={{.RELEASE_TAG}}{{end}}
+
 tasks:
   docs/prepare:
     desc: Build docs for the LimaNix site
-    vars:
-      release_flags: &release_flags >-
-        {{if .RELEASE_TAG}}-X github.com/mr-chelyshkin/limanix/internal/buildinfo.Version={{.RELEASE_TAG}}{{end}}
     cmds:
       - task: golang:_go/tool
         vars:
@@ -37,31 +40,29 @@ tasks:
             ./cmd/build-docs --root .
           CONTAINER_ENVS: USER=limanix
 
-  ci/fmt:
+  ci/golang-fmt:
     desc: Run Go fmt check
     cmds:
       - task: golang:gofumpt
         vars:
           FMT_ARGS: '-l cmd internal'
 
-  ci/lint:
+  ci/golang-lint:
     desc: Run Go lint
     cmds:
       - task: golang:golangci
 
-  ci/vuln:
+  ci/golang-vuln:
     desc: Run Go vuln check
     cmds:
       - task: golang:govulncheck
         vars:
           VULN_ARGS: './... github.com/lima-vm/lima/v2/cmd/lima-guestagent'
 
-  ci/test:
+  ci/golang-test:
     desc: Run Go tests
-    preconditions:
-      - &modules_version_required
-        sh: test -n {{.modules_version | default "" | shellQuote}}
-        msg: 'modules_version is required; pass it explicitly as modules_version=vN.'
+    requires:
+      vars: [modules_version]
     cmds:
       - task: golang:_go/tool
         vars:
@@ -81,8 +82,9 @@ tasks:
     desc: Build client binaries
     vars:
       target_archs: '{{.TARGET_ARCH | default "amd64 arm64"}}'
+    requires:
+      vars: [modules_version]
     preconditions:
-      - *modules_version_required
       - sh: test "$(uname -s)" = Darwin
         msg: Native builds require macOS.
       - sh: xcrun --find clang >/dev/null && xcrun --find vtool >/dev/null && command -v codesign >/dev/null
@@ -101,7 +103,6 @@ tasks:
     internal: true
     vars:
       binary: 'bin/limanix-{{.TARGET_ARCH}}'
-      release_flags: *release_flags
       lima_module: github.com/lima-vm/lima/v2
       lima_version:
         sh: go list -mod=readonly -m -f '{{`{{.Version}}`}}' {{.lima_module | shellQuote}}
