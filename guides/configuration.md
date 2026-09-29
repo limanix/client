@@ -181,7 +181,8 @@ LimaNix creates its managed home separately.
 
 ### Choose guest destinations
 
-Guest paths must be absolute, cannot be `/`, and cannot contain whitespace or `..` path components.
+Guest paths must be absolute and cannot be `/`.
+They cannot contain whitespace or `:`, and cannot include `..` path components.
 Paths must start with a single `/`; repeated slashes elsewhere and `.` components are normalized.
 
 Explicit mounts cannot overlap each other: `/workspace` and `/workspace/cache` are rejected as two separate mount targets.
