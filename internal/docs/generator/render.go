@@ -9,13 +9,11 @@ import (
 	"github.com/mr-chelyshkin/limanix/internal/config"
 )
 
-// document is one generated file, addressed relative to the repository root.
 type document struct {
 	path    string
 	content []byte
 }
 
-// render derives all documents from the runtime models without writing files.
 func render() ([]document, error) {
 	example, err := config.RenderExample()
 	if err != nil {
@@ -36,19 +34,19 @@ func render() ([]document, error) {
 
 	return []document{
 		{
-			path:    "docs/_generated/limanix.example.toml",
+			path:    "build/docs/generated/limanix.example.toml",
 			content: example,
 		},
 		{
-			path:    "docs/_generated/configuration.md",
+			path:    "build/docs/generated/configuration.md",
 			content: []byte(configuration),
 		},
 		{
-			path:    "docs/_generated/cli.md",
+			path:    "build/docs/generated/cli.md",
 			content: []byte(cli.Reference()),
 		},
 		{
-			path:    "docs/_generated/metadata.json",
+			path:    "build/docs/generated/metadata.json",
 			content: append(metadata, '\n'),
 		},
 	}, nil

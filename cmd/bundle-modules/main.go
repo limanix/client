@@ -1,6 +1,6 @@
 // bundle-modules prepares the standard NixOS modules embedded in Limanix.
 //
-// It downloads the limanix/modules tag selected by Taskfile. The nixos package embeds the archive in Limanix,
+// It downloads the requested limanix/modules tag. The nixos package embeds the archive in Limanix,
 // making its modules available for VM configuration when needed.
 //
 // The --version flag selects the exact Git tag; --root selects the repository.

@@ -109,6 +109,7 @@ func TestSemanticBoundaries(t *testing.T) {
 		{"[user]\nhome='home/dev'", "user.home"},
 		{"[user]\nhome='/home/../dev'", "user.home"},
 		{"[user]\nhome='/home'", "user.home"},
+		{"[user]\nhome='/home/dev:work'", "user.home"},
 		{"[home]\nroot=''", "home.root"},
 		{"[home]\nroot='/'", "home.root"},
 		{"[home]\nroot='/opt/..'", "home.root"},
@@ -121,6 +122,7 @@ func TestSemanticBoundaries(t *testing.T) {
 		{"[[mounts]]\nsource=''\ntarget='/workspace'", "mounts[0].source"},
 		{"[[mounts]]\nsource='./project'\ntarget='./workspace'", "mounts[0].target"},
 		{"[[mounts]]\nsource='./project'\ntarget='/workspace/../etc'", "mounts[0].target"},
+		{"[[mounts]]\nsource='./project'\ntarget='/workspace:foo'", "mounts[0].target"},
 		{"[[mounts]]\nsource='./project'\ntarget='/workspace'\nmode='write'", "mounts[0].mode"},
 	}
 	for _, tt := range tests {

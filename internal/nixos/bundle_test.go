@@ -74,12 +74,16 @@ func TestEmbeddedModulesAndPinnedBaseCopied(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	originalLock, err := resources.ReadFile("resources/base/flake.lock")
+	sourceCatalog, err := systemCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, originalLock, err := renderFlake(sourceCatalog)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(lock) != string(originalLock) || strings.Contains(string(lock), "runtimeSpec") {
-		t.Fatal("base flake lock differs from pinned contract")
+		t.Fatal("guest flake lock differs from the embedded catalog and platform")
 	}
 	var pinned baseFlakeLock
 	if err := json.Unmarshal(lock, &pinned); err != nil {

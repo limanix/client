@@ -1,0 +1,101 @@
+name: Publish release
+
+on:
+  workflow_call:
+    inputs:
+      commit-sha:
+        description: Client source commit SHA.
+        required: true
+        type: string
+      release-tag:
+        description: Client tag to publish.
+        required: true
+        type: string
+      modules-tag:
+        description: Verified module catalog tag.
+        required: true
+        type: string
+    secrets:
+      RELEASE_APP_PRIVATE_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/_build.yml
+    with:
+      artifact-name: limanix-bin-${{ inputs.release-tag }}
+      release-tag: ${{ inputs.release-tag }}
+      modules-tag: ${{ inputs.modules-tag }}
+      commit-sha: ${{ inputs.commit-sha }}
+
+  docs:
+    name: Prepare docs
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit-sha }}
+          persist-credentials: false
+      - name: Prepare doc sources
+        uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        env:
+          RELEASE_TAG: ${{ inputs.release-tag }}
+        with:
+          command: docs/prepare RELEASE_TAG="$RELEASE_TAG"
+      - name: Package docs
+        run: tar -czf build/docs.tar.gz -C build/docs .
+      - name: Upload docs
+        uses: actions/upload-artifact@v7
+        with:
+          name: client-docs-${{ inputs.release-tag }}
+          path: build/docs.tar.gz
+          if-no-files-found: error
+          overwrite: true
+
+  publish:
+    name: Create GitHub release
+    needs: [build, docs]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ${{ needs.build.outputs.artifact-name }}-*
+          merge-multiple: true
+          path: bin
+      - name: Download docs archive
+        uses: actions/download-artifact@v8
+        with:
+          name: client-docs-${{ inputs.release-tag }}
+          path: build
+      - name: Create release token
+        id: release-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: limanix
+          repositories: client
+          permission-contents: write
+          permission-workflows: write
+      - name: Publish release
+        uses: softprops/action-gh-release@v3
+        with:
+          token: ${{ steps.release-token.outputs.token }}
+          tag_name: ${{ inputs.release-tag }}
+          target_commitish: ${{ inputs.commit-sha }}
+          name: ${{ inputs.release-tag }}
+          body: |
+            Client source: `${{ inputs.commit-sha }}`
+            Module catalog: [${{ inputs.modules-tag }}](https://github.com/limanix/modules/releases/tag/${{ inputs.modules-tag }})
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          make_latest: legacy
+          files: |
+            bin/*
+            build/docs.tar.gz

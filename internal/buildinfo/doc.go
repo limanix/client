@@ -3,7 +3,7 @@
 // [Version] has a source default for development builds. The release build replaces it with the requested tag
 // through Go's linker -X flag; there is no runtime Git lookup.
 //
-// The CLI reads it for limanix --version; docsgen writes it into docs/_generated/metadata.json.
+// The CLI reads it for limanix --version; build-docs writes it into build/docs/generated/metadata.json.
 //
 // [MinimumMacOSVersion] is linked from Taskfile's macos_version, the same input used for the native deployment target.
 // [MinimumMacOS] validates it for host checks and embedded-helper validation. There is no independent source default.

@@ -1,10 +1,7 @@
-// docsgen prepares generated content for the Limanix documentation site.
+// build-docs assembles the documentation source tree used by the LimaNix docs site and client release.
 //
-// It writes CLI and configuration references, a TOML example, and release metadata
-// to docs/_generated using the runtime command definitions and models.
-//
-// The documentation repository consumes these files when building the site.
-// The --root flag selects the directory under which docs/_generated is created.
+// Run this command through task docs/prepare.
+// The --root flag selects the repository directory.
 package main
 
 import (
@@ -20,19 +17,18 @@ import (
 	"github.com/mr-chelyshkin/limanix/internal/docs/generator"
 )
 
-// options holds the command's repository selection.
 type options struct {
 	root string
 }
 
 func parseOptions(args []string, diagnostics io.Writer) (options, error) {
 	var (
-		flags = flag.NewFlagSet("docsgen", flag.ContinueOnError)
+		flags = flag.NewFlagSet("build-docs", flag.ContinueOnError)
 		opts  options
 	)
 
 	flags.SetOutput(diagnostics)
-	flags.StringVar(&opts.root, "root", ".", "Root directory for docs/_generated output.")
+	flags.StringVar(&opts.root, "root", ".", "Repository root containing guides/ and the build/docs output.")
 
 	if err := flags.Parse(args); err != nil {
 		return options{}, err
@@ -56,7 +52,7 @@ func run(ctx context.Context, args []string, diagnostics io.Writer) int {
 	}
 
 	if err = generator.Generate(ctx, opts.root, diagnostics); err != nil {
-		_, _ = fmt.Fprintln(diagnostics, "docsgen:", err)
+		_, _ = fmt.Fprintln(diagnostics, "build-docs:", err)
 		return 1
 	}
 	return 0

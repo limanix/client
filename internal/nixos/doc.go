@@ -14,12 +14,13 @@
 //	├─ environment                systemd-compatible runtime assignments
 //	└─ environment.sh             login-shell exports
 //
-// Base flake files and their lock file are embedded in the executable and copied into each generation.
-// [BaseImage] derives the first-boot disk URL from the same locked nixos-lima release. Image digests live in image.go;
+// The catalog supplies the guest's nixpkgs pin. The client owns the flake templates, platform modules and locked
+// nixos-lima dependency graph. Prepare combines these embedded sources into a complete flake and lock file.
+// [BaseImage] derives the first-boot disk URL from the platform lock template. Image digests live in image.go;
 // changing that dependency requires reviewing the partition and boot configuration in resources/base/platform.nix.
 //
 // Standard modules come from the limanix-modules release selected in Taskfile, not Go declarations.
-// cmd/bundle-modules packages their trees and module.toml metadata as resources/modules.zip before compilation.
+// cmd/bundle-modules packages their trees, module.toml metadata and root flake.lock as resources/modules.zip before compilation.
 // The executable reads this archive in memory; no catalog is downloaded or installed at runtime.
 //
 //	Taskfile tag → limanix-modules archive → bundle-modules → embedded modules.zip
@@ -29,7 +30,7 @@
 // Each selected module becomes a separate snapshot with a generated import path. Explicit versions select
 // versions/<version>.nix from that tree; names without a version retain default.nix.
 // [SystemModules] returns an independent metadata map for the registry. An empty selection adds no optional modules;
-// base files are still copied.
+// the catalog's nixpkgs pin and the client's base still apply.
 //
 // # Runtime environment and failure contract
 //

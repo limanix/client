@@ -24,7 +24,7 @@ type baseFlakeLock struct {
 
 // BaseImage selects the disk matching the pinned nixos-lima input and guest architecture.
 //
-// Updating this dependency is not a Taskfile version bump: change the input in resources/base/flake.nix, regenerate its flake.lock and update both digests here.
+// Updating this dependency requires changing the nixos-lima input in resources/flake.nix.tmpl, its locked graph in resources/flake.lock.tmpl and both digests here.
 // Review resources/base/platform.nix against the new image's partition layout, bootloader and NixOS compatibility, then verify first boot, update and disk growth.
 func BaseImage(architecture domain.Architecture) (Image, error) {
 	arch, err := architecture.LimaArch()
@@ -49,7 +49,7 @@ func BaseImage(architecture domain.Architecture) (Image, error) {
 }
 
 func baseImageRelease() (string, error) {
-	data, err := resources.ReadFile("resources/base/flake.lock")
+	data, err := resources.ReadFile("resources/flake.lock.tmpl")
 	if err != nil {
 		return "", err
 	}

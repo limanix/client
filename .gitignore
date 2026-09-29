@@ -7,15 +7,12 @@
 /build/
 /bin/
 
-# Generated documentation references
-/docs/_generated/
-
 # Packaged Lima guest agents and socket_vmnet release archives
 /internal/bundle/resources/*.gz
 /internal/bundle/resources/manifest.json
 /internal/bundle/resources/.bundle-guestagent-*/
 
-# Standard NixOS catalog downloaded by bundle-modules
+# NixOS catalog downloaded by bundle-modules
 /internal/nixos/resources/modules.zip
 
 # OS files

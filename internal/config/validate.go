@@ -84,6 +84,9 @@ func checkedGuestTarget(value domain.GuestPath, field string) (string, error) {
 	if err != nil {
 		return "", wrapField(field, err.Error(), err)
 	}
+	if strings.ContainsRune(string(normalized), ':') {
+		return "", fieldError(field, "guest mount paths cannot contain ':'")
+	}
 
 	var (
 		target   = string(normalized)

@@ -4,11 +4,53 @@ on:
   push:
     tags: ['v*', '!v*\+*']
 
+concurrency:
+  group: release
+  queue: max
+
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  modules:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ fromJSON(steps.tags.outputs.tags)[0].tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: limanix/modules
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: mr-chelyshkin/actions/get-tags@v1
+        id: tags
+        with:
+          repository: limanix/modules
+          pattern: '^v[1-9][0-9]*$'
+          require-release: 'true'
+          count: '1'
+      - name: Report
+        env:
+          MODULES_TAG: ${{ fromJSON(steps.tags.outputs.tags)[0].tag }}
+        run: |
+          test -n "$MODULES_TAG"
+          printf '## Metadata\n\nModules release: [%s](https://github.com/limanix/modules/releases/tag/%s)\n' "$MODULES_TAG" "$MODULES_TAG" >> "$GITHUB_STEP_SUMMARY"
+
   release:
-    uses: ./.github/workflows/_release.yml
+    needs: modules
+    uses: ./.github/workflows/_publish.yml
+    with:
+      commit-sha: ${{ github.sha }}
+      release-tag: ${{ github.ref_name }}
+      modules-tag: ${{ needs.modules.outputs.tag }}
+    secrets:
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+  notify:
+    needs: [modules, release]
+    uses: ./.github/workflows/_notify.yml
+    with:
+      modules-tag: ${{ needs.modules.outputs.tag }}
+      clients: '[{"tag": "${{ github.ref_name }}"}]'
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

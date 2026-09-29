@@ -29,6 +29,7 @@ func (guest *Guest) buildGeneration(ctx context.Context, name string) error {
 			"/run/current-system/sw/bin/nixos-rebuild", "boot",
 			"--flake", "path:/mnt/limanix/flake#runtime",
 			"--no-write-lock-file",
+			"--no-update-lock-file",
 		}
 	)
 

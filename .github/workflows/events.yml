@@ -1,0 +1,70 @@
+name: Events flow
+
+on:
+  repository_dispatch:
+    types: [modules-release]
+
+concurrency:
+  group: release
+  queue: max
+
+permissions:
+  contents: read
+
+jobs:
+  clients:
+    runs-on: ubuntu-24.04
+    outputs:
+      tags: ${{ steps.versions.outputs.tags }}
+    steps:
+      - name: Check module tag
+        uses: mr-chelyshkin/actions/check-tag-format@v1
+        with:
+          tag: ${{ github.event.client_payload.tag }}
+          pattern: '^v[1-9][0-9]*$'
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select client versions
+        id: tags
+        uses: mr-chelyshkin/actions/get-tags@v1
+        with:
+          pattern: '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(\+[1-9][0-9]*)?$'
+          count: ${{ vars.RELEASE_COUNT }}
+          ignore-build-metadata: 'true'
+          require-release: 'true'
+      - name: Set rebuild tags
+        id: versions
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+        run: |
+          tags=$(jq -c 'map(.tag |= (
+            split("+") | "\(.[0])+\((.[1] // "0" | tonumber) + 1)"
+          ))' <<< "$TAGS")
+          printf 'tags=%s\n' "$tags" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Release ${{ matrix.tag }}
+    needs: clients
+    if: needs.clients.outputs.tags != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.clients.outputs.tags) }}
+    uses: ./.github/workflows/_publish.yml
+    with:
+      commit-sha: ${{ matrix.commit_sha }}
+      release-tag: ${{ matrix.tag }}
+      modules-tag: ${{ github.event.client_payload.tag }}
+    secrets:
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+  notify:
+    needs: [clients, release]
+    uses: ./.github/workflows/_notify.yml
+    with:
+      modules-tag: ${{ github.event.client_payload.tag }}
+      clients: ${{ needs.clients.outputs.tags }}
+    secrets:
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

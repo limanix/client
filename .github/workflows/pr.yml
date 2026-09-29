@@ -6,14 +6,39 @@ on:
     types: [opened, reopened, synchronize]
 
 concurrency:
-  group: pr-validation-${{ github.event.pull_request.number }}
+  group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
+  modules:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ fromJSON(steps.tags.outputs.tags)[0].tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: limanix/modules
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: mr-chelyshkin/actions/get-tags@v1
+        id: tags
+        with:
+          repository: limanix/modules
+          pattern: '^v[1-9][0-9]*$'
+          require-release: 'true'
+          count: '1'
+      - name: Report
+        env:
+          MODULES_TAG: ${{ fromJSON(steps.tags.outputs.tags)[0].tag }}
+        run: |
+          test -n "$MODULES_TAG"
+          printf '## Metadata\n\nModules release: [%s](https://github.com/limanix/modules/releases/tag/%s)\n' "$MODULES_TAG" "$MODULES_TAG" >> "$GITHUB_STEP_SUMMARY"
+
   go:
+    needs: modules
     uses: mr-chelyshkin/actions/.github/workflows/pr-golang.yml@v1
     permissions:
       contents: read
@@ -21,17 +46,19 @@ jobs:
       cache-path: .cache/go
       cache-key-prefix: limanix-go-v1
       cache-dependency-path: '**/go.sum'
+      environment: modules_version=${{ needs.modules.outputs.tag }}
 
-  limanix-build:
-    name: limanix
-    needs: go
-    uses: ./.github/workflows/__build.yml
+  build:
+    needs: [modules, go]
+    uses: ./.github/workflows/_build.yml
     permissions:
       contents: read
+    with:
+      modules-tag: ${{ needs.modules.outputs.tag }}
 
   gate:
     if: always()
-    needs: [go, limanix-build]
+    needs: [modules, go, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: read

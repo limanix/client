@@ -11,7 +11,10 @@ import (
 	"github.com/mr-chelyshkin/limanix/internal/nixos/catalog"
 )
 
-//go:embed resources/base resources/modules.zip
+// Embed the directory so source-derived documentation can compile before bundles are prepared.
+// Application builds prepare modules.zip through Taskfile; systemCatalog validates it when used.
+//
+//go:embed resources
 var resources embed.FS
 
 var systemCatalog = sync.OnceValues(func() (*catalog.Catalog, error) {
