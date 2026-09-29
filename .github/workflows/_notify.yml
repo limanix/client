@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           jq -n --arg modules_tag "$MODULES_TAG" --argjson clients "$CLIENTS" '{
-            event_type: "limanix-client-release",
+            event_type: "client-release",
             client_payload: {releases: [
               $clients[] | {client_tag: .tag, modules_tag: $modules_tag}
             ]}
