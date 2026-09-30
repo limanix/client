@@ -98,7 +98,7 @@ Their release notes name the bundled catalog.
 |----------------------------------------------------------------|------------------------------------------------|
 | Installation and first environment                             | [Getting started](guides/getting-started.md)   |
 | Resources, mounts, users, environment, modules, and networking | [Configuration](guides/configuration.md)       |
-| Catalog selectors and imported modules                         | [Modules](guides/modules.md)                  |
+| Catalog selectors and imported modules                         | [Modules](guides/modules.md)                   |
 | Service ports, guest architecture, and connection checks       | [Networking](guides/networking.md)             |
 | Shell access, updates, status, storage, and deletion           | [Virtual machines](guides/virtual-machines.md) |
 | Failed creation, updates, and connections                      | [Troubleshooting](guides/troubleshooting.md)   |
