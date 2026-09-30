@@ -12,6 +12,10 @@ Each selected module adds to the client's base NixOS configuration.
 For available tools and version behavior, see [Catalog](https://limanix.dev/categories/nixos/catalog.html).
 To write Nix code, start with [Write a module](https://limanix.dev/categories/nixos/writing-modules.html).
 
+Modules read the guest identity through the read-only NixOS options `config.limanix.user.name` and `config.limanix.user.home`.
+Set `limanix.user.shell` in a custom Nix module to choose the login shell.
+The existing `runtime` argument remains available for compatibility.
+
 ## List available modules
 
 ```console
