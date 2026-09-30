@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/buildinfo"
-	"github.com/mr-chelyshkin/limanix/internal/bundle"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/buildinfo"
+	"github.com/limanix/client/internal/bundle"
+	"github.com/limanix/client/internal/filesystem"
 )
 
 // Generate publishes verified upstream archives to the embedded resources directory.

@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // Repository identifies the standard catalog source in download URLs and ZIP comments.

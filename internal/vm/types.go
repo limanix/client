@@ -1,8 +1,8 @@
 package vm
 
 import (
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/lima"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/lima"
 )
 
 // Info combines persisted ownership with live backend status for a CLI listing.

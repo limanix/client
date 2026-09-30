@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // RenderExample renders the public defaults from the same model used by parsing.

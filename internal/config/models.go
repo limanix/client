@@ -1,6 +1,6 @@
 package config
 
-import "github.com/mr-chelyshkin/limanix/internal/domain"
+import "github.com/limanix/client/internal/domain"
 
 // Resources specifies the guest architecture and compute capacity.
 type Resources struct {

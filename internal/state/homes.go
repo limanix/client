@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/filesystem"
 )
 
 // PreserveHome retains ownership after deletion of a VM state directory.

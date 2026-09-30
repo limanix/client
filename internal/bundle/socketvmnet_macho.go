@@ -4,7 +4,7 @@ import (
 	"debug/macho"
 	"fmt"
 
-	"github.com/mr-chelyshkin/limanix/internal/buildinfo"
+	"github.com/limanix/client/internal/buildinfo"
 )
 
 const (

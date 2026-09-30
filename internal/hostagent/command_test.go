@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/lima-vm/lima/v2/pkg/limatype/filenames"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/filesystem"
 )
 
 func TestHostAgentAcceptsOnlyGeneratedOwnedNamesAndPaths(t *testing.T) {

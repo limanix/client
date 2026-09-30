@@ -12,7 +12,7 @@ import (
 	"io/fs"
 	"sync"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // guestArchive is a validated, immutable embedded payload shared by all caches.

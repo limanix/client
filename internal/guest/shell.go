@@ -3,7 +3,7 @@ package guest
 import (
 	"context"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // Shell enters the regular user's home and preserves the command's exit status.

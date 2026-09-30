@@ -10,7 +10,7 @@ import (
 	"github.com/lima-vm/lima/v2/pkg/limatype"
 	"github.com/lima-vm/lima/v2/pkg/limatype/filenames"
 	"github.com/lima-vm/lima/v2/pkg/limayaml"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/filesystem"
 )
 
 // Edit follows Lima's native edit validation before replacing its persistent YAML.

@@ -3,8 +3,8 @@ package cli
 import (
 	"context"
 
-	"github.com/mr-chelyshkin/limanix/internal/lima"
-	"github.com/mr-chelyshkin/limanix/internal/vmnet"
+	"github.com/limanix/client/internal/lima"
+	"github.com/limanix/client/internal/vmnet"
 	"github.com/spf13/cobra"
 )
 

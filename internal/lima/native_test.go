@@ -14,8 +14,8 @@ import (
 	"github.com/lima-vm/lima/v2/pkg/limatype"
 	"github.com/lima-vm/lima/v2/pkg/limatype/filenames"
 	"github.com/lima-vm/lima/v2/pkg/limayaml"
-	"github.com/mr-chelyshkin/limanix/internal/config"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/domain"
 )
 
 func TestFetchAllFiltersBeforeInspection(t *testing.T) {

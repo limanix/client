@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mr-chelyshkin/limanix/internal/nixos/catalog"
+	"github.com/limanix/client/internal/nixos/catalog"
 )
 
 func TestPackRetainsCatalogPinAndMapsSourceDirectory(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/mr-chelyshkin/limanix/internal/cli"
+	"github.com/limanix/client/internal/cli"
 )
 
 func main() {

@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
-	"github.com/mr-chelyshkin/limanix/internal/nixos/catalog"
+	"github.com/limanix/client/internal/filesystem"
+	"github.com/limanix/client/internal/nixos/catalog"
 )
 
 // Generate publishes a validated catalog for the requested Git release tag.

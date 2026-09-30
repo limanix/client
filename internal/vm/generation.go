@@ -7,12 +7,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/config"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
-	"github.com/mr-chelyshkin/limanix/internal/lima"
-	"github.com/mr-chelyshkin/limanix/internal/modules"
-	"github.com/mr-chelyshkin/limanix/internal/nixos"
+	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/filesystem"
+	"github.com/limanix/client/internal/lima"
+	"github.com/limanix/client/internal/modules"
+	"github.com/limanix/client/internal/nixos"
 )
 
 type generationBuilder struct {

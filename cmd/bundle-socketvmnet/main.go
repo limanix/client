@@ -19,7 +19,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/mr-chelyshkin/limanix/internal/bundle/vmnetgen"
+	"github.com/limanix/client/internal/bundle/vmnetgen"
 )
 
 func run(ctx context.Context, args []string, diagnostics io.Writer) int {

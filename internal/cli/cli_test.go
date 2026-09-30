@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr-chelyshkin/limanix/internal/buildinfo"
-	"github.com/mr-chelyshkin/limanix/internal/config"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/lima"
-	"github.com/mr-chelyshkin/limanix/internal/modules"
-	"github.com/mr-chelyshkin/limanix/internal/vm"
+	"github.com/limanix/client/internal/buildinfo"
+	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/lima"
+	"github.com/limanix/client/internal/modules"
+	"github.com/limanix/client/internal/vm"
 )
 
 type managerCall struct {

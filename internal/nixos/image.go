@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // Image identifies the base disk that Lima downloads and verifies before first boot.

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/lima"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/lima"
 )
 
 // Delete controls Lima force and owned-home removal independently.

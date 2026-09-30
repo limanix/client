@@ -4,10 +4,10 @@ import (
 	"context"
 	"io"
 
-	"github.com/mr-chelyshkin/limanix/internal/app"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/modules"
-	"github.com/mr-chelyshkin/limanix/internal/vm"
+	"github.com/limanix/client/internal/app"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/modules"
+	"github.com/limanix/client/internal/vm"
 )
 
 // IO allows commands to inherit the terminal or use explicit streams in tests.

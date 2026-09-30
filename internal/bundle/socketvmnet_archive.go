@@ -11,7 +11,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // DecodeSocketVMNet checks pinned archive bytes before reading any tar contents.

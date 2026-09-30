@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mr-chelyshkin/limanix/internal/config"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/modules"
+	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/modules"
 )
 
 func TestEmbeddedModulesAndPinnedBaseCopied(t *testing.T) {

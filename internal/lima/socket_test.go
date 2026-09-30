@@ -11,8 +11,8 @@ import (
 
 	"github.com/lima-vm/lima/v2/pkg/limatype/filenames"
 	"github.com/lima-vm/lima/v2/pkg/osutil"
-	"github.com/mr-chelyshkin/limanix/internal/config"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/domain"
 )
 
 func TestInstanceSocketByteBoundary(t *testing.T) {

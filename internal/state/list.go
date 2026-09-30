@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/filesystem"
 )
 
 // Entry retains an independently readable identity when a runtime record is damaged.

@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/filesystem"
 )
 
 // Generate copies guides and writes the generated references into root/build/docs.

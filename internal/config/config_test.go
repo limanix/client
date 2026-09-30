@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/filesystem"
 	"golang.org/x/sys/unix"
 )
 

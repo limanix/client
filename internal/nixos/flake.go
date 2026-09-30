@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
-	"github.com/mr-chelyshkin/limanix/internal/nixos/catalog"
+	"github.com/limanix/client/internal/filesystem"
+	"github.com/limanix/client/internal/nixos/catalog"
 )
 
 // writeFlake combines the catalog's nixpkgs pin with the client's platform inputs.

@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // Validate checks domain values and cross-field policy without consulting the module registry.

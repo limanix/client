@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mr-chelyshkin/limanix/internal/bundle"
+	"github.com/limanix/client/internal/bundle"
 )
 
 func download(ctx context.Context, target bundle.SocketVMNetTarget) (data []byte, failure error) {

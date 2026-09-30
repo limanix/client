@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
-	"github.com/mr-chelyshkin/limanix/internal/nixos/catalog"
+	"github.com/limanix/client/internal/filesystem"
+	"github.com/limanix/client/internal/nixos/catalog"
 )
 
 // Embed the directory so source-derived documentation can compile before bundles are prepared.

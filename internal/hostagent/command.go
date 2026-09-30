@@ -1,7 +1,7 @@
 package hostagent
 
 import (
-	"github.com/mr-chelyshkin/limanix/internal/lima"
+	"github.com/limanix/client/internal/lima"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

@@ -4,7 +4,7 @@ import (
 	"maps"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/state"
+	"github.com/limanix/client/internal/state"
 )
 
 // Registry keeps copied third-party source trees separate from their original checkout.

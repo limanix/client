@@ -6,9 +6,9 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/modules"
-	"github.com/mr-chelyshkin/limanix/internal/nixos/catalog"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/modules"
+	"github.com/limanix/client/internal/nixos/catalog"
 )
 
 // SystemModules reads the embedded catalog and returns a copy of its names and descriptions.
