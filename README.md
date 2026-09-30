@@ -5,7 +5,7 @@
 <p align="center">
   <img src=".github/assets/readme-header.png"
        alt="LimaNix"
-       width="800">
+       width="100%">
 </p>
 
 Linux development environments on macOS, configured with TOML and NixOS modules.
