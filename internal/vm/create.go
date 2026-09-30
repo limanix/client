@@ -9,8 +9,8 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/mr-chelyshkin/limanix/internal/config"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/domain"
 )
 
 // Create prepares a generation and home before invoking Lima.

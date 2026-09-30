@@ -22,12 +22,12 @@ vars:
           size: 20212
 
   build_flags: >-
-    -X 'github.com/mr-chelyshkin/limanix/internal/buildinfo.MinimumMacOSVersion={{.macos_version}}'
-    -X 'github.com/mr-chelyshkin/limanix/internal/bundle.SocketVMNetVersion={{.socket_vmnet.version}}'
-    -X 'github.com/mr-chelyshkin/limanix/internal/bundle.socketVMNetArchives={{.socket_vmnet.archives | toJson}}'
+    -X 'github.com/limanix/client/internal/buildinfo.MinimumMacOSVersion={{.macos_version}}'
+    -X 'github.com/limanix/client/internal/bundle.SocketVMNetVersion={{.socket_vmnet.version}}'
+    -X 'github.com/limanix/client/internal/bundle.socketVMNetArchives={{.socket_vmnet.archives | toJson}}'
 
   release_flags: >-
-    {{if .RELEASE_TAG}}-X github.com/mr-chelyshkin/limanix/internal/buildinfo.Version={{.RELEASE_TAG}}{{end}}
+    {{if .RELEASE_TAG}}-X github.com/limanix/client/internal/buildinfo.Version={{.RELEASE_TAG}}{{end}}
 
 tasks:
   docs/prepare:

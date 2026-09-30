@@ -6,8 +6,8 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/mr-chelyshkin/limanix/internal/modules"
-	"github.com/mr-chelyshkin/limanix/internal/vm"
+	"github.com/limanix/client/internal/modules"
+	"github.com/limanix/client/internal/vm"
 )
 
 func writeJSON[T any](writer io.Writer, entries []T) error {

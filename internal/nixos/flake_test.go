@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mr-chelyshkin/limanix/internal/nixos/catalog"
+	"github.com/limanix/client/internal/nixos/catalog"
 )
 
 func TestCatalogPinControlsGuestFlakeAndPreservesPlatform(t *testing.T) {

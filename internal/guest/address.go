@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mr-chelyshkin/limanix/internal/lima"
+	"github.com/limanix/client/internal/lima"
 )
 
 const addressProbeTimeout = 5 * time.Second

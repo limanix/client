@@ -11,9 +11,9 @@ import (
 	"runtime"
 
 	"github.com/lima-vm/lima/v2/pkg/networks"
-	"github.com/mr-chelyshkin/limanix/internal/bundle"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/bundle"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/filesystem"
 )
 
 // Install is the privileged entry point used only by the hidden vmnet-install command.

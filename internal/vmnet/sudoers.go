@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/lima-vm/lima/v2/pkg/networks"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/filesystem"
 )
 
 func checkSudoers(ctx context.Context, cfg networks.Config) error {

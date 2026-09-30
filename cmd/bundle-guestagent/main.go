@@ -17,7 +17,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/mr-chelyshkin/limanix/internal/bundle/generator"
+	"github.com/limanix/client/internal/bundle/generator"
 )
 
 // options holds the command's repository selection.

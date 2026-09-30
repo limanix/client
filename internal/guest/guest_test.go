@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr-chelyshkin/limanix/internal/lima"
+	"github.com/limanix/client/internal/lima"
 )
 
 type call struct {

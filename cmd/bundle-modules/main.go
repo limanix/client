@@ -19,7 +19,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/mr-chelyshkin/limanix/internal/nixos/modulegen"
+	"github.com/limanix/client/internal/nixos/modulegen"
 )
 
 func run(ctx context.Context, args []string, diagnostics io.Writer) int {

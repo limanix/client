@@ -3,7 +3,7 @@ package bundle
 import (
 	"fmt"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // SocketVMNetTarget identifies an immutable upstream release archive.

@@ -14,7 +14,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/mr-chelyshkin/limanix/internal/docs/generator"
+	"github.com/limanix/client/internal/docs/generator"
 )
 
 type options struct {

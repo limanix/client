@@ -3,7 +3,7 @@ package guest
 import (
 	"context"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // Apply installs global ENV before rebuilding; a failed rebuild never reboots.

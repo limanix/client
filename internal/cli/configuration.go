@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/mr-chelyshkin/limanix/internal/config"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/filesystem"
 )
 
 func firstConfigCommand() *cobra.Command {

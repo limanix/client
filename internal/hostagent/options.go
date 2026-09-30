@@ -9,8 +9,8 @@ import (
 	limaagent "github.com/lima-vm/lima/v2/pkg/hostagent"
 	"github.com/lima-vm/lima/v2/pkg/limatype/dirnames"
 	"github.com/lima-vm/lima/v2/pkg/limatype/filenames"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/filesystem"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
 )

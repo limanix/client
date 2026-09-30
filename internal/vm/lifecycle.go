@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/lima"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/lima"
 )
 
 // Start starts the backend independently of the mutable runtime record.

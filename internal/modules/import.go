@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/state"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/state"
 )
 
 // Add copies outside the registry lock, then commits a complete import under an exclusive lock.

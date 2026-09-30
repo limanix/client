@@ -14,9 +14,9 @@ import (
 	"strings"
 
 	"github.com/lima-vm/lima/v2/pkg/networks"
+	"github.com/limanix/client/internal/bundle"
+	"github.com/limanix/client/internal/domain"
 	"github.com/mattn/go-isatty"
-	"github.com/mr-chelyshkin/limanix/internal/bundle"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
 )
 
 // Setup owns the interactive, unprivileged side of one network setup attempt.

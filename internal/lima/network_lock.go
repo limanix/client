@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/lima-vm/lima/v2/pkg/limatype/dirnames"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/filesystem"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )

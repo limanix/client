@@ -12,7 +12,7 @@ import (
 	"io/fs"
 	"strings"
 
-	"github.com/mr-chelyshkin/limanix/internal/nixos/catalog"
+	"github.com/limanix/client/internal/nixos/catalog"
 )
 
 // pack strips GitHub's enclosing directory and retains only the distributable catalog.

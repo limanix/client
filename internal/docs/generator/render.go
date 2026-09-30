@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/mr-chelyshkin/limanix/internal/buildinfo"
-	"github.com/mr-chelyshkin/limanix/internal/cli"
-	"github.com/mr-chelyshkin/limanix/internal/config"
+	"github.com/limanix/client/internal/buildinfo"
+	"github.com/limanix/client/internal/cli"
+	"github.com/limanix/client/internal/config"
 )
 
 type document struct {

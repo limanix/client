@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/state"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/state"
 )
 
 // Remove atomically detaches an imported module under an exclusive lock, then removes its files.

@@ -6,8 +6,8 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/state"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/state"
 )
 
 // Source references an embedded module by ID or a stable imported directory by Path.

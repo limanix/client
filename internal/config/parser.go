@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"unicode/utf8"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 	"github.com/pelletier/go-toml/v2"
 )
 

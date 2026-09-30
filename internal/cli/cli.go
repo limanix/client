@@ -4,8 +4,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/mr-chelyshkin/limanix/internal/buildinfo"
-	"github.com/mr-chelyshkin/limanix/internal/hostagent"
+	"github.com/limanix/client/internal/buildinfo"
+	"github.com/limanix/client/internal/hostagent"
 )
 
 // Command returns the complete CLI tree. It performs no host or VM operations.

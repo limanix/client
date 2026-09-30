@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // SocketVMNetVersion is linked from Taskfile's socket_vmnet.version, together with the archive pins below.

@@ -6,8 +6,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/mr-chelyshkin/limanix/internal/lima"
-	"github.com/mr-chelyshkin/limanix/internal/state"
+	"github.com/limanix/client/internal/lima"
+	"github.com/limanix/client/internal/state"
 )
 
 const addressProbeConcurrency = 4

@@ -6,14 +6,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/guest"
-	"github.com/mr-chelyshkin/limanix/internal/lima"
-	"github.com/mr-chelyshkin/limanix/internal/managedhome"
-	"github.com/mr-chelyshkin/limanix/internal/modules"
-	"github.com/mr-chelyshkin/limanix/internal/nixos"
-	"github.com/mr-chelyshkin/limanix/internal/state"
-	"github.com/mr-chelyshkin/limanix/internal/vm"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/guest"
+	"github.com/limanix/client/internal/lima"
+	"github.com/limanix/client/internal/managedhome"
+	"github.com/limanix/client/internal/modules"
+	"github.com/limanix/client/internal/nixos"
+	"github.com/limanix/client/internal/state"
+	"github.com/limanix/client/internal/vm"
 )
 
 type addressListBackend struct {

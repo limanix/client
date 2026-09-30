@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/state"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/state"
 )
 
 // Info is a catalog row, including an error for a damaged imported module.

@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/lima-vm/lima/v2/pkg/limatype"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // Create writes a checked Limanix-owned instance into Lima's native store.

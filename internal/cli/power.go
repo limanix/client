@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 	"github.com/spf13/cobra"
 )
 

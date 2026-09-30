@@ -1,4 +1,4 @@
-module github.com/mr-chelyshkin/limanix
+module github.com/limanix/client
 
 go 1.27.1
 

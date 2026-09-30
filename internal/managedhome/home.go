@@ -6,8 +6,8 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/filesystem"
 )
 
 // Manager creates and removes host-owned allocations. Its zero value is ready to use.

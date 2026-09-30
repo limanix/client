@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/mr-chelyshkin/limanix/internal/config"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/lima"
+	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/lima"
 )
 
 // Update retains identity, disk, and managed home.

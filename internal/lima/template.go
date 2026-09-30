@@ -8,9 +8,9 @@ import (
 
 	"github.com/lima-vm/lima/v2/pkg/limatype"
 	"github.com/lima-vm/lima/v2/pkg/ptr"
-	"github.com/mr-chelyshkin/limanix/internal/config"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/nixos"
+	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/nixos"
 	"github.com/opencontainers/go-digest"
 )
 

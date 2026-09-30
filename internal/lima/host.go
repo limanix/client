@@ -7,10 +7,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/mr-chelyshkin/limanix/internal/buildinfo"
-	"github.com/mr-chelyshkin/limanix/internal/config"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/vmnet"
+	"github.com/limanix/client/internal/buildinfo"
+	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/vmnet"
 )
 
 // Preflight checks host prerequisites before allocating an instance.

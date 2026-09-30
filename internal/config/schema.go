@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 var byteSizeType = reflect.TypeFor[domain.ByteSize]()

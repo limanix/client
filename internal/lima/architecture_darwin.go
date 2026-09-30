@@ -5,7 +5,7 @@ package lima
 import (
 	"runtime"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 	"golang.org/x/sys/unix"
 )
 

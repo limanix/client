@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mr-chelyshkin/limanix/internal/domain"
-	"github.com/mr-chelyshkin/limanix/internal/filesystem"
-	"github.com/mr-chelyshkin/limanix/internal/state"
+	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/filesystem"
+	"github.com/limanix/client/internal/state"
 	"golang.org/x/sys/unix"
 )
 

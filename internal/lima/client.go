@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/lima-vm/lima/v2/pkg/limatype"
-	"github.com/mr-chelyshkin/limanix/internal/domain"
+	"github.com/limanix/client/internal/domain"
 )
 
 // Client operates Lima's store, drivers and instance lifecycle in-process.
