@@ -49,6 +49,7 @@ func validateSources(sources []modules.Source) error {
 
 func copyModules(flakeDir string, sources []modules.Source) ([]string, error) {
 	imports := make([]string, 0, len(sources))
+	catalogCopied := false
 	if len(sources) > 0 {
 		if err := os.MkdirAll(filepath.Join(flakeDir, "modules"), 0o700); err != nil {
 			return nil, err
@@ -56,31 +57,29 @@ func copyModules(flakeDir string, sources []modules.Source) ([]string, error) {
 	}
 
 	for index, source := range sources {
-		name := fmt.Sprintf("%04d", index)
-		target := filepath.Join(flakeDir, "modules", name)
-		entry, err := copyModule(source, target)
-		if err != nil {
-			return nil, fmt.Errorf("copy module %q: %w", source.ID, err)
+		if source.Path != "" {
+			name := fmt.Sprintf("%04d", index)
+			if _, err := modules.CopyTree(source.Path, filepath.Join(flakeDir, "modules", name)); err != nil {
+				return nil, fmt.Errorf("copy module %q: %w", source.ID, err)
+			}
+			imports = append(imports, path.Join("modules", name, "default.nix"))
+			continue
 		}
 
-		imports = append(imports, path.Join("modules", name, entry))
+		files, err := systemModule(source.ID)
+		if err != nil {
+			return nil, err
+		}
+		if !catalogCopied {
+			if err = copyFiles(files, filepath.Join(flakeDir, "modules", "lmx")); err != nil {
+				return nil, fmt.Errorf("copy catalog: %w", err)
+			}
+			catalogCopied = true
+		}
+		imports = append(imports, path.Join("modules", "lmx", files.EntryPoint))
 	}
 
 	return imports, nil
-}
-
-func copyModule(source modules.Source, target string) (string, error) {
-	if source.Path != "" {
-		_, err := modules.CopyTree(source.Path, target)
-		return "default.nix", err
-	}
-
-	files, err := systemModule(source.ID)
-	if err != nil {
-		return "", err
-	}
-
-	return files.EntryPoint, copyFiles(files, target)
 }
 
 func systemModule(id domain.ModuleID) (catalog.Module, error) {

@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"errors"
+	"io/fs"
 	"testing"
 	"testing/fstest"
 )
@@ -19,9 +20,9 @@ func TestVersionedSelections(t *testing.T) {
 	}
 	catalog := &Catalog{files: files, modules: index}
 	for selector, entry := range map[string]string{
-		"tool":      "default.nix",
-		"tool-1.24": "versions/1.24.nix",
-		"tool-26":   "versions/26.nix",
+		"tool":      "tool/default.nix",
+		"tool-1.24": "tool/versions/1.24.nix",
+		"tool-26":   "tool/versions/26.nix",
 	} {
 		selected, err := catalog.Module(selector)
 		if err != nil || selected.EntryPoint != entry {
@@ -30,6 +31,30 @@ func TestVersionedSelections(t *testing.T) {
 	}
 	if _, err := catalog.Module("tool-1.99"); !errors.Is(err, ErrModule) {
 		t.Fatalf("unknown version accepted: %v", err)
+	}
+}
+
+func TestSelectedModuleRetainsSiblingImports(t *testing.T) {
+	files := fstest.MapFS{
+		"modules/console/module.toml": {Data: []byte("description = 'Console'\n")},
+		"modules/console/default.nix": {Data: []byte("{ imports = [ ../shell ]; }\n")},
+		"modules/shell/module.toml":   {Data: []byte("description = 'Shell'\n")},
+		"modules/shell/default.nix":   {Data: []byte("{ programs.zsh.enable = true; }\n")},
+	}
+	index, err := readModules(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := &Catalog{files: files, modules: index}
+	selected, err := stored.Module("console")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.EntryPoint != "console/default.nix" {
+		t.Fatalf("catalog entry point lost its directory: %s", selected.EntryPoint)
+	}
+	if _, err := fs.ReadFile(selected, "shell/default.nix"); err != nil {
+		t.Fatalf("selected module cannot import its sibling: %v", err)
 	}
 }
 

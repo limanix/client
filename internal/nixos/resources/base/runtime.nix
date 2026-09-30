@@ -55,7 +55,7 @@ in
     uid = runtime.user.uid;
     group = runtime.user.name;
     home = runtime.user.home;
-    shell = pkgs.bashInteractive;
+    useDefaultShell = true;
     createHome = false;
     linger = true;
   };

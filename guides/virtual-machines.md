@@ -27,8 +27,25 @@ limanix shell dev-box
 ```
 
 With the defaults, you enter the guest as `dev` in `/home/dev`.
+Interactive sessions use the development account's configured login shell:
+Bash by default, or Zsh when selected through the catalog.
 Use `cd /workspace` if you mounted your project there.
 Type `exit` to return to your Mac; the VM keeps running.
+
+To keep terminal work running when the connection closes, select `lmx:tmux` or
+`lmx:console` in the VM configuration, apply it with `limanix update --config limanix.toml`,
+and open a named session:
+
+```console
+limanix shell dev-box --session work
+```
+
+This creates the tmux session if needed or attaches to the existing one.
+Detach with `Ctrl-b`, then `d`; repeat the same command to reconnect.
+Processes inside tmux continue while the VM and tmux server are running;
+stopping or updating the VM still interrupts them.
+`--session` takes a nonempty name and cannot be combined with a guest command.
+The flag also works before the VM name: `limanix shell --session work dev-box`.
 
 To run one guest command and return its exit status to your Mac:
 

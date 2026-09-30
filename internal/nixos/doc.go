@@ -10,7 +10,8 @@
 //	├─ flake/
 //	│  ├─ flake.nix + flake.lock + base NixOS modules
 //	│  ├─ runtime.json            user, architecture, ports, module imports
-//	│  └─ modules/<index>/        selected bundled or imported module trees
+//	│  ├─ modules/lmx/            shared catalog tree, when a standard module is selected
+//	│  └─ modules/<index>/        selected third-party module trees
 //	├─ environment                systemd-compatible runtime assignments
 //	└─ environment.sh             login-shell exports
 //
@@ -27,8 +28,9 @@
 //	                                                            ↓ lmx:NAME[-VERSION]
 //	                                                     VM generation snapshot
 //
-// Each selected module becomes a separate snapshot with a generated import path. Explicit versions select
-// versions/<version>.nix from that tree; names without a version retain default.nix.
+// Standard modules share one catalog snapshot; sibling Nix imports retain their paths. Only selected entry points
+// enter runtime.json; Nix follows any further imports. Third-party modules remain separate, self-contained snapshots.
+// Explicit versions select versions/<version>.nix from their module directory; unversioned names select default.nix.
 // [SystemModules] returns an independent metadata map for the registry. An empty selection adds no optional modules;
 // the catalog's nixpkgs pin and the client's base still apply.
 //

@@ -2,7 +2,6 @@ package nixos
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/fs"
 	"maps"
 	"os"
@@ -39,7 +38,7 @@ func TestEmbeddedModulesAndPinnedBaseCopied(t *testing.T) {
 		t.Fatal(err)
 	}
 	var expectedImports []string
-	for index, source := range sources {
+	for _, source := range sources {
 		files, err := systemModule(source.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -49,7 +48,7 @@ func TestEmbeddedModulesAndPinnedBaseCopied(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		entry := filepath.Join("modules", fmt.Sprintf("%04d", index), files.EntryPoint)
+		entry := filepath.Join("modules", "lmx", files.EntryPoint)
 		expectedImports = append(expectedImports, filepath.ToSlash(entry))
 		copied, err := os.ReadFile(filepath.Join(flake, entry))
 		if err != nil {
@@ -195,6 +194,36 @@ func TestBundleSnapshotsWholeModuleTreeAndKeepsSecretsOutsideFlake(t *testing.T)
 	}
 	if _, err := os.Stat(filepath.Join(runtimeDir, "injected")); !os.IsNotExist(err) {
 		t.Fatal("environment performed command substitution")
+	}
+}
+
+func TestCatalogSnapshotRetainsUnselectedSiblingsAlongsideThirdPartyModules(t *testing.T) {
+	source := t.TempDir()
+	if err := os.WriteFile(filepath.Join(source, "default.nix"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	flake := t.TempDir()
+	imports, err := copyModules(flake, []modules.Source{
+		{ID: "third-party:custom", Path: source},
+		{ID: "lmx:git"},
+		{ID: "lmx:git"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"modules/0000/default.nix", "modules/lmx/git/default.nix", "modules/lmx/git/default.nix"}
+	if !reflect.DeepEqual(imports, want) {
+		t.Fatalf("selection or shared module identity changed: got %v, want %v", imports, want)
+	}
+	if _, err := os.ReadFile(filepath.Join(flake, "modules", "lmx", "neovim", "default.nix")); err != nil {
+		t.Fatalf("unselected sibling source is unavailable to Nix imports: %v", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(flake, "modules"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected one catalog snapshot and one third-party snapshot, got %d", len(entries))
 	}
 }
 

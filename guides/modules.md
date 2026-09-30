@@ -45,6 +45,10 @@ Only select `third-party:my-tools` after importing it as described below.
 An empty list, `modules = []`, selects no optional modules; the LimaNix base system remains.
 Repeated selectors are accepted.
 
+Standard modules can compose other catalog modules using Nix imports.
+For example, `lmx:console` includes the configured shell, editor, session manager and terminal tools.
+The client keeps their source paths together so selecting a component separately refers to the same module.
+
 Apply a changed selection with `limanix update --config limanix.toml`, or use `limanix create --config limanix.toml` for a new VM.
 Read [Apply a configuration change](virtual-machines.md#apply-a-configuration-change) before updating an existing VM.
 Editing TOML or installing another client does not change an existing guest by itself.

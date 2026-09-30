@@ -759,8 +759,8 @@ func TestUpdateAddsBundledAndImportedModulesToExistingVM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, index := range []string{"0000", "0001", "0002"} {
-		assertExists(t, filepath.Join(generation, "flake", "modules", index, "default.nix"))
+	for _, directory := range []string{"lmx/git", "lmx/rust", "0002"} {
+		assertExists(t, filepath.Join(generation, "flake", "modules", directory, "default.nix"))
 	}
 	data, err := os.ReadFile(keep)
 	if err != nil || string(data) != "keep" {

@@ -26,7 +26,7 @@ type Catalog struct {
 	nixpkgs nixpkgsPin
 }
 
-// Module exposes a complete source tree and the selected NixOS entry point within it.
+// Module exposes the complete catalog tree and the selected NixOS entry point within it.
 type Module struct {
 	fs.FS
 	EntryPoint string
@@ -98,19 +98,19 @@ func (catalog *Catalog) Modules() map[string]string {
 	return result
 }
 
-// Module resolves a local selector to its source tree and entry point.
+// Module resolves a local selector while retaining sibling modules for Nix imports.
 func (catalog *Catalog) Module(name string) (Module, error) {
 	selected, exists := catalog.modules[name]
 	if !exists {
 		return Module{}, fmt.Errorf("%w: %q", ErrModule, name)
 	}
 
-	files, err := fs.Sub(catalog.files, path.Join("modules", selected.directory))
+	files, err := fs.Sub(catalog.files, "modules")
 	if err != nil {
 		return Module{}, err
 	}
 
-	return Module{FS: files, EntryPoint: selected.entryPoint}, nil
+	return Module{FS: files, EntryPoint: path.Join(selected.directory, selected.entryPoint)}, nil
 }
 
 func readModules(files fs.FS) (map[string]selection, error) {
