@@ -1,6 +1,12 @@
 # Limanix
 
-[![License: Apache-2.0](https://img.shields.io/github/license/limanix/client?label=license)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/github/license/mr-chelyshkin/images?label=license)](LICENSE)
+
+<p align="center">
+  <img src=".github/assets/readme-header.png"
+       alt="github.com/mr-chelyshkin/images"
+       width="800">
+</p>
 
 Linux development environments on macOS, configured with TOML and NixOS modules.
 
