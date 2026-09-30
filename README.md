@@ -20,6 +20,12 @@ The host does not need a separate Lima or Nix installation.
 [Module catalog](https://github.com/limanix/modules) |
 [Release process](https://limanix.dev/releases/index.html)
 
+## How it compares
+
+LimaNix combines VM settings and NixOS module selection in a project's TOML file.
+The selected tools run as Linux builds inside the VM, without requiring Nix on the Mac.
+Read [How LimaNix compares](https://limanix.dev/comparison.html) for details and trade-offs.
+
 ## Install
 
 LimaNix requires macOS 26 or newer and `ssh` in your `PATH`.
