@@ -18,3 +18,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: mr-chelyshkin/actions/check-changelog-label@v1
+        with:
+          allowed-labels: |
+            feature
+            bug
+            docs
+            deps
+            tooling
+            other
+            skip

@@ -45,18 +45,18 @@ The shared Go tasks run in containers.
 For tests, choose a published module catalog tag and pass it as `modules_version`; replace `v4` below with that tag.
 
 ```console
-task --yes ci/fmt
-task --yes ci/lint
-task --yes ci/test modules_version=v4
-task --yes ci/vuln
+task --yes ci/golang-fmt
+task --yes ci/golang-lint
+task --yes ci/golang-test modules_version=v4
+task --yes ci/golang-vuln
 ```
 
-| Task      | What it checks                                                        |
-|-----------|-----------------------------------------------------------------------|
-| `ci/fmt`  | Go formatting under `cmd/` and `internal/`, without rewriting files   |
-| `ci/lint` | Go source and tests                                                   |
-| `ci/test` | Go tests with the race detector, after preparing embedded resources   |
-| `ci/vuln` | Known vulnerabilities in the client and its embedded Lima guest agent |
+| Task             | What it checks                                                        |
+|------------------|-----------------------------------------------------------------------|
+| `ci/golang-fmt`  | Go formatting under `cmd/` and `internal/`, without rewriting files   |
+| `ci/golang-lint` | Go source and tests                                                   |
+| `ci/golang-test` | Go tests with the race detector, after preparing embedded resources   |
+| `ci/golang-vuln` | Known vulnerabilities in the client and its embedded Lima guest agent |
 
 Formatting, linting, and vulnerability checks do not require a published module catalog.
 Tests and native builds prepare the embedded resources before running.
