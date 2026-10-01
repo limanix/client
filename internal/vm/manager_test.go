@@ -192,10 +192,10 @@ func fixture(t *testing.T) fixtureData {
 		t.Fatal(err)
 	}
 	project := filepath.Join(root, "external-project")
-	if err := os.Mkdir(project, 0o700); err != nil {
+	if err = os.Mkdir(project, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(project, "keep.txt"), []byte("external data"), 0o600); err != nil {
+	if err = os.WriteFile(filepath.Join(project, "keep.txt"), []byte("external data"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	store, err := state.NewStore(filepath.Join(root, "state"))
@@ -316,7 +316,21 @@ func TestCreateReadyKeepsSecretsOutOfStateWithNoOptionalModules(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertAbsent(t, filepath.Join(generation, "sources"))
-	assertAbsent(t, filepath.Join(generation, "flake", "modules"))
+	runtimeData, err := os.ReadFile(filepath.Join(generation, "flake", "runtime.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var runtime struct {
+		Modules []string `json:"modules"`
+	}
+	if err = json.Unmarshal(runtimeData, &runtime); err != nil {
+		t.Fatal(err)
+	}
+	for _, module := range runtime.Modules {
+		if !strings.HasPrefix(module, "modules/lmx/_shared/") || strings.HasPrefix(module, "modules/lmx/_shared/internal/") {
+			t.Fatalf("empty selection enabled a non-public module: %s", module)
+		}
+	}
 	infos, err := f.manager.FetchAll(context.Background())
 	if err != nil || len(infos) != 1 || infos[0].Address != "192.0.2.10" {
 		t.Fatalf("typed listing %+v: %v", infos, err)
@@ -569,7 +583,7 @@ func TestPreservedHomesStayKnownAfterNameReuse(t *testing.T) {
 		var identity struct {
 			Home string `json:"home"`
 		}
-		if err := json.Unmarshal(data, &identity); err != nil {
+		if err = json.Unmarshal(data, &identity); err != nil {
 			t.Fatal(err)
 		}
 		recordedHomes = append(recordedHomes, identity.Home)
@@ -612,7 +626,7 @@ func TestFailedHomeArchiveKeepsIdentityForDeleteRetry(t *testing.T) {
 	}
 	assertExists(t, instance.Identity.Home)
 	store.failure = nil
-	if _, err := f.manager.Delete(context.Background(), instance.Identity.Name, false, false); err != nil {
+	if _, err = f.manager.Delete(context.Background(), instance.Identity.Name, false, false); err != nil {
 		t.Fatal("archive retry failed:", err)
 	}
 	assertAbsent(t, f.instanceDirectory(t, instance.Identity.Name))
@@ -660,7 +674,7 @@ func TestCorruptRuntimeIsListedAndCanBeDeleted(t *testing.T) {
 	if err != nil || len(infos) != 2 || infos[0].Name != "broken" || infos[0].Error == nil || infos[0].OperationStatus != nil || infos[1].OperationStatus == nil || *infos[1].OperationStatus != domain.Ready {
 		t.Fatalf("corruption broke typed list: %+v %v", infos, err)
 	}
-	if _, err := f.manager.Delete(context.Background(), broken.Identity.Name, true, true); err != nil {
+	if _, err = f.manager.Delete(context.Background(), broken.Identity.Name, true, true); err != nil {
 		t.Fatal("corrupt runtime blocked ownership deletion:", err)
 	}
 	assertAbsent(t, broken.Identity.Home)
@@ -874,7 +888,7 @@ func TestMissingBackendCanBeListedAndDeleted(t *testing.T) {
 	if err != nil || len(infos) != 1 || infos[0].BackendStatus != nil {
 		t.Fatalf("missing backend not visible: %+v %v", infos, err)
 	}
-	if _, err := f.manager.Delete(context.Background(), instance.Identity.Name, false, true); err != nil {
+	if _, err = f.manager.Delete(context.Background(), instance.Identity.Name, false, true); err != nil {
 		t.Fatal("missing backend blocked deletion:", err)
 	}
 	infos, err = f.manager.FetchAll(context.Background())
@@ -908,7 +922,7 @@ func TestListShowsInterruptedWithoutChangingPersistentState(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := lock.Close(); err != nil {
+		if err = lock.Close(); err != nil {
 			t.Error(err)
 		}
 	}()
