@@ -31,6 +31,21 @@ jobs:
       modules-tag: ${{ inputs.modules-tag }}
       commit-sha: ${{ inputs.commit-sha }}
 
+  nixos-eval:
+    name: Eval client and catalog pair
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit-sha }}
+          persist-credentials: false
+      - name: Eval client and catalog pair
+        uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        env:
+          MODULES_TAG: ${{ inputs.modules-tag }}
+        with:
+          command: ci/nixos-eval modules_version="$MODULES_TAG"
+
   docs:
     name: Prepare docs
     runs-on: ubuntu-24.04
@@ -57,7 +72,7 @@ jobs:
 
   publish:
     name: Create GitHub release
-    needs: [build, docs]
+    needs: [build, nixos-eval, docs]
     runs-on: ubuntu-24.04
     steps:
       - name: Download binaries

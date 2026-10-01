@@ -48,6 +48,20 @@ jobs:
       cache-dependency-path: '**/go.sum'
       environment: modules_version=${{ needs.modules.outputs.tag }}
 
+  nixos-eval:
+    name: Evaluate client and catalog pair
+    needs: modules
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        env:
+          MODULES_TAG: ${{ needs.modules.outputs.tag }}
+        with:
+          command: ci/nixos-eval modules_version="$MODULES_TAG"
+
   build:
     needs: [modules, go]
     uses: ./.github/workflows/_build.yml
@@ -58,7 +72,7 @@ jobs:
 
   gate:
     if: always()
-    needs: [modules, go, build]
+    needs: [modules, go, nixos-eval, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: read

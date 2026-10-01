@@ -5,6 +5,9 @@ includes:
   golang:
     taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.4/taskfiles/golang/Taskfile.yml
     internal: false
+  nix:
+    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.4/taskfiles/nix/Taskfile.yml
+    internal: true
 
 vars:
   RELEASE_TAG: '{{.RELEASE_TAG | default ""}}'
@@ -60,7 +63,7 @@ tasks:
           VULN_ARGS: './... github.com/lima-vm/lima/v2/cmd/lima-guestagent'
 
   ci/golang-test:
-    desc: Run Go tests
+    desc: Run Go tests with the race detector
     requires:
       vars: [modules_version]
     cmds:
@@ -77,6 +80,31 @@ tasks:
         vars:
           TEST_ARGS: -race -tags=osusergo -ldflags {{.build_flags | shellQuote}} ./...
           CONTAINER_ENVS: USER=limanix
+
+  ci/nixos-eval:
+    desc: Eval every selector in the client and catalog pair
+    requires:
+      vars: [modules_version]
+    cmds:
+      - task: golang:_go/tool
+        vars:
+          CMD: go run ./cmd/bundle-modules --root . --version {{.modules_version | default "" | shellQuote}}
+      - task: golang:_go/tool
+        vars:
+          CMD: go test -c -tags=osusergo,nix_eval -o .cache/nixos-eval.test ./internal/nixos
+          CONTAINER_ENVS: CGO_ENABLED=0
+      - task: nix:_nix/tool
+        vars:
+          CMD: |
+            sh -e -c '
+              expected=TestGeneratedFlakeEvaluation
+              actual=$(./.cache/nixos-eval.test -test.list "^$expected$")
+              if [ "$actual" != "$expected" ]; then
+                printf "Client revision lacks the generated-flake evaluation test; refusing to validate this pair.\n" >&2
+                exit 1
+              fi
+              exec ./.cache/nixos-eval.test -test.v -test.run "^$expected$" -test.timeout=60m
+            '
 
   ci/build:
     desc: Build client binaries
