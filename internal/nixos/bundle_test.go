@@ -2,7 +2,6 @@ package nixos
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/fs"
 	"maps"
 	"os"
@@ -38,8 +37,9 @@ func TestEmbeddedModulesAndPinnedBaseCopied(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expectedImports []string
-	for index, source := range sources {
+	assertBundledInterface(t, flake)
+	expectedImports := publicDeclarationImports(t)
+	for _, source := range sources {
 		files, err := systemModule(source.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -49,7 +49,7 @@ func TestEmbeddedModulesAndPinnedBaseCopied(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		entry := filepath.Join("modules", fmt.Sprintf("%04d", index), files.EntryPoint)
+		entry := filepath.Join("modules", "lmx", files.EntryPoint)
 		expectedImports = append(expectedImports, filepath.ToSlash(entry))
 		copied, err := os.ReadFile(filepath.Join(flake, entry))
 		if err != nil {
@@ -123,6 +123,8 @@ func TestBundleSnapshotsWholeModuleTreeAndKeepsSecretsOutsideFlake(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertBundledInterface(t, flake)
+	assertOnlySharedCatalog(t, flake)
 	if err := filepath.WalkDir(flake, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -154,7 +156,7 @@ func TestBundleSnapshotsWholeModuleTreeAndKeepsSecretsOutsideFlake(t *testing.T)
 	if err := json.Unmarshal(data, &runtime); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(runtime.Modules, []string{"modules/0000/default.nix"}) || runtime.User.UID != 501 {
+	if !reflect.DeepEqual(runtime.Modules, append(publicDeclarationImports(t), "modules/0000/default.nix")) || runtime.User.UID != 501 {
 		t.Fatalf("wrong runtime metadata: %s", data)
 	}
 	if err := os.WriteFile(filepath.Join(source, "nested", "feature.nix"), []byte("changed"), 0o600); err != nil {
@@ -198,6 +200,85 @@ func TestBundleSnapshotsWholeModuleTreeAndKeepsSecretsOutsideFlake(t *testing.T)
 	}
 }
 
+func TestBundleWithoutSelectedModulesIncludesInterface(t *testing.T) {
+	cfg := config.Default()
+	cfg.NixOS.Modules = nil
+	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), nil, 501)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertBundledInterface(t, flake)
+	assertOnlySharedCatalog(t, flake)
+	data, err := os.ReadFile(filepath.Join(flake, "runtime.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var runtime runtimeConfig
+	if err = json.Unmarshal(data, &runtime); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(runtime.Modules, publicDeclarationImports(t)) {
+		t.Fatalf("empty selection must import only public declarations: %v", runtime.Modules)
+	}
+}
+
+func assertBundledInterface(t *testing.T, flake string) {
+	t.Helper()
+	source, err := systemCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, declaration := range source.PublicDeclarations() {
+		original, err := fs.ReadFile(source.Source(), declaration)
+		if err != nil {
+			t.Fatal(err)
+		}
+		copied, err := os.ReadFile(filepath.Join(flake, "modules", "lmx", filepath.FromSlash(declaration)))
+		if err != nil || string(copied) != string(original) {
+			t.Fatalf("public declaration %q missing or changed: %v", declaration, err)
+		}
+	}
+	expected := source.Interface()
+	actual, err := os.ReadFile(filepath.Join(flake, "interface.nix"))
+	if err != nil || string(actual) != string(expected) {
+		t.Fatalf("catalog interface missing or changed: %v", err)
+	}
+	declaration, err := os.ReadFile(filepath.Join(flake, "flake.nix"))
+	if err != nil || !strings.Contains(string(declaration), "./interface.nix") {
+		t.Fatalf("generated flake does not import the catalog interface: %v", err)
+	}
+}
+
+func TestCatalogSnapshotRetainsUnselectedSiblingsAlongsideThirdPartyModules(t *testing.T) {
+	source := t.TempDir()
+	if err := os.WriteFile(filepath.Join(source, "default.nix"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	flake := t.TempDir()
+	imports, err := copyModules(flake, []modules.Source{
+		{ID: "third-party:custom", Path: source},
+		{ID: "lmx:git"},
+		{ID: "lmx:git"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := append(publicDeclarationImports(t), "modules/0000/default.nix", "modules/lmx/git/default.nix", "modules/lmx/git/default.nix")
+	if !reflect.DeepEqual(imports, want) {
+		t.Fatalf("selection or shared module identity changed: got %v, want %v", imports, want)
+	}
+	if _, err := os.ReadFile(filepath.Join(flake, "modules", "lmx", "neovim", "default.nix")); err != nil {
+		t.Fatalf("unselected sibling source is unavailable to Nix imports: %v", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(flake, "modules"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected one catalog snapshot and one third-party snapshot, got %d", len(entries))
+	}
+}
+
 func TestInvalidEnvironmentRejectedBeforeWriting(t *testing.T) {
 	for _, values := range []map[domain.EnvName]domain.EnvValue{{"X;touch pwned": "x"}, {"X": "nul\x00value"}, {"X": "\ufeff"}} {
 		cfg := config.Default()
@@ -209,5 +290,32 @@ func TestInvalidEnvironmentRejectedBeforeWriting(t *testing.T) {
 		if _, err := os.Stat(directory); !os.IsNotExist(err) {
 			t.Fatal("invalid environment staged files before validation")
 		}
+	}
+}
+
+func publicDeclarationImports(t *testing.T) []string {
+	t.Helper()
+	source, err := systemCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	imports := make([]string, 0, len(source.PublicDeclarations()))
+	for _, declaration := range source.PublicDeclarations() {
+		imports = append(imports, "modules/lmx/"+declaration)
+	}
+	return imports
+}
+
+func assertOnlySharedCatalog(t *testing.T, flake string) {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(flake, "modules", "lmx"))
+	if len(publicDeclarationImports(t)) == 0 {
+		if !os.IsNotExist(err) {
+			t.Fatalf("empty public interface copied optional catalog files: %v", err)
+		}
+		return
+	}
+	if err != nil || len(entries) != 1 || entries[0].Name() != "_shared" {
+		t.Fatalf("selection without standard modules must copy only _shared: %v, %v", entries, err)
 	}
 }

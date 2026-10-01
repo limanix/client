@@ -283,6 +283,9 @@ func TestInteractiveLoginOnceAndStatusPreserved(t *testing.T) {
 	if err != nil || status != 7 {
 		t.Fatalf("shell status changed: %d %v", status, err)
 	}
+	if !reflect.DeepEqual(client.calls[0].args, []string{"sudo", "--login", "--user", "dev"}) {
+		t.Fatalf("interactive login must use the account shell: %v", client.calls[0].args)
+	}
 	count := 0
 	for _, arg := range client.calls[0].args {
 		if arg == "--login" {

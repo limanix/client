@@ -29,7 +29,7 @@ func validateArchive(archive *zip.Reader) error {
 		}
 		entries[name] = mode
 
-		if mode.IsRegular() {
+		if mode.IsRegular() && name != "interface.nix" {
 			if err := checkFile(file); err != nil {
 				return fmt.Errorf("%w: %s: %w", ErrArchive, name, err)
 			}

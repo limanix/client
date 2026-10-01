@@ -132,7 +132,7 @@ func TestHelpVersionAndReferenceDoNotInitializeHostServices(t *testing.T) {
 	if strings.Contains(reference, "hostagent") || strings.Contains(reference, "--debug") {
 		t.Fatal("internal Lima subprocess interface entered the public reference")
 	}
-	for _, fragment := range []string{"`limanix create`", "--config", "`limanix update`", "`limanix modules add`", "--remove-home", "shell NAME [-- COMMAND ...]"} {
+	for _, fragment := range []string{"`limanix create`", "--config", "`limanix update`", "`limanix modules add`", "--remove-home", "shell NAME [--session SESSION | -- COMMAND ...]"} {
 		if !strings.Contains(reference, fragment) {
 			t.Fatalf("actual CLI missing from reference: %s", fragment)
 		}
@@ -204,7 +204,7 @@ func TestVMCommandsPassConfigurationAndDeleteFlags(t *testing.T) {
 }
 
 func TestShellPreservesLiteralArgumentsFlagsAndChildExit(t *testing.T) {
-	values := []string{"printf", "--help", "--unknown", "-n", `spaces; $(touch unwanted) "quotes"`, "", "line one\nline two", "--"}
+	values := []string{"printf", "--help", "--unknown", "--session", "work", "-n", `spaces; $(touch unwanted) "quotes"`, "", "line one\nline two", "--"}
 	for _, separator := range [][]string{nil, {"--"}} {
 		manager := &fakeManager{shellStatus: 17}
 		args := append([]string{"shell", "sandbox"}, separator...)
@@ -218,6 +218,77 @@ func TestShellPreservesLiteralArgumentsFlagsAndChildExit(t *testing.T) {
 	status, _, _ := runCLI([]string{"shell", "sandbox", "--"}, fakeDependencies(manager, &fakeRegistry{}))
 	if status != 0 || len(manager.calls[0].args) != 0 {
 		t.Fatal("empty command must attach interactive shell")
+	}
+}
+
+func TestShellSessionFlagCreatesOrAttachesAndPreservesStatus(t *testing.T) {
+	for _, args := range [][]string{
+		{"shell", "sandbox", "--session", "work"},
+		{"shell", "sandbox", "--session=work"},
+		{"shell", "--session", "work", "sandbox"},
+		{"shell", "--session=work", "sandbox"},
+		{"shell", "sandbox", "--session", "work", "--"},
+	} {
+		manager := &fakeManager{shellStatus: 17}
+		status, output, diagnostics := runCLI(args, fakeDependencies(manager, &fakeRegistry{}))
+		expected := []managerCall{{operation: "shell", name: "sandbox", args: []string{"limanix-session", "work"}}}
+		if status != 17 || output != "" || diagnostics != "" || !reflect.DeepEqual(manager.calls, expected) {
+			t.Fatalf("session command %v changed: %d %q %q %#v", args, status, output, diagnostics, manager.calls)
+		}
+	}
+}
+
+func TestShellSessionPreservesLiteralNames(t *testing.T) {
+	for _, name := range []string{
+		`spaces; $(touch unwanted) "quotes"`,
+		"--help",
+		"project.name:work",
+		"work;",
+		`;`,
+		`work\;`,
+		`#(touch unwanted)#{session_name}#[red]`,
+		"line one\nline two",
+	} {
+		manager := &fakeManager{}
+		status, _, diagnostics := runCLI([]string{"shell", "sandbox", "--session", name}, fakeDependencies(manager, &fakeRegistry{}))
+		expected := []string{"limanix-session", name}
+		if status != 0 || diagnostics != "" || !reflect.DeepEqual(manager.calls[0].args, expected) {
+			t.Fatalf("session name %q was reinterpreted: %d %q %#v", name, status, diagnostics, manager.calls)
+		}
+	}
+}
+
+func TestShellSessionDoesNotConsumeGuestFlagsAfterSeparator(t *testing.T) {
+	manager := &fakeManager{}
+	values := []string{"--session", "work", "--help", "--"}
+	status, _, diagnostics := runCLI(append([]string{"shell", "sandbox", "--"}, values...), fakeDependencies(manager, &fakeRegistry{}))
+	if status != 0 || diagnostics != "" || !reflect.DeepEqual(manager.calls[0].args, values) {
+		t.Fatalf("guest flags were consumed: %d %q %#v", status, diagnostics, manager.calls)
+	}
+}
+
+func TestShellRejectsInvalidSessionOptionsBeforeOpeningVM(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		err  string
+	}{
+		{[]string{"sandbox", "--session"}, "requires a session name"},
+		{[]string{"sandbox", "--session", ""}, "requires a nonempty session name"},
+		{[]string{"sandbox", "--session="}, "requires a nonempty session name"},
+		{[]string{"--session", "work"}, "a VM name is required"},
+		{[]string{"sandbox", "--session", "work", "--session", "another"}, "may only be specified once"},
+		{[]string{"--session", "work", "sandbox", "--session=another"}, "may only be specified once"},
+		{[]string{"sandbox", "--session", "work", "printf", "hello"}, "cannot be combined with a guest command"},
+		{[]string{"sandbox", "--session", "work", "--", "printf", "hello"}, "cannot be combined with a guest command"},
+	} {
+		dependencies := Dependencies{Manager: func() (Manager, error) {
+			t.Fatal("invalid session options initialized VM services")
+			return nil, nil
+		}}
+		status, output, diagnostics := runCLI(append([]string{"shell"}, test.args...), dependencies)
+		if status != 2 || output != "" || !strings.Contains(diagnostics, test.err) {
+			t.Fatalf("invalid session options %v: %d %q %q", test.args, status, output, diagnostics)
+		}
 	}
 }
 

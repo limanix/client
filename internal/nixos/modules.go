@@ -2,6 +2,7 @@ package nixos
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -48,39 +49,56 @@ func validateSources(sources []modules.Source) error {
 }
 
 func copyModules(flakeDir string, sources []modules.Source) ([]string, error) {
-	imports := make([]string, 0, len(sources))
-	if len(sources) > 0 {
+	stored, err := systemCatalog()
+	if err != nil {
+		return nil, err
+	}
+	declarations := stored.PublicDeclarations()
+	imports := make([]string, 0, len(declarations)+len(sources))
+	for _, declaration := range declarations {
+		imports = append(imports, path.Join("modules", "lmx", declaration))
+	}
+	catalogCopied := false
+	if len(imports) > 0 || len(sources) > 0 {
 		if err := os.MkdirAll(filepath.Join(flakeDir, "modules"), 0o700); err != nil {
 			return nil, err
 		}
 	}
 
 	for index, source := range sources {
-		name := fmt.Sprintf("%04d", index)
-		target := filepath.Join(flakeDir, "modules", name)
-		entry, err := copyModule(source, target)
-		if err != nil {
-			return nil, fmt.Errorf("copy module %q: %w", source.ID, err)
+		if source.Path != "" {
+			name := fmt.Sprintf("%04d", index)
+			if _, err := modules.CopyTree(source.Path, filepath.Join(flakeDir, "modules", name)); err != nil {
+				return nil, fmt.Errorf("copy module %q: %w", source.ID, err)
+			}
+			imports = append(imports, path.Join("modules", name, "default.nix"))
+			continue
 		}
 
-		imports = append(imports, path.Join("modules", name, entry))
+		files, err := systemModule(source.ID)
+		if err != nil {
+			return nil, err
+		}
+		if !catalogCopied {
+			if err = copyFiles(files, filepath.Join(flakeDir, "modules", "lmx")); err != nil {
+				return nil, fmt.Errorf("copy catalog: %w", err)
+			}
+			catalogCopied = true
+		}
+		imports = append(imports, path.Join("modules", "lmx", files.EntryPoint))
+	}
+
+	if !catalogCopied && len(declarations) > 0 {
+		shared, err := fs.Sub(stored.Source(), "_shared")
+		if err != nil {
+			return nil, fmt.Errorf("read shared catalog declarations: %w", err)
+		}
+		if err = copyFiles(shared, filepath.Join(flakeDir, "modules", "lmx", "_shared")); err != nil {
+			return nil, fmt.Errorf("copy shared catalog declarations: %w", err)
+		}
 	}
 
 	return imports, nil
-}
-
-func copyModule(source modules.Source, target string) (string, error) {
-	if source.Path != "" {
-		_, err := modules.CopyTree(source.Path, target)
-		return "default.nix", err
-	}
-
-	files, err := systemModule(source.ID)
-	if err != nil {
-		return "", err
-	}
-
-	return files.EntryPoint, copyFiles(files, target)
 }
 
 func systemModule(id domain.ModuleID) (catalog.Module, error) {

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -80,9 +81,11 @@ func deleteCommand(dependencies Dependencies) *cobra.Command {
 }
 
 func shellCommand(dependencies Dependencies) *cobra.Command {
-	return &cobra.Command{
-		Use:                "shell NAME [-- COMMAND ...]",
-		Short:              "Connect as the configured development user.",
+	command := &cobra.Command{
+		Use:   "shell NAME [--session SESSION | -- COMMAND ...]",
+		Short: "Connect as the configured development user.",
+		Long: "Connect as the configured development user. With --session, create or attach to a named persistent session. " +
+			"Select a session provider in the VM configuration. --session cannot be combined with a guest command.",
 		DisableFlagParsing: true,
 
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -98,14 +101,14 @@ func shellCommand(dependencies Dependencies) *cobra.Command {
 				return cmd.Help()
 			}
 
-			name, err := domain.NewVMName(args[0])
+			value, guestCommand, err := shellArguments(args)
 			if err != nil {
 				return err
 			}
 
-			command := args[1:]
-			if len(command) > 0 && command[0] == "--" {
-				command = command[1:]
+			name, err := domain.NewVMName(value)
+			if err != nil {
+				return err
 			}
 
 			manager, err := dependencies.Manager()
@@ -113,7 +116,7 @@ func shellCommand(dependencies Dependencies) *cobra.Command {
 				return err
 			}
 
-			status, err := manager.Shell(cmd.Context(), name, command)
+			status, err := manager.Shell(cmd.Context(), name, guestCommand)
 			if err != nil {
 				return err
 			}
@@ -125,4 +128,56 @@ func shellCommand(dependencies Dependencies) *cobra.Command {
 			return nil
 		},
 	}
+	// Flags are parsed below so guest flags retain their literal meaning.
+	command.Flags().String("session", "", "Create or attach to a named persistent session; requires a session provider in the VM.")
+	return command
+}
+
+func shellArguments(args []string) (string, []string, error) {
+	var name, session string
+	var hasName, hasSession bool
+
+	for len(args) > 0 {
+		arg := args[0]
+		if arg == "--" {
+			args = args[1:]
+			break
+		}
+
+		if arg == "--session" || strings.HasPrefix(arg, "--session=") {
+			if hasSession {
+				return "", nil, usageError(fmt.Errorf("--session may only be specified once"))
+			}
+			hasSession = true
+			if arg == "--session" {
+				if len(args) < 2 {
+					return "", nil, usageError(fmt.Errorf("--session requires a session name"))
+				}
+				session, args = args[1], args[2:]
+			} else {
+				session, args = strings.TrimPrefix(arg, "--session="), args[1:]
+			}
+			if session == "" {
+				return "", nil, usageError(fmt.Errorf("--session requires a nonempty session name"))
+			}
+			continue
+		}
+
+		if hasName {
+			break
+		}
+		name, args = arg, args[1:]
+		hasName = true
+	}
+
+	if !hasName {
+		return "", nil, usageError(fmt.Errorf("a VM name is required"))
+	}
+	if hasSession {
+		if len(args) != 0 {
+			return "", nil, usageError(fmt.Errorf("--session cannot be combined with a guest command"))
+		}
+		args = []string{"limanix-session", session}
+	}
+	return name, args, nil
 }

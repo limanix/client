@@ -33,6 +33,56 @@ func TestCatalogNixpkgs(t *testing.T) {
 	}
 }
 
+func TestCatalogInterface(t *testing.T) {
+	archiveData := catalogArchive(t, nixpkgsFixture(t))
+	catalog, err := Open(archiveData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clear(archiveData)
+	data := catalog.Interface()
+	if string(data) != "{ options = {}; }\n" {
+		t.Fatalf("public interface changed: %q", data)
+	}
+	data[0] = '!'
+	again := catalog.Interface()
+	if string(again) != "{ options = {}; }\n" {
+		t.Fatalf("caller changed the public interface: %q", again)
+	}
+}
+
+func TestCatalogRejectsMissingNonRegularOrEmptyInterface(t *testing.T) {
+	for _, name := range []string{"", "interface.nix/", "interface.nix"} {
+		data := catalogArchiveWithInterface(t, nixpkgsFixture(t), name, nil)
+		if _, err := Open(data); !errors.Is(err, ErrArchive) || !strings.Contains(err.Error(), "interface.nix") {
+			t.Fatalf("interface %q must be rejected as an archive error: %v", name, err)
+		}
+	}
+}
+
+func TestCatalogRejectsDamagedInterface(t *testing.T) {
+	data := catalogArchive(t, nixpkgsFixture(t))
+	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range archive.File {
+		if entry.Name != "interface.nix" {
+			continue
+		}
+		offset, err := entry.DataOffset()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data[offset] ^= 0xff
+		if _, err := Open(data); !errors.Is(err, ErrArchive) || !strings.Contains(err.Error(), "interface.nix") {
+			t.Fatalf("damaged interface must be rejected as an archive error: %v", err)
+		}
+		return
+	}
+	t.Fatal("fixture does not contain interface.nix")
+}
+
 func TestCatalogNixpkgsAllowsRenamedNodesAndUnstable(t *testing.T) {
 	var lock map[string]any
 	if err := json.Unmarshal(nixpkgsFixture(t), &lock); err != nil {
@@ -142,6 +192,11 @@ func nixpkgsFixture(t *testing.T) []byte {
 
 func catalogArchive(t *testing.T, lock []byte) []byte {
 	t.Helper()
+	return catalogArchiveWithInterface(t, lock, "interface.nix", []byte("{ options = {}; }\n"))
+}
+
+func catalogArchiveWithInterface(t *testing.T, lock []byte, interfacePath string, interfaceData []byte) []byte {
+	t.Helper()
 	files := map[string][]byte{
 		"version":                  []byte("v4\n"),
 		"LICENSE":                  []byte("test license\n"),
@@ -151,6 +206,14 @@ func catalogArchive(t *testing.T, lock []byte) []byte {
 	if lock != nil {
 		files["flake.lock"] = lock
 	}
+	if interfacePath != "" {
+		files[interfacePath] = interfaceData
+	}
+	return catalogArchiveFiles(t, files)
+}
+
+func catalogArchiveFiles(t *testing.T, files map[string][]byte) []byte {
+	t.Helper()
 	var buffer bytes.Buffer
 	writer := zip.NewWriter(&buffer)
 	if err := writer.SetComment(Repository); err != nil {
@@ -161,8 +224,10 @@ func catalogArchive(t *testing.T, lock []byte) []byte {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := entry.Write(data); err != nil {
-			t.Fatal(err)
+		if !strings.HasSuffix(name, "/") {
+			if _, err = entry.Write(data); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	if err := writer.Close(); err != nil {

@@ -49,19 +49,30 @@ task --yes ci/golang-fmt
 task --yes ci/golang-lint
 task --yes ci/golang-test modules_version=v4
 task --yes ci/golang-vuln
+task --yes ci/nixos-eval modules_version=v4
 ```
 
-| Task             | What it checks                                                        |
-|------------------|-----------------------------------------------------------------------|
-| `ci/golang-fmt`  | Go formatting under `cmd/` and `internal/`, without rewriting files   |
-| `ci/golang-lint` | Go source and tests                                                   |
-| `ci/golang-test` | Go tests with the race detector, after preparing embedded resources   |
-| `ci/golang-vuln` | Known vulnerabilities in the client and its embedded Lima guest agent |
+| Task             | What it checks                                                            |
+|------------------|---------------------------------------------------------------------------|
+| `ci/golang-fmt`  | Go formatting under `cmd/` and `internal/`, without rewriting files       |
+| `ci/golang-lint` | Go source and tests                                                       |
+| `ci/golang-test` | Go tests with the race detector, after preparing embedded resources       |
+| `ci/golang-vuln` | Known vulnerabilities in the client and its embedded Lima guest agent     |
+| `ci/nixos-eval`  | Generated guest flake evaluation for the selected client and catalog pair |
 
 Formatting, linting, and vulnerability checks do not require a published module catalog.
 Tests and native builds prepare the embedded resources before running.
 
-The PR workflow runs shared Go checks and a native macOS build; its `gate` combines those results.
+`ci/nixos-eval` runs independently of the Go suite for AMD64 and ARM64, with an empty module selection, every catalog selector individually, and supported integration cases.
+The integration test calls the same `Prepare` function used for VM generations and evaluates the generated flake's system derivation in the Nix container with its lock file unchanged.
+It does not build packages or boot a VM.
+The ordinary Go test suite does not require Nix.
+The release workflow runs the same evaluation against the exact client checkout and catalog tag in parallel with native builds and documentation preparation.
+Publication waits for all three jobs to succeed.
+A client revision without the pair-validation task cannot publish an unverified pair.
+
+The PR workflow runs shared Go checks and generated guest flake evaluation in separate jobs after selecting the catalog tag.
+The native macOS build follows the Go checks; `gate` combines the catalog selection, Go, evaluation, and build results.
 A separate workflow checks the PR label.
 
 For lifecycle or guest configuration changes, also exercise the operation with a disposable VM on macOS.
@@ -121,7 +132,8 @@ Generated archives are ignored by Git.
 Tasks that prepare the catalog require the selected modules tag to exist upstream.
 
 The catalog's `flake.lock` supplies the Nixpkgs revision for catalog checks and guest builds.
-The client rejects catalogs without that pin.
+The client rejects catalogs without that pin or their root `interface.nix`.
+Public `catalog/_shared/*.nix` declarations are loaded in every guest configuration; private `_shared/internal/` files are imported only by their consumers.
 Follow [Update the NixOS base](https://limanix.dev/categories/nixos/writing-modules.html#update-the-nixos-base) to change it.
 
 The client owns `internal/nixos/resources/flake.nix.tmpl` and `flake.lock.tmpl`, including the `nixos-lima` dependency graph.

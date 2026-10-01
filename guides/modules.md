@@ -12,6 +12,10 @@ Each selected module adds to the client's base NixOS configuration.
 For available tools and version behavior, see [Catalog](https://limanix.dev/categories/nixos/catalog.html).
 To write Nix code, start with [Write a module](https://limanix.dev/categories/nixos/writing-modules.html).
 
+Modules read the guest identity through the read-only NixOS options `config.limanix.user.name` and `config.limanix.user.home`.
+Set `limanix.user.shell` in a custom Nix module to choose the login shell.
+The existing `runtime` argument remains available for compatibility.
+
 ## List available modules
 
 ```console
@@ -42,8 +46,17 @@ modules = ["lmx:git", "third-party:my-tools"]
 ```
 
 Only select `third-party:my-tools` after importing it as described below.
-An empty list, `modules = []`, selects no optional modules; the LimaNix base system remains.
+An empty list, `modules = []`, selects no optional modules; the LimaNix base system and public catalog declarations remain available.
 Repeated selectors are accepted.
+
+Standard modules can compose other catalog modules using Nix imports.
+For example, `lmx:console` includes the configured shell, editor, session manager and terminal tools.
+The client keeps their source paths together so selecting a component separately refers to the same module.
+The client loads public declarations from `catalog/_shared/<area>.nix` even when no standard modules are selected.
+Private declarations under `_shared/internal/` are available for explicit catalog imports and are not loaded automatically.
+The `_shared` directory has no selector; `capabilities` and `internal` are reserved catalog module names.
+Third-party modules can use public capability options without importing catalog source files.
+The [catalog contract](https://limanix.dev/categories/nixos/catalog-contract.html) defines the public namespaces and compatibility rules.
 
 Apply a changed selection with `limanix update --config limanix.toml`, or use `limanix create --config limanix.toml` for a new VM.
 Read [Apply a configuration change](virtual-machines.md#apply-a-configuration-change) before updating an existing VM.
