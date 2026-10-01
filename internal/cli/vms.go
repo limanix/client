@@ -84,8 +84,8 @@ func shellCommand(dependencies Dependencies) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "shell NAME [--session SESSION | -- COMMAND ...]",
 		Short: "Connect as the configured development user.",
-		Long: "Connect as the configured development user. With --session, create or attach to a named tmux session. " +
-			"The VM must have tmux installed. --session cannot be combined with a guest command.",
+		Long: "Connect as the configured development user. With --session, create or attach to a named persistent session. " +
+			"Select a session provider in the VM configuration. --session cannot be combined with a guest command.",
 		DisableFlagParsing: true,
 
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -129,7 +129,7 @@ func shellCommand(dependencies Dependencies) *cobra.Command {
 		},
 	}
 	// Flags are parsed below so guest flags retain their literal meaning.
-	command.Flags().String("session", "", "Create or attach to a named tmux session; requires tmux in the VM.")
+	command.Flags().String("session", "", "Create or attach to a named persistent session; requires a session provider in the VM.")
 	return command
 }
 
@@ -177,16 +177,7 @@ func shellArguments(args []string) (string, []string, error) {
 		if len(args) != 0 {
 			return "", nil, usageError(fmt.Errorf("--session cannot be combined with a guest command"))
 		}
-		args = []string{"tmux", "new-session", "-A", "-s", tmuxSessionName(session)}
+		args = []string{"limanix-session", session}
 	}
 	return name, args, nil
-}
-
-func tmuxSessionName(name string) string {
-	// tmux expands -s as a format and treats a trailing ';' as a command
-	// separator even in argv. Its literal format avoids both interpretations.
-	if strings.Contains(name, "#") || strings.HasSuffix(name, ";") {
-		return "#{l:" + strings.NewReplacer("#", "##", "}", "#}").Replace(name) + "}"
-	}
-	return name
 }

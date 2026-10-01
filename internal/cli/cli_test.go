@@ -231,7 +231,7 @@ func TestShellSessionFlagCreatesOrAttachesAndPreservesStatus(t *testing.T) {
 	} {
 		manager := &fakeManager{shellStatus: 17}
 		status, output, diagnostics := runCLI(args, fakeDependencies(manager, &fakeRegistry{}))
-		expected := []managerCall{{operation: "shell", name: "sandbox", args: []string{"tmux", "new-session", "-A", "-s", "work"}}}
+		expected := []managerCall{{operation: "shell", name: "sandbox", args: []string{"limanix-session", "work"}}}
 		if status != 17 || output != "" || diagnostics != "" || !reflect.DeepEqual(manager.calls, expected) {
 			t.Fatalf("session command %v changed: %d %q %q %#v", args, status, output, diagnostics, manager.calls)
 		}
@@ -239,21 +239,21 @@ func TestShellSessionFlagCreatesOrAttachesAndPreservesStatus(t *testing.T) {
 }
 
 func TestShellSessionPreservesLiteralNames(t *testing.T) {
-	for _, test := range []struct{ name, argument string }{
-		{`spaces; $(touch unwanted) "quotes"`, `spaces; $(touch unwanted) "quotes"`},
-		{"--help", "--help"},
-		{"project.name:work", "project.name:work"},
-		{"work;", "#{l:work;}"},
-		{`;`, `#{l:;}`},
-		{`work\;`, `#{l:work\;}`},
-		{`#(touch unwanted)#{session_name}#[red]`, `#{l:##(touch unwanted)##{session_name#}##[red]}`},
-		{"line one\nline two", "line one\nline two"},
+	for _, name := range []string{
+		`spaces; $(touch unwanted) "quotes"`,
+		"--help",
+		"project.name:work",
+		"work;",
+		`;`,
+		`work\;`,
+		`#(touch unwanted)#{session_name}#[red]`,
+		"line one\nline two",
 	} {
 		manager := &fakeManager{}
-		status, _, diagnostics := runCLI([]string{"shell", "sandbox", "--session", test.name}, fakeDependencies(manager, &fakeRegistry{}))
-		expected := []string{"tmux", "new-session", "-A", "-s", test.argument}
+		status, _, diagnostics := runCLI([]string{"shell", "sandbox", "--session", name}, fakeDependencies(manager, &fakeRegistry{}))
+		expected := []string{"limanix-session", name}
 		if status != 0 || diagnostics != "" || !reflect.DeepEqual(manager.calls[0].args, expected) {
-			t.Fatalf("session name %q was reinterpreted: %d %q %#v", test.name, status, diagnostics, manager.calls)
+			t.Fatalf("session name %q was reinterpreted: %d %q %#v", name, status, diagnostics, manager.calls)
 		}
 	}
 }
