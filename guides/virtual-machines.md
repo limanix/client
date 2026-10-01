@@ -32,18 +32,18 @@ Bash by default, or Zsh when selected through the catalog.
 Use `cd /workspace` if you mounted your project there.
 Type `exit` to return to your Mac; the VM keeps running.
 
-To keep terminal work running when the connection closes, select `lmx:tmux` or
-`lmx:console` in the VM configuration, apply it with `limanix update --config limanix.toml`,
-and open a named session:
+To keep terminal work running when the connection closes, select a session provider in the VM configuration and apply it with `limanix update --config limanix.toml`.
+See the catalog's [Tmux module](https://limanix.dev/categories/nixos/modules/tmux/README.html) for one provider and its bindings.
+Open a named session:
 
 ```console
 limanix shell dev-box --session work
 ```
 
-This creates the tmux session if needed or attaches to the existing one.
-Detach with `Ctrl-b`, then `d`; repeat the same command to reconnect.
-Processes inside tmux continue while the VM and tmux server are running;
-stopping or updating the VM still interrupts them.
+The selected provider creates the session if needed or attaches to the existing one.
+Detachment, restoration, and key bindings belong to the provider; follow its module documentation.
+Stopping or updating the VM interrupts running processes.
+If no provider is configured, the guest reports available module selectors and exits with status 127.
 `--session` takes a nonempty name and cannot be combined with a guest command.
 The flag also works before the VM name: `limanix shell --session work dev-box`.
 
