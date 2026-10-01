@@ -1,14 +1,23 @@
-{ inputs, lib, modulesPath, ... }:
+{
+  lib,
+  modulesPath,
+  pkgs,
+  ...
+}:
 {
   imports = [
-    inputs.nixos-lima.nixosModules.lima
     (modulesPath + "/profiles/qemu-guest.nix")
   ];
+
+  environment.systemPackages = [ pkgs.ghostty.terminfo ];
 
   services.lima.enable = true;
   users.mutableUsers = true;
   services.openssh.enable = true;
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
 
   boot.growPartition = true;
   boot.loader.grub = {
@@ -24,7 +33,11 @@
     device = "/dev/disk/by-label/nixos";
     autoResize = true;
     fsType = "ext4";
-    options = [ "noatime" "nodiratime" "discard" ];
+    options = [
+      "noatime"
+      "nodiratime"
+      "discard"
+    ];
   };
 
   system.stateVersion = "26.05";

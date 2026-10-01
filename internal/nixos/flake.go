@@ -11,8 +11,7 @@ import (
 	"github.com/limanix/client/internal/nixos/catalog"
 )
 
-// writeFlake combines the catalog's nixpkgs pin with the client's platform inputs.
-// Both inputs are embedded; preparing a generation never resolves a remote ref.
+// writeFlake combines the catalog's interface and nixpkgs pin with the client's platform inputs.
 func writeFlake(directory string) error {
 	source, err := systemCatalog()
 	if err != nil {
@@ -25,7 +24,10 @@ func writeFlake(directory string) error {
 	if err = filesystem.WriteFileAtomic(filepath.Join(directory, "flake.nix"), declaration, 0o600); err != nil {
 		return err
 	}
-	return filesystem.WriteFileAtomic(filepath.Join(directory, "flake.lock"), lock, 0o600)
+	if err = filesystem.WriteFileAtomic(filepath.Join(directory, "flake.lock"), lock, 0o600); err != nil {
+		return err
+	}
+	return filesystem.WriteFileAtomic(filepath.Join(directory, "interface.nix"), source.Interface(), 0o600)
 }
 
 func renderFlake(source *catalog.Catalog) ([]byte, []byte, error) {

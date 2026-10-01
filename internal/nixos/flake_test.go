@@ -63,6 +63,7 @@ func catalogWithPin(t *testing.T, pin string) *catalog.Catalog {
 	files := map[string]string{
 		"version":                  "test-pin",
 		"LICENSE":                  "test fixture",
+		"interface.nix":            "{}",
 		"modules/test/default.nix": "{}",
 		"modules/test/module.toml": "description = 'Test'",
 		"flake.lock":               `{"version":7,"root":"root","nodes":{"root":{"inputs":{"nixpkgs":"packages"}},"packages":` + pin + `}}`,

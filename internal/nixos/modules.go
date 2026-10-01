@@ -2,6 +2,7 @@ package nixos
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -48,9 +49,17 @@ func validateSources(sources []modules.Source) error {
 }
 
 func copyModules(flakeDir string, sources []modules.Source) ([]string, error) {
-	imports := make([]string, 0, len(sources))
+	stored, err := systemCatalog()
+	if err != nil {
+		return nil, err
+	}
+	declarations := stored.PublicDeclarations()
+	imports := make([]string, 0, len(declarations)+len(sources))
+	for _, declaration := range declarations {
+		imports = append(imports, path.Join("modules", "lmx", declaration))
+	}
 	catalogCopied := false
-	if len(sources) > 0 {
+	if len(imports) > 0 || len(sources) > 0 {
 		if err := os.MkdirAll(filepath.Join(flakeDir, "modules"), 0o700); err != nil {
 			return nil, err
 		}
@@ -77,6 +86,16 @@ func copyModules(flakeDir string, sources []modules.Source) ([]string, error) {
 			catalogCopied = true
 		}
 		imports = append(imports, path.Join("modules", "lmx", files.EntryPoint))
+	}
+
+	if !catalogCopied && len(declarations) > 0 {
+		shared, err := fs.Sub(stored.Source(), "_shared")
+		if err != nil {
+			return nil, fmt.Errorf("read shared catalog declarations: %w", err)
+		}
+		if err = copyFiles(shared, filepath.Join(flakeDir, "modules", "lmx", "_shared")); err != nil {
+			return nil, fmt.Errorf("copy shared catalog declarations: %w", err)
+		}
 	}
 
 	return imports, nil

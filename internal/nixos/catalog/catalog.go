@@ -3,10 +3,12 @@ package catalog
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/limanix/client/internal/domain"
@@ -21,9 +23,11 @@ var tagPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+-]*$`)
 type Catalog struct {
 	Version string
 
-	files   fs.FS
-	modules map[string]selection
-	nixpkgs nixpkgsPin
+	files              fs.FS
+	modules            map[string]selection
+	nixpkgs            nixpkgsPin
+	publicInterface    []byte
+	publicDeclarations []string
 }
 
 // Module exposes the complete catalog tree and the selected NixOS entry point within it.
@@ -70,6 +74,21 @@ func Open(data []byte) (*Catalog, error) {
 		return nil, fmt.Errorf("%w: read LICENSE: %w", ErrArchive, err)
 	}
 
+	interfaceInfo, err := fs.Stat(archive, "interface.nix")
+	if err != nil {
+		return nil, fmt.Errorf("%w: read interface.nix: %w", ErrArchive, err)
+	}
+	if !interfaceInfo.Mode().IsRegular() {
+		return nil, fmt.Errorf("%w: interface.nix must be a regular file", ErrArchive)
+	}
+	publicInterface, err := fs.ReadFile(archive, "interface.nix")
+	if err != nil {
+		return nil, fmt.Errorf("%w: read interface.nix: %w", ErrArchive, err)
+	}
+	if len(publicInterface) == 0 {
+		return nil, fmt.Errorf("%w: interface.nix must not be empty", ErrArchive)
+	}
+
 	pin, err := readNixpkgs(archive)
 	if err != nil {
 		return nil, err
@@ -80,12 +99,39 @@ func Open(data []byte) (*Catalog, error) {
 		return nil, err
 	}
 
-	return &Catalog{Version: tag, files: archive, modules: metadata, nixpkgs: pin}, nil
+	source, err := fs.Sub(archive, "modules")
+	if err != nil {
+		return nil, fmt.Errorf("%w: read module sources: %w", ErrArchive, err)
+	}
+	declarations, err := readPublicDeclarations(source)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Catalog{
+		Version: tag, files: source, modules: metadata, nixpkgs: pin,
+		publicInterface: publicInterface, publicDeclarations: declarations,
+	}, nil
 }
 
 // Nixpkgs returns the declared input URL and an independent copy of its locked node.
 func (catalog *Catalog) Nixpkgs() (url string, node []byte) {
 	return catalog.nixpkgs.url, bytes.Clone(catalog.nixpkgs.node)
+}
+
+// Interface returns an independent copy of the public NixOS option declarations required by every guest.
+func (catalog *Catalog) Interface() []byte {
+	return bytes.Clone(catalog.publicInterface)
+}
+
+// Source returns the complete catalog source tree, rooted at the module directories.
+func (catalog *Catalog) Source() fs.FS {
+	return catalog.files
+}
+
+// PublicDeclarations returns a sorted, independent list of public capability files.
+func (catalog *Catalog) PublicDeclarations() []string {
+	return slices.Clone(catalog.publicDeclarations)
 }
 
 // Modules returns a copy of the local module names and their descriptions.
@@ -105,12 +151,7 @@ func (catalog *Catalog) Module(name string) (Module, error) {
 		return Module{}, fmt.Errorf("%w: %q", ErrModule, name)
 	}
 
-	files, err := fs.Sub(catalog.files, "modules")
-	if err != nil {
-		return Module{}, err
-	}
-
-	return Module{FS: files, EntryPoint: path.Join(selected.directory, selected.entryPoint)}, nil
+	return Module{FS: catalog.files, EntryPoint: path.Join(selected.directory, selected.entryPoint)}, nil
 }
 
 func readModules(files fs.FS) (map[string]selection, error) {
@@ -123,6 +164,12 @@ func readModules(files fs.FS) (map[string]selection, error) {
 
 	for _, entry := range entries {
 		name := entry.Name()
+		if name == "_shared" && entry.IsDir() {
+			continue
+		}
+		if name == "capabilities" || name == "internal" {
+			return nil, fmt.Errorf("%w: module name %q is reserved", ErrMetadata, name)
+		}
 		if _, err = domain.NewModuleName(name); err != nil || !entry.IsDir() {
 			return nil, fmt.Errorf("%w: expected a module directory, got %q", ErrMetadata, name)
 		}
@@ -145,5 +192,32 @@ func readModules(files fs.FS) (map[string]selection, error) {
 		return nil, fmt.Errorf("%w: no modules found", ErrMetadata)
 	}
 
+	return result, nil
+}
+
+// Only direct Nix files declare public areas.
+func readPublicDeclarations(source fs.FS) ([]string, error) {
+	entries, err := fs.ReadDir(source, "_shared")
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: read _shared declarations: %w", ErrMetadata, err)
+	}
+
+	var result []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "module.toml" {
+			return nil, fmt.Errorf("%w: _shared must not contain module.toml", ErrMetadata)
+		}
+		if !strings.HasSuffix(name, ".nix") {
+			continue
+		}
+		if !entry.Type().IsRegular() {
+			return nil, fmt.Errorf("%w: public declaration %q must be a regular file", ErrMetadata, name)
+		}
+		result = append(result, path.Join("_shared", name))
+	}
 	return result, nil
 }

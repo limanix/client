@@ -2,35 +2,16 @@
   config,
   lib,
   pkgs,
-  runtime,
   ...
 }:
 let
+  runtime = builtins.fromJSON (builtins.readFile ./runtime.json);
   environmentDropIn = ''
     [Service]
     EnvironmentFile=-/etc/limanix/environment
   '';
 in
 {
-  options.limanix.user = {
-    name = lib.mkOption {
-      type = lib.types.str;
-      readOnly = true;
-      description = "Development account name supplied by Limanix.";
-    };
-    home = lib.mkOption {
-      type = lib.types.str;
-      readOnly = true;
-      description = "Development account home supplied by Limanix.";
-    };
-    shell = lib.mkOption {
-      type = lib.types.package;
-      default = pkgs.bashInteractive;
-      defaultText = lib.literalExpression "pkgs.bashInteractive";
-      description = "Login shell for the development account.";
-    };
-  };
-
   config = {
     limanix.user = {
       inherit (runtime.user) name home;
@@ -71,13 +52,13 @@ in
       '';
     };
 
-    users.groups.${runtime.user.name} = { };
-    users.users.${runtime.user.name} = {
+    users.groups.${config.limanix.user.name} = { };
+    users.users.${config.limanix.user.name} = {
       isNormalUser = runtime.user.uid >= 1000;
       isSystemUser = runtime.user.uid < 1000;
       uid = runtime.user.uid;
-      group = runtime.user.name;
-      home = runtime.user.home;
+      group = config.limanix.user.name;
+      home = config.limanix.user.home;
       shell = config.limanix.user.shell;
       createHome = false;
       linger = true;
@@ -85,7 +66,7 @@ in
     security.sudo.wheelNeedsPassword = true;
     security.sudo.extraRules = [
       {
-        users = [ "limanix-admin" ] ++ lib.optional runtime.user.sudo runtime.user.name;
+        users = [ "limanix-admin" ] ++ lib.optional runtime.user.sudo config.limanix.user.name;
         commands = [
           {
             command = "ALL";
