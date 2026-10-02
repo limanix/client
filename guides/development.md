@@ -23,6 +23,8 @@ task --list
 
 The examples use `task --yes` to accept the pinned remote Taskfile includes.
 
+Read [Architecture](architecture.md) for service boundaries, the guest contract and recovery behavior.
+
 ## Source layout
 
 | Path                                          | Responsibility                                                                |
@@ -67,17 +69,59 @@ Tests and native builds prepare the embedded resources before running.
 The integration test calls the same `Prepare` function used for VM generations and evaluates the generated flake's system derivation in the Nix container with its lock file unchanged.
 It does not build packages or boot a VM.
 The ordinary Go test suite does not require Nix.
-The release workflow runs the same evaluation against the exact client checkout and catalog tag in parallel with native builds and documentation preparation.
-Publication waits for all three jobs to succeed.
+Give full native Nix validation its own memory headroom; the [catalog troubleshooting guide](https://limanix.dev/categories/nixos/troubleshooting.html#validation-memory) covers heavy evaluation and build workloads.
+The release workflow runs the same evaluation against the exact client checkout and catalog tag in parallel with Go checks, native builds and documentation preparation.
+Its shared metadata stage plans the pair matrix before those workers; publication requires every result.
 A client revision without the pair-validation task cannot publish an unverified pair.
+A legacy client without the shard protocol runs its complete supported evaluator once; missing evaluator support fails explicitly.
 
-The PR workflow runs shared Go checks and generated guest flake evaluation in separate jobs after selecting the catalog tag.
-The native macOS build follows the Go checks; `gate` combines the catalog selection, Go, evaluation, and build results.
+The PR workflow selects the catalog tag, then runs formatting, lint, race tests, vulnerability checks, native builds, generated guest flake evaluation and documentation preparation in parallel jobs.
+PR pair evaluation uses representative cases: the empty selection, third-party capabilities, Cozy, Console, Console with an explicit editor line, Docker, Minikube and AstroNvim when those selectors are available.
+Smaller catalogs use other default selectors to fill up to eight cases.
+The full profile remains the default for local evaluation, releases and historical rebuilds; it includes every selector and supported integration case.
+Workers contain at most four cases and at most two version-bearing selections, including the explicit-editor Console case.
+
+For the current catalog, CI's native evaluation matrix is:
+
+| Profile | Cases per architecture | Total evaluations | Workers |
+|---|---|---|---|
+| PR representatives | 8 | 16 | 4 |
+| Full release/historical profile | 61 | 122 | 34 |
+
+Counts follow the selected catalog's available selectors.
+`gate` waits for the catalog selection and all required results.
 A separate workflow checks the PR label.
 
 For lifecycle or guest configuration changes, also exercise the operation with a disposable VM on macOS.
 Use a separate configuration and [`LIMANIX_HOME`](troubleshooting.md#state-directories) to keep its state separate from your working VMs.
 Tests and a signed build do not establish that the affected VM operation succeeds.
+
+## Test a local client/catalog pair
+
+Use `modules_source` to bundle the current local catalog instead of downloading a release.
+The required `modules_version` labels that local bundle; it does not publish a tag.
+Run from the client checkout with the modules checkout beside it:
+
+```console
+task --yes ci/golang-test modules_source=../modules modules_version=local-20261001
+task --yes ci/nixos-eval modules_source=../modules modules_version=local-20261001
+task --yes ci/build modules_source=../modules modules_version=local-20261001 TARGET_ARCH=arm64
+```
+
+Use `TARGET_ARCH=amd64` for an Intel binary.
+Run the resulting binary explicitly to use its local catalog; an older installed binary still contains its own catalog:
+
+```console
+./bin/limanix-arm64 modules list
+```
+
+On Intel, use `./bin/limanix-amd64`.
+Use that binary for the test VM's create and update commands too.
+The local source is validated every time; unchanged bundle bytes can be reused.
+The archive contains the catalog, public interface, Nixpkgs lock and license.
+Symlinks and special files are rejected.
+The tasks update ignored embedded resources and local outputs; they do not stage, commit or publish source changes.
+Omit `modules_source` to use the published-tag workflow.
 
 ## Build a native client
 
@@ -99,6 +143,12 @@ task --yes ci/build modules_version=v4 TARGET_ARCH=arm64
 ```
 
 CI builds both architectures in parallel, each on a matching macOS runner.
+The required PR path budgets one minute for combined catalog metadata and matrix planning, seven minutes for parallel workers, and one minute for the final gate.
+Worker budgets include setup, caches, checks and builds.
+Go tests, lint and pair evaluation also use five-minute tool limits.
+An exceeded budget fails its check.
+Queue waits sit outside the nine-minute active budget; account concurrency limits can queue workers.
+Successful whole-workflow hosted runtime with cold caches has not been measured.
 
 To install the Apple Silicon build:
 
@@ -129,7 +179,8 @@ This builds local files; it does not create a Git tag or publish a release.
 | macOS network helper          | `socket_vmnet` version, hashes, and sizes in `Taskfile.yml` | `cmd/bundle-socketvmnet` downloads and validates both archives |
 
 Generated archives are ignored by Git.
-Tasks that prepare the catalog require the selected modules tag to exist upstream.
+Without `modules_source`, tasks that prepare the catalog require the selected modules tag to exist upstream.
+With it, the selected local directory supplies the catalog and the version argument labels the bundle.
 
 The catalog's `flake.lock` supplies the Nixpkgs revision for catalog checks and guest builds.
 The client rejects catalogs without that pin or their root `interface.nix`.
@@ -145,6 +196,7 @@ The bootstrap image, its checksums in `internal/nixos/image.go`, and `system.sta
 
 Edit explanations and examples in `guides/`.
 The TOML blocks in `getting-started.md` and `configuration.md` mirror the downloadable files in `guides/examples/`; update both copies together.
+`examples/cozy.toml` is the complete project-workbench example used by the README and workspace guide.
 Then prepare the pages:
 
 ```console

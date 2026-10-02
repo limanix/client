@@ -15,9 +15,15 @@ import (
 )
 
 type apiServer struct {
-	server *http.Server
-	socket string
-	result <-chan error
+	server     *http.Server
+	socket     string
+	socketInfo fs.FileInfo
+	result     <-chan error
+}
+
+type socketListener struct {
+	*net.UnixListener
+	info fs.FileInfo
 }
 
 // Close stops serving, waits for Serve to finish, and removes the checked socket.
@@ -28,7 +34,7 @@ func (api *apiServer) Close() error {
 		serveErr = nil
 	}
 
-	return errors.Join(closeErr, serveErr, removeSocket(api.socket))
+	return errors.Join(closeErr, serveErr, removeOwnedSocket(api.socket, api.socketInfo))
 }
 
 func startAPIServer(ctx context.Context, socket string, agent *limaagent.HostAgent, signals chan<- os.Signal) (*apiServer, error) {
@@ -62,13 +68,14 @@ func startAPIServer(ctx context.Context, socket string, agent *limaagent.HostAge
 	}()
 
 	return &apiServer{
-		server: httpServer,
-		socket: socket,
-		result: result,
+		server:     httpServer,
+		socket:     socket,
+		socketInfo: listener.info,
+		result:     result,
 	}, nil
 }
 
-func listenSocket(ctx context.Context, socket string) (*net.UnixListener, error) {
+func listenSocket(ctx context.Context, socket string) (*socketListener, error) {
 	if err := requirePrivateDirectory(filepath.Dir(socket)); err != nil {
 		return nil, err
 	}
@@ -82,11 +89,18 @@ func listenSocket(ctx context.Context, socket string) (*net.UnixListener, error)
 
 	unixListener := listener.(*net.UnixListener)
 	unixListener.SetUnlinkOnClose(false)
+	info, err := os.Lstat(socket)
+	if err != nil {
+		return nil, errors.Join(err, unixListener.Close())
+	}
+	if info.Mode()&os.ModeSocket == 0 {
+		return nil, errors.Join(ErrOccupiedSocket, unixListener.Close())
+	}
 	if err = os.Chmod(socket, 0o600); err != nil {
-		return nil, errors.Join(err, unixListener.Close(), removeSocket(socket))
+		return nil, errors.Join(err, unixListener.Close(), removeOwnedSocket(socket, info))
 	}
 
-	return unixListener, nil
+	return &socketListener{UnixListener: unixListener, info: info}, nil
 }
 
 func removeSocket(filename string) error {
@@ -103,5 +117,20 @@ func removeSocket(filename string) error {
 		return ErrOccupiedSocket
 	}
 
+	return os.Remove(filename)
+}
+
+// removeOwnedSocket preserves another socket that replaced this listener's path.
+func removeOwnedSocket(filename string, original fs.FileInfo) error {
+	info, err := os.Lstat(filename)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSocket == 0 || original == nil || !os.SameFile(info, original) {
+		return ErrReplacedSocket
+	}
 	return os.Remove(filename)
 }

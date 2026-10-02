@@ -19,7 +19,7 @@
 //
 // # Validation and diagnostics
 //
-// [Validate] checks field values and relationships, including schema version, resource sizes, module-ID uniqueness,
+// [Validate] checks field values and relationships, including schema version, resource sizes, module identifiers,
 // reserved guest paths, and mount overlap. It does not query Lima or verify that a module is installed in the registry.
 //
 // [Error] identifies a field without printing its input value. An underlying cause may be available through Unwrap;

@@ -1,0 +1,65 @@
+name: Select client and catalog pair
+
+on:
+  workflow_call:
+    inputs:
+      modules-tag:
+        description: Catalog tag, or empty to select the latest published catalog.
+        type: string
+        default: ''
+      commit-sha:
+        description: Client source used by the contract test.
+        type: string
+        default: ''
+      profile:
+        description: Full release coverage by default; pr selects representative client shapes.
+        type: string
+        default: full
+    outputs:
+      modules-tag:
+        value: ${{ jobs.metadata.outputs.modules-tag }}
+      matrix:
+        value: ${{ jobs.metadata.outputs.matrix }}
+
+permissions:
+  contents: read
+
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    outputs:
+      modules-tag: ${{ steps.plan.outputs.modules-tag }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: limanix/modules
+          fetch-depth: 0
+          path: .cache/modules
+          persist-credentials: false
+      - name: Select published catalog
+        if: inputs.modules-tag == ''
+        id: tags
+        uses: mr-chelyshkin/actions/get-tags@v1
+        with:
+          repository: limanix/modules
+          pattern: '^v[1-9][0-9]*$'
+          require-release: 'true'
+          count: '1'
+      - name: Test pair planning
+        run: python3 -B -m unittest discover -s .github/scripts
+      - name: Plan stage coverage
+        id: plan
+        env:
+          MODULES_TAG: ${{ inputs.modules-tag || fromJSON(steps.tags.outputs.tags)[0].tag }}
+          CLIENT_SHA: ${{ inputs.commit-sha || github.sha }}
+          EVAL_PROFILE: ${{ inputs.profile }}
+        run: >-
+          python3 -B .github/scripts/plan_eval.py --modules-root .cache/modules
+          --modules-tag "$MODULES_TAG" --commit-sha "$CLIENT_SHA"
+          --profile "$EVAL_PROFILE" >> "$GITHUB_OUTPUT"

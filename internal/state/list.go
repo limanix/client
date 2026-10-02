@@ -22,6 +22,10 @@ type Entry struct {
 
 // FetchAll lists healthy and damaged records, detecting abandoned operations under a shared lock.
 func (s *Store) FetchAll() ([]Entry, error) {
+	if err := filesystem.CheckDirectory(s.root); err != nil {
+		return nil, err
+	}
+
 	directory := filepath.Join(s.root, "instances")
 
 	if err := filesystem.CheckDirectory(directory); err != nil {

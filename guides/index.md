@@ -5,7 +5,11 @@ Keep your editor and project files on your Mac, and run tools and services in a 
 
 | Page                                    | Read it to                                                                   |
 |-----------------------------------------|------------------------------------------------------------------------------|
-| [Getting started](getting-started.md)   | Install the client and create your first environment                         |
+| [Getting started](getting-started.md) | Install the client and create your first environment |
+| [Project workspace](workspace.md) | Use the Cozy workbench and its integrated project tools |
+| [Architecture](architecture.md) | Understand responsibilities, contracts, configuration delivery and recovery |
+| [Modules](modules.md) | Select, import and apply catalog or custom modules |
+| [Networking](networking.md) | Reach guest services and choose architecture/network settings |
 | [Configuration](configuration.md)       | Configure resources, shared files, modules, and networking                   |
 | [Virtual machines](virtual-machines.md) | Use, update, stop, and delete VMs, and understand what happens to their data |
 | [Troubleshooting](troubleshooting.md)   | Diagnose failed commands, guest access, and saved state                      |
@@ -16,6 +20,8 @@ Keep your editor and project files on your Mac, and run tools and services in a 
 :hidden:
 
 getting-started
+workspace
+architecture
 configuration
 virtual-machines
 troubleshooting

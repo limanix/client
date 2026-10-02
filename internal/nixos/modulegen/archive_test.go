@@ -21,7 +21,7 @@ func TestPackRetainsCatalogPinAndInterfaceAndMapsSourceDirectory(t *testing.T) {
 	files["README.md"] = []byte("repository documentation\n")
 	files["guides/index.md"] = []byte("catalog documentation\n")
 	files["modules/ignored/default.nix"] = []byte("{}\n")
-	files["catalog/_shared/editor.nix"] = []byte("{ options = {}; }\n")
+	files["catalog/_shared/languageSupport.nix"] = []byte("{ options = {}; }\n")
 	files["catalog/_shared/internal/selection.nix"] = []byte("{ options = {}; }\n")
 	data := packFixture(t, files)
 	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
@@ -40,7 +40,7 @@ func TestPackRetainsCatalogPinAndInterfaceAndMapsSourceDirectory(t *testing.T) {
 	if err != nil || !bytes.Equal(module, files["catalog/tool/default.nix"]) {
 		t.Fatalf("catalog module was not mapped into the embedded module tree: %v", err)
 	}
-	for _, name := range []string{"editor.nix", "internal/selection.nix"} {
+	for _, name := range []string{"languageSupport.nix", "internal/selection.nix"} {
 		shared, err := fs.ReadFile(archive, "modules/_shared/"+name)
 		if err != nil || !bytes.Equal(shared, files["catalog/_shared/"+name]) {
 			t.Fatalf("shared declaration %s was not preserved in the embedded module tree: %v", name, err)

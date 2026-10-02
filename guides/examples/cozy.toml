@@ -1,0 +1,34 @@
+# Save beside your project as limanix.toml.
+# Apple Silicon: arm64. Intel Mac: change resources.arch to amd64.
+schema_version = 1
+name = "cozy-dev"
+env = {}
+
+[resources]
+arch = "arm64"
+cpu = 4
+mem = "8GiB"
+disk = "40GiB"
+
+[user]
+name = "dev"
+home = "/home/dev"
+sudo = true
+
+[home]
+root = "~/.limanix"
+
+[nixos]
+modules = ["lmx:cozy"]
+
+[network]
+mode = "shared"
+
+[network.ports]
+tcp = []
+udp = []
+
+[[mounts]]
+source = "."
+target = "/workspace"
+mode = "rw"

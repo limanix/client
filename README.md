@@ -14,11 +14,9 @@ Keep your project and editor on your Mac.
 Run Linux tools, services, and builds inside a VM.
 LimaNix uses Lima for virtualization and NixOS for guest configuration.
 The host does not need a separate Lima or Nix installation.
+Every guest includes local guidance and an environment overview; add the tools your project needs through modules.
 
-[Documentation](https://limanix.dev) |
-[Releases](https://github.com/limanix/client/releases) |
-[Module catalog](https://github.com/limanix/modules) |
-[Release process](https://limanix.dev/releases/index.html)
+[Documentation](https://limanix.dev) | [Releases](https://github.com/limanix/client/releases) | [Module catalog](https://github.com/limanix/modules) | [Release process](https://limanix.dev/releases/index.html)
 
 ## How it compares
 
@@ -41,11 +39,36 @@ limanix --version
 
 Use the native binary.
 VM operations reject an Intel client running through Rosetta.
-Release binaries carry an ad-hoc signature and are not notarized.
-macOS may ask you to approve the download.
+Release binaries carry an ad-hoc signature and are not notarized. macOS may ask you to approve the download.
 See [Install the client](guides/getting-started.md#install-the-client) for details.
 
-## Create an environment
+## Try the project workbench
+
+Save [the Cozy example](guides/examples/cozy.toml) as `limanix.toml` beside your project.
+It shares the project at `/workspace` and selects the integrated development tools.
+On Intel, set `resources.arch` to `"amd64"`.
+
+Run on your Mac:
+
+```console
+limanix modules list
+limanix create --config limanix.toml
+limanix shell cozy-dev
+```
+
+Check that `modules list` includes `lmx:cozy` in your installed build before creating the VM.
+Inside the VM, run:
+
+```console
+tmux-project /workspace
+```
+
+Four named windows put the editor, shell, Git interface and container logs beside the same project.
+Cozy includes Go, Python and Node.js with language servers, Docker, local Kubernetes tools, AWS and Google Cloud clients, and HTTP and SQL interfaces.
+Cloud accounts and Kubernetes clusters are configured when you choose to use them.
+[Project workspace](guides/workspace.md) covers navigation, the notes API playground, personal configuration and state.
+
+## Create a minimal environment
 
 Save the [minimal example](guides/examples/minimal.toml) as `limanix.toml` beside your project.
 On Intel, set its `arch` to `"amd64"`.
@@ -102,7 +125,9 @@ Their release notes name the bundled catalog.
 
 | Topic                                                          | Guide                                          |
 |----------------------------------------------------------------|------------------------------------------------|
-| Installation and first environment                             | [Getting started](guides/getting-started.md)   |
+| Installation and first environment | [Getting started](guides/getting-started.md) |
+| Integrated development tools and project windows | [Project workspace](guides/workspace.md) |
+| Component boundaries, configuration delivery and recovery | [Architecture](guides/architecture.md) |
 | Resources, mounts, users, environment, modules, and networking | [Configuration](guides/configuration.md)       |
 | Catalog selectors and imported modules                         | [Modules](guides/modules.md)                   |
 | Service ports, guest architecture, and connection checks       | [Networking](guides/networking.md)             |
@@ -130,7 +155,7 @@ task --yes ci/build modules_version=v2
 `modules_version` sets the module catalog tag to embed.
 Use the latest tag from [catalog releases](https://github.com/limanix/modules/releases).
 `ci/build` writes `bin/limanix-arm64` and `bin/limanix-amd64`.
-See [Development](guides/development.md) for source layout, embedded resources, and documentation tasks.
+See [Development](guides/development.md) for source layout, embedded resources, [local client/catalog pairing](guides/development.md#test-a-local-clientcatalog-pair), and documentation tasks.
 Read the [contribution guide](https://github.com/limanix/.github/blob/main/CONTRIBUTING.md) before opening a pull request.
 
 Licensed under [Apache 2.0](LICENSE).

@@ -1,0 +1,52 @@
+name: Client checks
+
+on:
+  workflow_call:
+    inputs:
+      modules-tag:
+        description: Exact catalog tag used by the test fixture.
+        type: string
+        required: true
+      commit-sha:
+        description: Client source to check.
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: ${{ matrix.task }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [ci/golang-fmt, ci/golang-lint, ci/golang-test, ci/golang-vuln]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit-sha || github.sha }}
+          persist-credentials: false
+      - name: Restore Go compilation and download cache
+        uses: actions/cache@v5
+        with:
+          path: .cache/go
+          key: go-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            go-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-${{ hashFiles('go.sum') }}-
+            go-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-
+      - name: Restore verified guest-agent fixtures
+        if: matrix.task == 'ci/golang-test'
+        uses: actions/cache@v5
+        with:
+          path: |
+            internal/bundle/resources/*.gz
+            internal/bundle/resources/manifest.json
+          key: guest-agent-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'Taskfile.yml', 'internal/bundle/generator/**', 'internal/bundle/vmnetgen/**') }}
+      - name: Run check
+        timeout-minutes: 6
+        uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        with:
+          command: ${{ matrix.task }} modules_version=${{ inputs.modules-tag }}

@@ -142,9 +142,13 @@ Inside the **VM**, check where you are:
 uname -s
 whoami
 pwd
+limanix-help
+limanix-info
 ```
 
-For this configuration, the expected results are `Linux`, `dev`, and `/home/dev`.
+The first three commands return `Linux`, `dev`, and `/home/dev` for this configuration.
+`limanix-help` shows guest and Mac commands; `limanix-info` reports the guest identity, selected modules, shared mounts and failed services.
+These local helpers work without optional modules.
 Return to your Mac with `exit`.
 
 ## Add development tools
@@ -226,6 +230,8 @@ To remove the demo, follow [Delete a VM](virtual-machines.md#delete-a-vm).
 Deletion removes the VM disk and preserves its managed home by default; mounted project directories remain on your Mac.
 
 ## Where to go next
+
+For the integrated shell, editor, containers, language servers and cloud clients, follow [Project workspace](workspace.md).
 
 - [Configuration](configuration.md): users, resources, mounts, environment, and defaults.
 - [Modules](modules.md): bundled tools and your own NixOS configuration.

@@ -78,7 +78,8 @@ func (client *Client) newSSHCommand(ctx context.Context, inst *limatype.Instance
 		arguments = append(arguments, "-t")
 	}
 
-	arguments = append(arguments,
+	arguments = append(
+		arguments,
 		"-o", "LogLevel=ERROR",
 		"-p", strconv.Itoa(inst.SSHLocalPort),
 		inst.SSHAddress,

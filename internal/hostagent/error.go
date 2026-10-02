@@ -9,6 +9,7 @@ var (
 	ErrForeignPaths         = errors.New("host-agent PID and socket paths must belong to the selected instance")
 	ErrRelativeResource     = errors.New("agent resources must be absolute local file paths")
 	ErrMissingGuestAgent    = errors.New("the embedded guest-agent archive must be specified")
+	ErrReplacedSocket       = errors.New("host-agent socket path was replaced during operation")
 	ErrOccupiedSocket       = errors.New("host-agent socket path is occupied by a non-socket file")
 	ErrInvalidPID           = errors.New("host-agent PID file has an invalid process identifier")
 	ErrReplacedPID          = errors.New("host-agent PID path was replaced during operation")

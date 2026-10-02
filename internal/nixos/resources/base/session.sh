@@ -1,3 +1,5 @@
+# limanix_session_command and limanix_session_providers are supplied by session.nix.
+# shellcheck disable=SC2154
 if [ "$#" -ne 1 ] || [ -z "$1" ]; then
   printf '%s\n' 'Usage: limanix-session NAME (one nonempty session name)' >&2
   exit 2

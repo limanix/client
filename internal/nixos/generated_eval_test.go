@@ -17,6 +17,8 @@ import (
 	"github.com/limanix/client/internal/modules"
 )
 
+// limanix-eval-shard-protocol: 1
+//
 // TestGeneratedFlakeEvaluation evaluates Prepare's complete output, including the
 // client platform, runtime mapping and embedded catalog; it does not build or boot a VM.
 // Run through task ci/nixos-eval so the selected catalog and Nix are available.
@@ -57,8 +59,33 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 		selections = append(selections, selection{name: "console-version", modules: ids})
 	}
 
+	selectionNames := make([]string, 0, len(selections))
+	for _, selection := range selections {
+		selectionNames = append(selectionNames, selection.name)
+	}
+	moduleValue, moduleSet := os.LookupEnv("LIMANIX_EVAL_MODULES")
+	moduleFilter, err := parseEvaluationFilter(moduleValue, moduleSet, selectionNames)
+	if err != nil {
+		t.Fatalf("LIMANIX_EVAL_MODULES: %v", err)
+	}
+	archNames := make([]string, 0, len(domain.Architectures()))
 	for _, arch := range domain.Architectures() {
+		archNames = append(archNames, string(arch))
+	}
+	archValue, archSet := os.LookupEnv("LIMANIX_EVAL_ARCH")
+	archFilter, err := parseEvaluationFilter(archValue, archSet, archNames)
+	if err != nil {
+		t.Fatalf("LIMANIX_EVAL_ARCH: %v", err)
+	}
+
+	for _, arch := range domain.Architectures() {
+		if !archFilter[string(arch)] {
+			continue
+		}
 		for _, selection := range selections {
+			if !moduleFilter[selection.name] {
+				continue
+			}
 			t.Run(string(arch)+"/"+selection.name, func(t *testing.T) {
 				cfg := config.Default()
 				cfg.Name = "eval-vm"
@@ -72,7 +99,13 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 					if selection.thirdParty {
 						source.Path = t.TempDir()
 						declaration := `{ config, pkgs, ... }: {
-  lmx.capabilities.editor.languages.python.parsers = [ "python" ];
+  lmx.capabilities.languageSupport.languages.python.parsers = [ "python" ];
+  # NixOS accepts contextual strings and string-like store objects as packages.
+  environment.systemPackages = [
+    "${pkgs.hello}"
+    { __toString = _: toString pkgs.hello; }
+    (pkgs.hello // { meta = pkgs.hello.meta // { priority = 7; }; })
+  ];
   assertions = [
     {
       assertion = config.limanix.user.name == "eval-user"
@@ -101,7 +134,8 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				command := exec.CommandContext(t.Context(), nix,
+				command := exec.CommandContext(
+					t.Context(), nix,
 					"eval", "--raw", "--show-trace",
 					"--extra-experimental-features", "nix-command flakes",
 					"--no-update-lock-file", "--no-write-lock-file",
@@ -122,5 +156,8 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 				t.Logf("Evaluated %s", derivation)
 			})
 		}
+	}
+	if !t.Failed() {
+		t.Logf("Evaluated %d generated-flake cases across %d architecture(s).", len(moduleFilter)*len(archFilter), len(archFilter))
 	}
 }

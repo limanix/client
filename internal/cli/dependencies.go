@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"io"
+	"os"
 
 	"github.com/limanix/client/internal/app"
 	"github.com/limanix/client/internal/domain"
@@ -11,10 +12,24 @@ import (
 )
 
 // IO allows commands to inherit the terminal or use explicit streams in tests.
+// Omitted fields inherit the corresponding process stream.
 type IO struct {
 	In  io.Reader
 	Out io.Writer
 	Err io.Writer
+}
+
+func (streams IO) withDefaults() IO {
+	if streams.In == nil {
+		streams.In = os.Stdin
+	}
+	if streams.Out == nil {
+		streams.Out = os.Stdout
+	}
+	if streams.Err == nil {
+		streams.Err = os.Stderr
+	}
+	return streams
 }
 
 // Manager is the VM surface consumed by the CLI.
