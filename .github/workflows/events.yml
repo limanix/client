@@ -17,6 +17,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       tags: ${{ steps.plan.outputs.tags }}
+      modules-tag: ${{ steps.catalog.outputs.modules-tag }}
     steps:
       - name: Check module tag
         uses: mr-chelyshkin/actions/check-tag-format@v1
@@ -34,6 +35,14 @@ jobs:
           fetch-depth: 0
           path: .cache/modules
           persist-credentials: false
+      - name: Select published catalog
+        id: catalog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODULES_TAG: ${{ github.event.client_payload.tag }}
+        run: >-
+          python3 -B .github/scripts/select_catalog.py --modules-root .cache/modules
+          --modules-tag "$MODULES_TAG" >> "$GITHUB_OUTPUT"
       - name: Test complete pair planning
         run: python3 -B -m unittest discover -s .github/scripts
       - name: Select client versions
@@ -57,7 +66,7 @@ jobs:
       - name: Plan each client and catalog pair
         id: plan
         env:
-          MODULES_TAG: ${{ github.event.client_payload.tag }}
+          MODULES_TAG: ${{ steps.catalog.outputs.modules-tag }}
           CLIENTS: ${{ steps.versions.outputs.tags }}
         run: >-
           python3 -B .github/scripts/plan_eval.py --modules-root .cache/modules
@@ -75,7 +84,7 @@ jobs:
     with:
       commit-sha: ${{ matrix.commit_sha }}
       release-tag: ${{ matrix.tag }}
-      modules-tag: ${{ github.event.client_payload.tag }}
+      modules-tag: ${{ needs.clients.outputs.modules-tag }}
       evaluation-matrix: ${{ toJSON(matrix.evaluation_matrix) }}
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
@@ -84,7 +93,7 @@ jobs:
     needs: [clients, release]
     uses: ./.github/workflows/_notify.yml
     with:
-      modules-tag: ${{ github.event.client_payload.tag }}
+      modules-tag: ${{ needs.clients.outputs.modules-tag }}
       clients: ${{ needs.clients.outputs.tags }}
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

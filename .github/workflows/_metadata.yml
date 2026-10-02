@@ -43,20 +43,19 @@ jobs:
           path: .cache/modules
           persist-credentials: false
       - name: Select published catalog
-        if: inputs.modules-tag == ''
-        id: tags
-        uses: mr-chelyshkin/actions/get-tags@v1
-        with:
-          repository: limanix/modules
-          pattern: '^v[1-9][0-9]*$'
-          require-release: 'true'
-          count: '1'
+        id: catalog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODULES_TAG: ${{ inputs.modules-tag }}
+        run: >-
+          python3 -B .github/scripts/select_catalog.py --modules-root .cache/modules
+          --modules-tag "$MODULES_TAG" >> "$GITHUB_OUTPUT"
       - name: Test pair planning
         run: python3 -B -m unittest discover -s .github/scripts
       - name: Plan stage coverage
         id: plan
         env:
-          MODULES_TAG: ${{ inputs.modules-tag || fromJSON(steps.tags.outputs.tags)[0].tag }}
+          MODULES_TAG: ${{ steps.catalog.outputs.modules-tag }}
           CLIENT_SHA: ${{ inputs.commit-sha || github.sha }}
           EVAL_PROFILE: ${{ inputs.profile }}
         run: >-
