@@ -51,6 +51,10 @@ jobs:
           restore-keys: |
             pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum', 'internal/nixos/resources/flake.lock.tmpl') }}-${{ inputs.modules-tag }}-${{ matrix.id }}-
             pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum', 'internal/nixos/resources/flake.lock.tmpl') }}-
+      - name: Prepare Nix cache permissions
+        run: |
+          mkdir -p .cache/nix
+          sudo chown -R 0:0 .cache/nix
       - name: Evaluate generated guest flakes
         timeout-minutes: 40
         uses: mr-chelyshkin/actions/invoke-taskfile@v1
