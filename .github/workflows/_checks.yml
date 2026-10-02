@@ -19,7 +19,7 @@ jobs:
   check:
     name: ${{ matrix.task }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 7
+    timeout-minutes: ${{ matrix.task == 'ci/golang-test' && 45 || 20 }}
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +46,7 @@ jobs:
             internal/bundle/resources/manifest.json
           key: guest-agent-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'Taskfile.yml', 'internal/bundle/generator/**', 'internal/bundle/vmnetgen/**') }}
       - name: Run check
-        timeout-minutes: 6
+        timeout-minutes: ${{ matrix.task == 'ci/golang-test' && 40 || 15 }}
         uses: mr-chelyshkin/actions/invoke-taskfile@v1
         with:
           command: ${{ matrix.task }} modules_version=${{ inputs.modules-tag }}

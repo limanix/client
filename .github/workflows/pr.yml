@@ -43,7 +43,7 @@ jobs:
 
   docs:
     runs-on: ubuntu-24.04
-    timeout-minutes: 7
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
         with:
@@ -56,7 +56,7 @@ jobs:
     if: always()
     needs: [modules, go, build, contract, docs]
     runs-on: ubuntu-24.04
-    timeout-minutes: 1
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:

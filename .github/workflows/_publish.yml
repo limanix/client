@@ -51,7 +51,7 @@ jobs:
   docs:
     name: Prepare docs
     runs-on: ubuntu-24.04
-    timeout-minutes: 7
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
         with:
@@ -78,7 +78,7 @@ jobs:
     if: ${{ always() && !cancelled() }}
     needs: [build, docs, check, contract]
     runs-on: ubuntu-24.04
-    timeout-minutes: 1
+    timeout-minutes: 15
     steps:
       - name: Require every publication check
         uses: mr-chelyshkin/actions/check-job-results@v1

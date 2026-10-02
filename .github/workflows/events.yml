@@ -14,7 +14,7 @@ permissions:
 jobs:
   clients:
     runs-on: ubuntu-24.04
-    timeout-minutes: 1
+    timeout-minutes: 5
     outputs:
       tags: ${{ steps.plan.outputs.tags }}
     steps:

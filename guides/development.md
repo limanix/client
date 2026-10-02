@@ -143,11 +143,22 @@ task --yes ci/build modules_version=v4 TARGET_ARCH=arm64
 ```
 
 CI builds both architectures in parallel, each on a matching macOS runner.
-The required PR path budgets one minute for combined catalog metadata and matrix planning, seven minutes for parallel workers, and one minute for the final gate.
-Worker budgets include setup, caches, checks and builds.
-Go tests, lint and pair evaluation also use five-minute tool limits.
-An exceeded budget fails its check.
-Queue waits sit outside the nine-minute active budget; account concurrency limits can queue workers.
+Ten minutes is a performance target for useful CI results. Exceeding it does not fail valid checks.
+Cold downloads, compilation and runner queues can take longer.
+Separate hang guards bound unfinished work:
+
+| Scope | Guard |
+|---|---|
+| Native race tests and pair evaluation | 40 minutes per Task action; 45 minutes per job |
+| Native binary builds | 45 minutes per job |
+| Formatting, lint and vulnerability checks | 15 minutes per Task action; 20 minutes per job |
+| Documentation preparation | 15 minutes per job |
+| Catalog metadata, notifications and result gates | 5 minutes per job |
+
+The complete Go suite has a 30-minute outer guard, including embedded-resource preparation.
+Its five-minute timeout applies to each test binary.
+Pair-test compilation allows 15 minutes; pair evaluation allows 30 minutes.
+These guards stop stalled or runaway work; they do not establish expected runtime.
 Successful whole-workflow hosted runtime with cold caches has not been measured.
 
 To install the Apple Silicon build:
