@@ -32,7 +32,7 @@
 // already be referenced by state. Old inputs are pruned only after a successful ready record.
 //
 // Delete acquires the VM lock and reads identity independently of runtime state. It removes the backend first, then either
-// preserves homeownership or removes the exact managed home, and finally removes VM records. Force and home removal
+// preserves home ownership or removes the exact managed home, and finally removes VM records. Force and home removal
 // are separate choices; force does not imply deleting the home.
 //
 // # Queries and entry points

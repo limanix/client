@@ -3,6 +3,10 @@ name: Publish release
 on:
   workflow_call:
     inputs:
+      evaluation-matrix:
+        description: Complete pair matrix from release metadata; empty plans it here.
+        type: string
+        default: ''
       commit-sha:
         description: Client source commit SHA.
         required: true
@@ -23,6 +27,19 @@ permissions:
   contents: read
 
 jobs:
+  check:
+    uses: ./.github/workflows/_checks.yml
+    with:
+      modules-tag: ${{ inputs.modules-tag }}
+      commit-sha: ${{ inputs.commit-sha }}
+
+  contract:
+    uses: ./.github/workflows/_eval.yml
+    with:
+      evaluation-matrix: ${{ inputs.evaluation-matrix }}
+      modules-tag: ${{ inputs.modules-tag }}
+      commit-sha: ${{ inputs.commit-sha }}
+
   build:
     uses: ./.github/workflows/_build.yml
     with:
@@ -34,6 +51,7 @@ jobs:
   docs:
     name: Prepare docs
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
         with:
@@ -57,9 +75,15 @@ jobs:
 
   publish:
     name: Create GitHub release
-    needs: [build, docs]
+    if: ${{ always() && !cancelled() }}
+    needs: [build, docs, check, contract]
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
+      - name: Require every publication check
+        uses: mr-chelyshkin/actions/check-job-results@v1
+        with:
+          results: ${{ toJSON(needs) }}
       - name: Download binaries
         uses: actions/download-artifact@v8
         with:

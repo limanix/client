@@ -49,8 +49,12 @@
 // the VM generation owner decides whether to discard it or retain it for recovery. Individual writes do not make
 // an entire generation transactional.
 //
-// Read bundle.go for ordering, modules.go and resources.go for copying, runtime.go for the flake JSON contract,
-// and environment.go for ENV encoding.
+// Every generation includes local guest help and read-only workspace information. The Bash fallback prompt uses
+// Mocha colors only when no Starship provider is enabled; dumb terminals and NO_COLOR use plain text. Guest help,
+// identity, and terminal compatibility remain available with an empty optional module selection.
+//
+// Read bundle.go for ordering, modules.go and resources.go for copying, runtime.go for the private flake JSON contract,
+// environment.go for ENV encoding, and resources/base/workspace.nix for base guest presentation.
 //
 // [catalog contract]: https://limanix.dev/categories/nixos/catalog-contract.html
 package nixos

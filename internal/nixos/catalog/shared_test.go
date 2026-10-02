@@ -15,7 +15,7 @@ func TestPublicDeclarationsAvailableWithoutModuleSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"_shared/editor.nix", "_shared/zulu.nix"}
+	want := []string{"_shared/languageSupport.nix", "_shared/zulu.nix"}
 	got := catalog.PublicDeclarations()
 	if !slices.Equal(got, want) {
 		t.Fatalf("public declarations: got %v, want %v", got, want)
@@ -32,7 +32,7 @@ func TestPublicDeclarationsAvailableWithoutModuleSelection(t *testing.T) {
 	if _, err = fs.Stat(catalog.Source(), "interface.nix"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("source must be rooted at catalog module directories: %v", err)
 	}
-	for _, name := range []string{"_shared", "editor", "zulu", "internal"} {
+	for _, name := range []string{"_shared", "languageSupport", "zulu", "internal"} {
 		if _, ok := catalog.Modules()[name]; ok {
 			t.Fatalf("shared declaration became a selectable module: %s", name)
 		}
@@ -60,7 +60,7 @@ func sharedFixture(t *testing.T) map[string][]byte {
 		"interface.nix":                          []byte("{ options = {}; }\n"),
 		"modules/tool/module.toml":               []byte("description = 'Tool'\n"),
 		"modules/tool/default.nix":               []byte("{}\n"),
-		"modules/_shared/editor.nix":             []byte("{ options = {}; }\n"),
+		"modules/_shared/languageSupport.nix":    []byte("{ options = {}; }\n"),
 		"modules/_shared/internal/selection.nix": []byte("{ options = {}; }\n"),
 	}
 }

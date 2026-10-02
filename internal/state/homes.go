@@ -104,5 +104,9 @@ func (s *Store) preservedHomePath(identity domain.Identity) (string, error) {
 		return "", err
 	}
 
+	if err := filesystem.CheckDirectory(s.root); err != nil {
+		return "", err
+	}
+
 	return filepath.Join(s.root, "homes", filepath.Base(home)+".json"), nil
 }

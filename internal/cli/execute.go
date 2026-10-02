@@ -12,6 +12,7 @@ import (
 
 // Execute runs one CLI invocation and returns its exit status without exiting the process.
 func Execute(ctx context.Context, args []string, streams IO, dependencies Dependencies) int {
+	streams = streams.withDefaults()
 	root := Command(streams, dependencies)
 	root.SetArgs(args)
 

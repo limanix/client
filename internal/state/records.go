@@ -83,26 +83,63 @@ func readRecord(path string, record any) error {
 		return ErrRecordEncoding
 	}
 
-	var fields map[string]json.RawMessage
-
-	if err = json.Unmarshal(data, &fields); err != nil {
+	if err = validateRecordFields(data, jsonFieldNames(reflect.TypeOf(record).Elem())); err != nil {
 		return err
-	}
-
-	expected := jsonFieldNames(reflect.TypeOf(record).Elem())
-	if len(fields) != len(expected) {
-		return ErrRecordFields
-	}
-
-	for _, name := range expected {
-		if _, exists := fields[name]; !exists {
-			return ErrRecordFields
-		}
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(record)
+}
+
+// validateRecordFields requires one object with each exact field present once.
+// Unmarshaling to a map would silently discard duplicate ownership or status fields.
+func validateRecordFields(data []byte, names []string) error {
+	remaining := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		remaining[name] = struct{}{}
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	opening, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	if opening != json.Delim('{') {
+		return ErrRecordFields
+	}
+
+	for decoder.More() {
+		field, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		name, ok := field.(string)
+		if !ok {
+			return ErrRecordFields
+		}
+		if _, exists := remaining[name]; !exists {
+			return ErrRecordFields
+		}
+		delete(remaining, name)
+
+		var value json.RawMessage
+		if err := decoder.Decode(&value); err != nil {
+			return err
+		}
+	}
+
+	if _, err := decoder.Token(); err != nil {
+		return err
+	}
+	if len(remaining) != 0 {
+		return ErrRecordFields
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return ErrRecordFields
+	}
+	return nil
 }
 
 func jsonFieldNames(model reflect.Type) []string {

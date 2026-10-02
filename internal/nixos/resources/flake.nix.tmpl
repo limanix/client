@@ -37,6 +37,7 @@
           ./platform.nix
           ./runtime.nix
           ./session.nix
+          ./workspace.nix
         ]
           ++ builtins.map (path: ./. + "/${path}") runtime.modules;
       };

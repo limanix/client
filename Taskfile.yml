@@ -11,6 +11,8 @@ includes:
 
 vars:
   RELEASE_TAG: '{{.RELEASE_TAG | default ""}}'
+  modules_source: '{{.modules_source | default ""}}'
+  modules_source_path: '{{with .modules_source}}{{if isAbs .}}{{clean .}}{{else}}{{joinPath $.ROOT_DIR . | clean}}{{end}}{{end}}'
   macos_version: '26.0'
 
   socket_vmnet:
@@ -54,6 +56,8 @@ tasks:
     desc: Run Go lint
     cmds:
       - task: golang:golangci
+        vars:
+          LINT_ARGS: --timeout=5m ./...
 
   ci/golang-vuln:
     desc: Run Go vuln check
@@ -66,35 +70,36 @@ tasks:
     desc: Run Go tests with the race detector
     requires:
       vars: [modules_version]
+    vars:
+      test_command: |
+        go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}} {{with .modules_source_path}}--source {{. | shellQuote}}{{end}}
+        go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
+        go run ./cmd/bundle-guestagent --root .
+        exec go test -race -count=1 -timeout=5m -tags=osusergo -ldflags {{.build_flags | shellQuote}} ./...
     cmds:
       - task: golang:_go/tool
         vars:
-          CMD: go run ./cmd/bundle-modules --root . --version {{.modules_version | default "" | shellQuote}}
-      - task: golang:_go/tool
-        vars:
-          CMD: go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
-      - task: golang:_go/tool
-        vars:
-          CMD: go run ./cmd/bundle-guestagent --root .
-      - task: golang:test
-        vars:
-          TEST_ARGS: -race -tags=osusergo -ldflags {{.build_flags | shellQuote}} ./...
+          CMD: timeout --kill-after=15s 1800 sh -eu -c {{.test_command | shellQuote}}
           CONTAINER_ENVS: USER=limanix
+          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
 
   ci/nixos-eval:
-    desc: Eval every selector in the client and catalog pair
+    desc: Evaluate the client/catalog pair; EVAL_ARCH and EVAL_MODULES select cases
     requires:
       vars: [modules_version]
+    vars:
+      prepare_command: |
+        go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}} {{with .modules_source_path}}--source {{. | shellQuote}}{{end}}
+        exec go test -c -tags=osusergo,nix_eval -o .cache/nixos-eval.test ./internal/nixos
     cmds:
       - task: golang:_go/tool
         vars:
-          CMD: go run ./cmd/bundle-modules --root . --version {{.modules_version | default "" | shellQuote}}
-      - task: golang:_go/tool
-        vars:
-          CMD: go test -c -tags=osusergo,nix_eval -o .cache/nixos-eval.test ./internal/nixos
+          CMD: timeout --kill-after=15s 900 sh -eu -c {{.prepare_command | shellQuote}}
           CONTAINER_ENVS: CGO_ENABLED=0
+          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
       - task: nix:_nix/tool
         vars:
+          CONTAINER_ENVS: 'XDG_CACHE_HOME=/workspace/.cache {{with .EVAL_ARCH}}{{printf "LIMANIX_EVAL_ARCH=%s" . | shellQuote}}{{end}} {{with .EVAL_MODULES}}{{printf "LIMANIX_EVAL_MODULES=%s" . | shellQuote}}{{end}}'
           CMD: |
             sh -e -c '
               expected=TestGeneratedFlakeEvaluation
@@ -103,7 +108,7 @@ tasks:
                 printf "Client revision lacks the generated-flake evaluation test; refusing to validate this pair.\n" >&2
                 exit 1
               fi
-              exec ./.cache/nixos-eval.test -test.v -test.run "^$expected$" -test.timeout=60m
+              exec ./.cache/nixos-eval.test -test.v -test.run "^$expected$" -test.timeout=30m
             '
 
   ci/build:
@@ -118,7 +123,9 @@ tasks:
       - sh: xcrun --find clang >/dev/null && xcrun --find vtool >/dev/null && command -v codesign >/dev/null
         msg: Install the Xcode command-line tools before building native binaries.
     cmds:
-      - go run ./cmd/bundle-modules --root . --version {{.modules_version | default "" | shellQuote}}
+      - >-
+        go run ./cmd/bundle-modules --root . --version {{.modules_version | default "" | shellQuote}}
+        {{with .modules_source_path}}--source {{. | shellQuote}}{{end}}
       - go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
       - go run ./cmd/bundle-guestagent --root .
       - for: { var: target_archs }

@@ -16,11 +16,12 @@ type runtimeUser struct {
 }
 
 type runtimeConfig struct {
-	Name    domain.VMName       `json:"name"`
-	Arch    domain.Architecture `json:"arch"`
-	User    runtimeUser         `json:"user"`
-	Ports   config.Ports        `json:"ports"`
-	Modules []string            `json:"modules"`
+	Name            domain.VMName       `json:"name"`
+	Arch            domain.Architecture `json:"arch"`
+	User            runtimeUser         `json:"user"`
+	Ports           config.Ports        `json:"ports"`
+	Modules         []string            `json:"modules"`
+	SelectedModules []domain.ModuleID   `json:"selectedModules"`
 }
 
 func writeRuntime(filename string, cfg config.Config, imports []string, uid int) error {
@@ -33,8 +34,9 @@ func writeRuntime(filename string, cfg config.Config, imports []string, uid int)
 			Sudo: cfg.User.Sudo,
 			UID:  uid,
 		},
-		Ports:   cfg.Network.Ports,
-		Modules: imports,
+		Ports:           cfg.Network.Ports,
+		Modules:         imports,
+		SelectedModules: append([]domain.ModuleID{}, cfg.NixOS.Modules...),
 	}
 
 	data, err := json.MarshalIndent(record, "", "  ")

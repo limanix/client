@@ -25,8 +25,8 @@
 // during that cleanup. stdout/stderr writers serialize concurrent writes; the CLI configures JSON diagnostics for
 // this subprocess.
 //
-// Socket and PID cleanup verify the path they are about to remove. A replacement regular file is not treated as the
-// old socket, and PID cleanup checks identity rather than blindly removing the current path.
+// Socket and PID cleanup verify the identity of the path they are about to remove. Replacement files and sockets
+// are preserved and reported instead of being removed during shutdown.
 //
 // Read command.go and options.go for the subprocess contract, run.go for lifetime, pid.go for the lease, server.go
 // for HTTP/socket ownership, and writer.go for stream synchronization.

@@ -14,7 +14,8 @@ To write Nix code, start with [Write a module](https://limanix.dev/categories/ni
 
 Modules read the guest identity through the read-only NixOS options `config.limanix.user.name` and `config.limanix.user.home`.
 Set `limanix.user.shell` in a custom Nix module to choose the login shell.
-The existing `runtime` argument remains available for compatibility.
+The old `runtime` and root-flake `inputs` arguments are no longer supported.
+Use the public account options and standard NixOS options; the [migration table](https://limanix.dev/categories/nixos/writing-modules.html#migrate-custom-modules) lists replacements.
 
 ## List available modules
 

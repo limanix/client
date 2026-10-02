@@ -39,6 +39,7 @@ jobs:
           - arch: amd64
             runner: macos-26-intel
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
     outputs:
       artifact-name: ${{ inputs.artifact-name }}
     steps:

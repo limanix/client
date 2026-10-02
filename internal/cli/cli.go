@@ -10,6 +10,7 @@ import (
 
 // Command returns the complete CLI tree. It performs no host or VM operations.
 func Command(streams IO, dependencies Dependencies) *cobra.Command {
+	streams = streams.withDefaults()
 	dependencies = withDefaultDependencies(streams, dependencies)
 
 	root := &cobra.Command{

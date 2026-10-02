@@ -95,6 +95,10 @@ func (s *Store) InstanceDir(name domain.VMName) (string, error) {
 		return "", err
 	}
 
+	if err := filesystem.CheckDirectory(s.root); err != nil {
+		return "", err
+	}
+
 	parent := filepath.Join(s.root, "instances")
 	if err := filesystem.CheckDirectory(parent); err != nil {
 		return "", err
@@ -158,5 +162,13 @@ func (s *Store) GenerationDir(instance domain.Instance) (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(directory, "generations", instance.Generation), nil
+	parent := filepath.Join(directory, "generations")
+	if err := filesystem.CheckDirectory(parent); err != nil {
+		return "", err
+	}
+	generation := filepath.Join(parent, instance.Generation)
+	if err := filesystem.CheckDirectory(generation); err != nil {
+		return "", err
+	}
+	return generation, nil
 }

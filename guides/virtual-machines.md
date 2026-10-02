@@ -27,8 +27,7 @@ limanix shell dev-box
 ```
 
 With the defaults, you enter the guest as `dev` in `/home/dev`.
-Interactive sessions use the development account's configured login shell:
-Bash by default, or Zsh when selected through the catalog.
+Interactive sessions use the development account's configured login shell: Bash by default, or Zsh when selected through the catalog.
 Use `cd /workspace` if you mounted your project there.
 Type `exit` to return to your Mac; the VM keeps running.
 
@@ -41,6 +40,7 @@ limanix shell dev-box --session work
 ```
 
 The selected provider creates the session if needed or attaches to the existing one.
+The tmux provider rejects names containing `.` or `:`; use names such as `work` or `project-api`.
 Detachment, restoration, and key bindings belong to the provider; follow its module documentation.
 Stopping or updating the VM interrupts running processes.
 If no provider is configured, the guest reports available module selectors and exits with status 127.

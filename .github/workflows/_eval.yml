@@ -1,0 +1,70 @@
+name: Client and catalog contract
+
+on:
+  workflow_call:
+    inputs:
+      modules-tag:
+        description: Exact catalog tag to evaluate.
+        type: string
+        required: true
+      evaluation-matrix:
+        description: Complete matrix from the pair metadata job; empty plans it here.
+        type: string
+        default: ''
+      commit-sha:
+        description: Client source to evaluate.
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    if: inputs.evaluation-matrix == ''
+    uses: ./.github/workflows/_metadata.yml
+    with:
+      modules-tag: ${{ inputs.modules-tag }}
+      commit-sha: ${{ inputs.commit-sha }}
+
+  evaluate:
+    name: ${{ matrix.arch || 'both' }} / ${{ matrix.id }}
+    needs: plan
+    if: ${{ always() && !cancelled() && (inputs.evaluation-matrix != '' || needs.plan.result == 'success') }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.evaluation-matrix || needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commit-sha || github.sha }}
+          persist-credentials: false
+      - name: Restore compiler and Nix source caches
+        uses: actions/cache@v5
+        with:
+          path: |
+            .cache/go
+            .cache/nix
+          key: pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum', 'internal/nixos/resources/flake.lock.tmpl') }}-${{ inputs.modules-tag }}-${{ matrix.id }}-${{ github.sha }}
+          restore-keys: |
+            pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum', 'internal/nixos/resources/flake.lock.tmpl') }}-${{ inputs.modules-tag }}-${{ matrix.id }}-
+            pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum', 'internal/nixos/resources/flake.lock.tmpl') }}-
+      - name: Prepare Nix cache permissions
+        run: |
+          mkdir -p .cache/nix
+          sudo chown -R 0:0 .cache/nix
+      - name: Evaluate generated guest flakes
+        timeout-minutes: 40
+        uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        with:
+          command: >-
+            ci/nixos-eval modules_version=${{ inputs.modules-tag }}
+            EVAL_ARCH=${{ matrix.arch }} EVAL_MODULES="${{ matrix.cases }}"
+      - name: Restore Nix cache ownership
+        if: always()
+        run: |
+          if [ -d .cache/nix ]; then
+            sudo chown -R "$(id -u):$(id -g)" .cache/nix
+          fi

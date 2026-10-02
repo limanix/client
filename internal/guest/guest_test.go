@@ -235,14 +235,22 @@ func TestAddressHonorsEarlierCallerDeadline(t *testing.T) {
 }
 
 func TestUserCommandPreservesArgumentsInRealShell(t *testing.T) {
+	executable := func(name string) string {
+		path, err := exec.LookPath(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	shell, printf, pwd := executable("sh"), executable("printf"), executable("pwd")
 	values := []string{"space $value 'double\" end", "", "line one\nline two", "* ; : # `printf unintended`", `\backslash\`, "unicode ✓"}
-	command := userCommand("dev", append([]string{"printf", `%s\000`}, values...))
+	command := userCommand("dev", append([]string{printf, `%s\000`}, values...))
 	index := slices.Index(command, "-c")
 	if index < 0 {
 		t.Fatal("missing fixed shell script")
 	}
 	directory := t.TempDir()
-	process := exec.Command("/bin/sh", append([]string{"-c"}, command[index+1:]...)...)
+	process := exec.Command(shell, append([]string{"-c"}, command[index+1:]...)...)
 	process.Env = []string{"HOME=" + directory, "PATH=/usr/bin:/bin"}
 	output, err := process.Output()
 	if err != nil {
@@ -253,9 +261,9 @@ func TestUserCommandPreservesArgumentsInRealShell(t *testing.T) {
 		encoded, _ := json.Marshal(actual)
 		t.Fatalf("guest arguments were reinterpreted: %s", encoded)
 	}
-	command = userCommand("dev", []string{"pwd"})
+	command = userCommand("dev", []string{pwd})
 	index = slices.Index(command, "-c")
-	process = exec.Command("/bin/sh", append([]string{"-c"}, command[index+1:]...)...)
+	process = exec.Command(shell, append([]string{"-c"}, command[index+1:]...)...)
 	process.Env = []string{"HOME=" + directory, "PATH=/usr/bin:/bin"}
 	output, err = process.Output()
 	if err != nil {

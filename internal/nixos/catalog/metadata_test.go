@@ -149,9 +149,9 @@ func TestReservedCatalogModuleNames(t *testing.T) {
 		})
 	}
 	files := fstest.MapFS{
-		"modules/editor/module.toml": {Data: []byte("description = 'Editor'\n")},
-		"modules/editor/default.nix": {},
-		"modules/_shared/editor.nix": {},
+		"modules/tool/module.toml": {Data: []byte("description = 'Tool'\n")},
+		"modules/tool/default.nix": {},
+		"modules/_shared/tool.nix": {},
 	}
 	if _, err := readModules(files); err != nil {
 		t.Fatalf("public area incorrectly reserves a module name: %v", err)

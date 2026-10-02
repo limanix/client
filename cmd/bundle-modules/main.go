@@ -1,10 +1,12 @@
 // bundle-modules prepares the standard NixOS modules embedded in Limanix.
 //
-// It downloads the requested limanix/modules tag. The nixos package embeds the archive in Limanix,
+// It downloads a limanix/modules tag or packages a local catalog checkout. The nixos package embeds the archive in Limanix,
 // making its modules available for VM configuration when needed.
 //
 // The --version flag selects the exact Git tag; --root selects the repository.
 // Existing valid output for that tag is reused without a download.
+// --source selects a local catalog directory; --version supplies its explicit build label.
+// Local source is always checked and repacked; identical output is reused.
 //
 // Upstream: https://github.com/limanix/modules.
 package main
@@ -26,7 +28,8 @@ func run(ctx context.Context, args []string, diagnostics io.Writer) int {
 	var (
 		flags = flag.NewFlagSet("bundle-modules", flag.ContinueOnError)
 
-		version = flags.String("version", "", "Required limanix/modules Git release tag.")
+		version = flags.String("version", "", "Required Git release tag or local source build label.")
+		source  = flags.String("source", "", "Local catalog repository to package instead of downloading a tag.")
 		root    = flags.String("root", ".", "Repository root containing internal/nixos/resources.")
 	)
 	flags.SetOutput(diagnostics)
@@ -43,7 +46,12 @@ func run(ctx context.Context, args []string, diagnostics io.Writer) int {
 		return 2
 	}
 
-	if err = modulegen.Generate(ctx, *root, *version, diagnostics); err != nil {
+	if *source == "" {
+		err = modulegen.Generate(ctx, *root, *version, diagnostics)
+	} else {
+		err = modulegen.GenerateLocal(ctx, *root, *source, *version, diagnostics)
+	}
+	if err != nil {
 		_, _ = fmt.Fprintln(diagnostics, "bundle-modules:", err)
 		return 1
 	}
