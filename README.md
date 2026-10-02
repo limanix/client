@@ -66,7 +66,7 @@ tmux-project /workspace
 Four named windows put the editor, shell, Git interface and container logs beside the same project.
 Cozy includes Go, Python and Node.js with language servers, Docker, local Kubernetes tools, AWS and Google Cloud clients, and HTTP and SQL interfaces.
 Cloud accounts and Kubernetes clusters are configured when you choose to use them.
-[Project workspace](guides/workspace.md) covers navigation, the notes API playground, personal configuration and state.
+[Project workspace](guides/workspace.md) covers project navigation, tool integration, personal configuration and state.
 
 ## Create a minimal environment
 

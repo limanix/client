@@ -111,25 +111,21 @@ The shell, tmux, editor, Yazi, Lazygit, Posting and Harlequin use Catppuccin Moc
 Personal configuration takes precedence as described on each [module page](https://limanix.dev/categories/nixos/catalog.html).
 Set a Nerd Font, truecolor and OSC 52 clipboard support in the terminal on your Mac.
 
-## Run a small project
+## Work in your project
 
-The Cozy module supplies a notes API playground with Compose, PostgreSQL, Posting requests and a Harlequin profile.
-Inside the **VM**:
+Run your project's build and test commands from the `shell` window.
+The editor, Git interface and container view use the same mounted project directory.
+Your project supplies its source, dependencies, service definitions and connection settings.
 
-```console
-mkdir -p /workspace/cozy-notes
-cp -R /etc/limanix/examples/cozy/. /workspace/cozy-notes/
-chmod -R u+w /workspace/cozy-notes
-cd /workspace/cozy-notes
-docker compose up -d --build --wait
-posting --collection ./posting
-```
+| Task | Tool | Project input |
+|---|---|---|
+| Build and test | Guest shell | Commands from your project's documentation |
+| Run project services | Docker Compose | Your Compose configuration |
+| Send HTTP requests | [Posting](https://limanix.dev/categories/nixos/modules/posting/README.html) | Your API endpoints and request collections |
+| Inspect a database | [Harlequin](https://limanix.dev/categories/nixos/modules/harlequin/README.html) | Your database connection |
 
-Use a new directory to avoid overwriting project files.
-The API and database bind to the VM's loopback address.
-They are not exposed to your Mac by those Compose bindings.
-The [playground guide](https://limanix.dev/categories/nixos/modules/cozy/playground/README.html) lists requests, SQL examples, ports and shutdown commands.
-`docker compose down` preserves the database volume; adding `--volumes` deletes the playground's saved notes.
+Keep project credentials out of version control.
+Use the `containers` window to inspect your running services and their logs.
 
 ## Add infrastructure tools deliberately
 
