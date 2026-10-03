@@ -8,11 +8,17 @@ includes:
   nix:
     taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.4/taskfiles/nix/Taskfile.yml
     internal: true
+  markdown:
+    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.5/taskfiles/markdown/Taskfile.yml
+    internal: true
 
 vars:
   RELEASE_TAG: '{{.RELEASE_TAG | default ""}}'
+
   modules_source: '{{.modules_source | default ""}}'
   modules_source_path: '{{with .modules_source}}{{if isAbs .}}{{clean .}}{{else}}{{joinPath $.ROOT_DIR . | clean}}{{end}}{{end}}'
+
+  markdown_paths: README.md guides
   macos_version: '26.0'
 
   socket_vmnet:
@@ -44,6 +50,22 @@ tasks:
             go run -tags=osusergo -ldflags {{.release_flags | trim | shellQuote}}
             ./cmd/build-docs --root .
           CONTAINER_ENVS: USER=limanix
+
+  ci/markdown-fmt:
+    desc: Check source Markdown formatting without modifying files
+    cmds:
+      - task: markdown:fmt
+        vars:
+          FMT_PATHS: '{{.markdown_paths}}'
+          TASK_CONTEXT:
+            ref: 'merge (dict) (dict "CONTAINER_MOUNT_MODE" "ro") (.TASK_CONTEXT | default .)'
+
+  markdown/fix:
+    desc: Format source Markdown with the same settings used in CI
+    cmds:
+      - task: markdown:fmt/fix
+        vars:
+          FMT_PATHS: '{{.markdown_paths}}'
 
   ci/golang-fmt:
     desc: Run Go fmt check

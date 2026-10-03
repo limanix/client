@@ -1,8 +1,8 @@
 # Architecture
 
-The client prepares and applies a VM configuration.
-The catalog owns the selected guest software.
-The documentation site combines their guides with shared pages.
+The client prepares and applies a VM configuration. The catalog owns the
+selected guest software. The documentation site combines their guides with
+shared pages.
 
 ```mermaid
 flowchart TB
@@ -22,7 +22,7 @@ flowchart TB
 ## Responsibilities
 
 | Component | Owns | Boundary |
-|---|---|---|
+| -- | -- | -- |
 | `internal/cli` | Flags, help, output, command exit status | Calls application services; guest commands keep literal arguments |
 | `internal/app` | Construction of concrete services | Wires dependencies without putting lifecycle policy in commands |
 | `internal/config` | TOML shape, defaults, validation and reference | Parses without host I/O; loading resolves host paths from the real configuration file |
@@ -36,12 +36,15 @@ flowchart TB
 | `internal/guest` | Environment delivery, NixOS rebuild, restart and user shell | Does not allocate homes or save VM records |
 | Catalog | Tool packages, application settings, services and integrations | Public NixOS options and capability declarations |
 
-The platform orders final system-profile inputs by store path and existing package priority; it preserves duplicate contributions, supported package forms and `mkForce` replacements.
-Modules own explicit package priorities; the platform does not add collision rejection.
+The platform orders final system-profile inputs by store path and existing
+package priority; it preserves duplicate contributions, supported package forms
+and `mkForce` replacements. Modules own explicit package priorities; the
+platform does not add collision rejection.
 
 The contracts consumed by the VM manager live in `internal/vm/dependencies.go`.
-The implementation package owns its concrete behavior; the consumer owns the narrow interface it needs.
-The [development guide](development.md#source-layout) points to the source directories.
+The implementation package owns its concrete behavior; the consumer owns the
+narrow interface it needs. The [development guide](development.md#source-layout)
+points to the source directories.
 
 ## Configuration delivery
 
@@ -60,14 +63,15 @@ sequenceDiagram
     Mac->>Mac: Save ready record; prune old inputs
 ```
 
-Creation also allocates a managed home and creates the backend VM.
-Update preserves the saved identity and home, checks the disk size, and stops a running VM before editing its backend configuration.
-Changing TOML alone has no effect until `create` or `update` applies it.
+Creation also allocates a managed home and creates the backend VM. Update
+preserves the saved identity and home, checks the disk size, and stops a running
+VM before editing its backend configuration. Changing TOML alone has no effect
+until `create` or `update` applies it.
 
 ## Public guest contract
 
 | Interface | Purpose |
-|---|---|
+| -- | -- |
 | `config.limanix.user.name`, `.home` | Read the development account supplied by the client |
 | `limanix.user.shell` | Select its login shell; Bash is the platform default |
 | `limanix.session.command` | Optional absolute provider executable for named sessions |
@@ -77,41 +81,46 @@ Changing TOML alone has no effect until `create` or `update` applies it.
 | Documented `lmx.<module>.*` options | Settings owned by the selected module |
 | Standard NixOS options | Packages, services, firewall rules and other system settings |
 
-Public `catalog/_shared/*.nix` declarations load even with `modules = []`.
-They declare capabilities without installing tools or enabling consumers.
-Third-party modules use those options without importing catalog filesystem paths.
-The old `runtime` and root-flake `inputs` arguments fail with migration guidance.
-Generated files, directory layouts and flake internals are implementation details.
-See the [catalog contract](https://limanix.dev/categories/nixos/catalog-contract.html) and [migration table](https://limanix.dev/categories/nixos/writing-modules.html#migrate-custom-modules).
+Public `catalog/_shared/*.nix` declarations load even with `modules = []`. They
+declare capabilities without installing tools or enabling consumers. Third-party
+modules use those options without importing catalog filesystem paths. The old
+`runtime` and root-flake `inputs` arguments fail with migration guidance.
+Generated files, directory layouts and flake internals are implementation
+details. See the
+[catalog contract](https://limanix.dev/categories/nixos/catalog-contract.html)
+and
+[migration table](https://limanix.dev/categories/nixos/writing-modules.html#migrate-custom-modules).
 
 ## State and recovery
 
 | State | Lives in | Recovery rule |
-|---|---|---|
+| -- | -- | -- |
 | VM identity and operation progress | Client state directory | Identity remains available when the progress record is damaged |
 | Backend VM and guest disk | Lima backend storage | Delete removes the backend before client ownership records |
 | Managed guest home | Configured `home.root` on the Mac | Preserved by default; removal requires `delete --remove-home` |
 | Mounted project | Its original Mac directory | Shared file changes affect the original files |
 | Applied system | Guest disk and Nix store | Rebuilt from the saved generation inputs |
 
-VM operation locks serialize conflicting lifecycle changes.
-Shell access does not take the exclusive lifecycle lock.
-Lima power state and LimaNix operation progress are separate values in `list --json`.
-A failed operation retains the records and inputs needed to diagnose work that may already have reached the backend.
-An update can install environment files before a later rebuild fails; it is not a transaction that rolls back every guest effect.
-Cancellation stops the managed guest rebuild unit and reports a failure when stopping cannot be confirmed.
-Follow [Troubleshooting](troubleshooting.md) before removing state by hand.
+VM operation locks serialize conflicting lifecycle changes. Shell access does
+not take the exclusive lifecycle lock. Lima power state and LimaNix operation
+progress are separate values in `list --json`. A failed operation retains the
+records and inputs needed to diagnose work that may already have reached the
+backend. An update can install environment files before a later rebuild fails;
+it is not a transaction that rolls back every guest effect. Cancellation stops
+the managed guest rebuild unit and reports a failure when stopping cannot be
+confirmed. Follow [Troubleshooting](troubleshooting.md) before removing state by
+hand.
 
 ## Validation boundaries
 
 | Check | Establishes |
-|---|---|
+| -- | -- |
 | Go unit and race tests | Parsing, records, ownership, orchestration, argument handling and concurrent access in tested scenarios |
 | Generated-flake evaluation | The exact client/catalog pair composes on both guest architectures |
 | Catalog result checks | Module settings, defaults, supported overrides and expected conflicts |
 | Catalog smoke checks | Built commands, generated application configuration and declared integrations |
 | Disposable VM run | Boot, applied services, mounted files and host-to-guest operations in that environment |
 
-Evaluation does not build packages or boot a VM.
-A command version check does not prove that its daemon or cloud account is usable.
-Keep those checks separate when validating a change.
+Evaluation does not build packages or boot a VM. A command version check does
+not prove that its daemon or cloud account is usable. Keep those checks separate
+when validating a change.
