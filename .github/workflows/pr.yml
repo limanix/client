@@ -13,6 +13,18 @@ permissions:
   contents: read
 
 jobs:
+  markdown:
+    name: Markdown formatting
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        with:
+          command: ci/markdown-fmt
+
   modules:
     uses: ./.github/workflows/_metadata.yml
     with:
@@ -54,7 +66,7 @@ jobs:
 
   gate:
     if: always()
-    needs: [modules, go, build, contract, docs]
+    needs: [markdown, modules, go, build, contract, docs]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
