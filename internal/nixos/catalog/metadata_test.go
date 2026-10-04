@@ -101,7 +101,7 @@ func TestInvalidCatalogDirectories(t *testing.T) {
 	}
 }
 
-func TestDuplicateSelectorsRejected(t *testing.T) {
+func TestAmbiguousModuleNameRejected(t *testing.T) {
 	files := fstest.MapFS{
 		"modules/tool/module.toml":     {Data: []byte("description = 'Tool'\ndefault = '26'\nversions = ['26']\n")},
 		"modules/tool/default.nix":     {},
@@ -110,19 +110,21 @@ func TestDuplicateSelectorsRejected(t *testing.T) {
 		"modules/tool-26/default.nix":  {},
 	}
 	if _, err := readModules(files); !errors.Is(err, ErrMetadata) {
-		t.Fatalf("duplicate selector accepted: %v", err)
+		t.Fatalf("module name indistinguishable from a version selector accepted: %v", err)
 	}
 }
 
 func TestInvalidVersionMetadata(t *testing.T) {
 	for name, declaration := range map[string]string{
-		"missing default":          "versions = ['1.24']",
-		"unknown default":          "default = '1.27'\nversions = ['1.24']",
-		"default without versions": "default = '1.24'",
-		"duplicate":                "default = '1.24'\nversions = ['1.24', '1.24']",
-		"unsafe":                   "default = '../escape'\nversions = ['../escape']",
-		"missing entry":            "default = '1.24'\nversions = ['1.24']",
-		"unknown field":            "defaults = '1.24'",
+		"missing default":                   "versions = ['1.24']",
+		"unknown default":                   "default = '1.27'\nversions = ['1.24']",
+		"default without versions":          "default = '1.24'",
+		"empty default without versions":    "default = ''",
+		"empty default with empty versions": "default = ''\nversions = []",
+		"duplicate":                         "default = '1.24'\nversions = ['1.24', '1.24']",
+		"unsafe":                            "default = '../escape'\nversions = ['../escape']",
+		"missing entry":                     "default = '1.24'\nversions = ['1.24']",
+		"unknown field":                     "defaults = '1.24'",
 	} {
 		t.Run(name, func(t *testing.T) {
 			files := fstest.MapFS{
@@ -137,7 +139,7 @@ func TestInvalidVersionMetadata(t *testing.T) {
 }
 
 func TestReservedCatalogModuleNames(t *testing.T) {
-	for _, name := range []string{"capabilities", "internal"} {
+	for _, name := range []string{"capabilities", "internal", "pins"} {
 		t.Run(name, func(t *testing.T) {
 			files := fstest.MapFS{
 				"modules/" + name + "/module.toml": {Data: []byte("description = 'Reserved'\n")},
@@ -155,5 +157,21 @@ func TestReservedCatalogModuleNames(t *testing.T) {
 	}
 	if _, err := readModules(files); err != nil {
 		t.Fatalf("public area incorrectly reserves a module name: %v", err)
+	}
+}
+
+func TestCatalogIgnoresRegularFilesBesideModules(t *testing.T) {
+	files := fstest.MapFS{
+		"modules/tool/module.toml": {Data: []byte("description = 'Tool'\n")},
+		"modules/tool/default.nix": {},
+		"modules/.DS_Store":        {Data: []byte("not a module")},
+		"modules/README.md":        {Data: []byte("Catalog overview\n")},
+	}
+	index, err := readModules(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(index) != 1 || index["tool"].entryPoint != "default.nix" {
+		t.Fatalf("regular catalog files changed the module index: %v", index)
 	}
 }

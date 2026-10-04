@@ -32,9 +32,10 @@
 //	                                                            ↓ lmx:NAME[-VERSION]
 //	                                                     VM generation snapshot
 //
-// Standard modules share one catalog snapshot; sibling Nix imports retain their paths. Public _shared/*.nix declarations
-// enter runtime.json before selected entry points, including with no standard modules selected. Internal shared files
-// are preserved for explicit imports but are not loaded automatically. Third-party modules remain separate snapshots.
+// Standard modules share one catalog snapshot; sibling Nix imports retain their paths. Root _shared/*.nix schemas and infrastructure
+// enter runtime.json before selected entry points, including with no standard modules selected; _shared/test.nix is excluded.
+// Other shared files remain in the snapshot and are not loaded automatically.
+// Third-party modules remain separate snapshots.
 // Explicit versions select versions/<version>.nix from their module directory; unversioned names select default.nix.
 // [SystemModules] returns an independent metadata map for the registry. An empty selection adds no optional modules;
 // the catalog's interface, public shared declarations, nixpkgs pin and the client's base still apply.

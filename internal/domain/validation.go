@@ -10,7 +10,7 @@ import (
 var (
 	vmNamePattern        = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
 	usernamePattern      = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
-	moduleNamePattern    = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`)
+	moduleNamePattern    = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$`)
 	moduleVersionPattern = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)*$`)
 	envNamePattern       = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 )

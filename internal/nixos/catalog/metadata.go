@@ -16,7 +16,7 @@ import (
 // metadata declares optional version selectors; package sources remain entirely in Nix.
 type metadata struct {
 	Description string   `toml:"description"`
-	Default     string   `toml:"default"`
+	Default     *string  `toml:"default"`
 	Versions    []string `toml:"versions"`
 }
 
@@ -73,14 +73,14 @@ func (metadata metadata) validate() error {
 	}
 
 	if len(metadata.Versions) == 0 {
-		if metadata.Default != "" {
+		if metadata.Default != nil {
 			return fmt.Errorf("%w: default requires a nonempty versions list", ErrMetadata)
 		}
 
 		return nil
 	}
 
-	if !slices.Contains(metadata.Versions, metadata.Default) {
+	if metadata.Default == nil || !slices.Contains(metadata.Versions, *metadata.Default) {
 		return fmt.Errorf("%w: default must select a declared version", ErrMetadata)
 	}
 
@@ -102,8 +102,8 @@ func (metadata metadata) validate() error {
 
 func (metadata metadata) selections(name string) map[string]selection {
 	base := selection{directory: name, entryPoint: "default.nix", description: metadata.Description}
-	if metadata.Default != "" {
-		base.description += " (default: " + metadata.Default + ")"
+	if metadata.Default != nil {
+		base.description += " (default: " + *metadata.Default + ")"
 	}
 
 	result := map[string]selection{name: base}

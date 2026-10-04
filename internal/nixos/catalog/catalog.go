@@ -164,10 +164,16 @@ func readModules(files fs.FS) (map[string]selection, error) {
 
 	for _, entry := range entries {
 		name := entry.Name()
-		if name == "_shared" && entry.IsDir() {
+		if name == "_shared" {
+			if !entry.IsDir() {
+				return nil, fmt.Errorf("%w: _shared must be a directory", ErrMetadata)
+			}
 			continue
 		}
-		if name == "capabilities" || name == "internal" {
+		if entry.Type().IsRegular() {
+			continue
+		}
+		if name == "capabilities" || name == "internal" || name == "pins" {
 			return nil, fmt.Errorf("%w: module name %q is reserved", ErrMetadata, name)
 		}
 		if _, err = domain.NewModuleName(name); err != nil || !entry.IsDir() {
@@ -195,7 +201,7 @@ func readModules(files fs.FS) (map[string]selection, error) {
 	return result, nil
 }
 
-// Only direct Nix files declare public areas.
+// Direct Nix files declare public areas; test.nix belongs to the test ABI.
 func readPublicDeclarations(source fs.FS) ([]string, error) {
 	entries, err := fs.ReadDir(source, "_shared")
 	if errors.Is(err, fs.ErrNotExist) {
@@ -211,7 +217,7 @@ func readPublicDeclarations(source fs.FS) ([]string, error) {
 		if name == "module.toml" {
 			return nil, fmt.Errorf("%w: _shared must not contain module.toml", ErrMetadata)
 		}
-		if !strings.HasSuffix(name, ".nix") {
+		if name == "test.nix" || !strings.HasSuffix(name, ".nix") {
 			continue
 		}
 		if !entry.Type().IsRegular() {
