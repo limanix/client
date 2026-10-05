@@ -60,13 +60,14 @@ accepted.
 Standard modules can compose other catalog modules using Nix imports. For
 example, `lmx:console` includes the configured shell, editor, session manager
 and terminal tools. The client keeps their source paths together so selecting a
-component separately refers to the same module. The client loads public
-declarations from `catalog/_shared/<area>.nix` even when no standard modules are
-selected. Private declarations under `_shared/internal/` are available for
-explicit catalog imports and are not loaded automatically. The `_shared`
-directory has no selector; `capabilities` and `internal` are reserved catalog
-module names. Third-party modules can use public capability options without
-importing catalog source files. The
+component separately refers to the same module. The client loads root
+`catalog/_shared/*.nix` schemas and infrastructure even when no standard modules
+are selected. It excludes `_shared/test.nix`, the shared test export. Files in
+nested `_shared` directories are available for explicit catalog imports and are
+not loaded automatically. The `_shared` directory has no selector;
+`capabilities`, `internal` and `pins` are reserved catalog module names.
+Third-party modules can use public capability options without importing catalog
+source files. The
 [catalog contract](https://limanix.dev/categories/nixos/catalog-contract.html)
 defines the public namespaces and compatibility rules.
 
@@ -104,7 +105,7 @@ Use the unqualified name with `add` and `remove`: `my-tools`, not
 
 | Rule | Examples |
 | -- | -- |
-| Start with a lowercase letter | `tools2` is valid; `2tools` is not |
+| Start every hyphen-separated segment with a lowercase letter | `tools2` and `my-tools` are valid; `2tools` and `my-2tools` are not |
 | Use lowercase letters, digits, and single hyphens between groups | `my-tools` is valid; `MyTools`, `my_tools`, `my--tools`, and `tools-` are not |
 | Use at most 63 characters | The limit applies to the name without `third-party:` |
 

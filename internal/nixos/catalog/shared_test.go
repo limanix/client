@@ -24,7 +24,7 @@ func TestPublicDeclarationsAvailableWithoutModuleSelection(t *testing.T) {
 	if !slices.Equal(catalog.PublicDeclarations(), want) {
 		t.Fatal("caller changed the catalog declaration list")
 	}
-	for _, name := range append(want, "_shared/internal/selection.nix", "tool/default.nix") {
+	for _, name := range append(want, "_shared/internal/selection.nix", "_shared/test.nix", "_shared/test/helper.nix", "tool/default.nix") {
 		if _, err = fs.ReadFile(catalog.Source(), name); err != nil {
 			t.Fatalf("source %s is unavailable without selecting a module: %v", name, err)
 		}
@@ -62,5 +62,7 @@ func sharedFixture(t *testing.T) map[string][]byte {
 		"modules/tool/default.nix":               []byte("{}\n"),
 		"modules/_shared/languageSupport.nix":    []byte("{ options = {}; }\n"),
 		"modules/_shared/internal/selection.nix": []byte("{ options = {}; }\n"),
+		"modules/_shared/test.nix":               []byte("{ evalSystem, pkgs, lib }: { eval.example = true; }\n"),
+		"modules/_shared/test/helper.nix":        []byte("{ ... }: {}\n"),
 	}
 }

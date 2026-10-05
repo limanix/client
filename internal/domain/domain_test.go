@@ -15,8 +15,8 @@ func TestIdentityBoundaries(t *testing.T) {
 	}{
 		{"VMName", []string{"2-rust-box", "box", strings.Repeat("a", 63)}, []string{"", "../box", "Box", "-box", "box-", "box.local", strings.Repeat("a", 64)}, func(v string) error { _, err := NewVMName(v); return err }},
 		{"Username", []string{"dev", "_dev", "rust-dev_2", strings.Repeat("a", 32)}, []string{"", "root", "limanix-admin", "2dev", "Dev", "dev:1000", "dev\x00", strings.Repeat("a", 33)}, func(v string) error { _, err := NewUsername(v); return err }},
-		{"ModuleName", []string{"my-tools", "git", "rust2"}, []string{"", "2tools", "a--b", "../tools", strings.Repeat("a", 64)}, func(v string) error { _, err := NewModuleName(v); return err }},
-		{"ModuleID", []string{"lmx:git", "work:git", "third-party:my-tools", "lmx:go-1.24", "lmx:my-tools-3.13"}, []string{"git", "./tools.nix", ":git", "Lmx:git", "third-party:../tools", "third-party:", "third-party:third-party:git", "lmx:go-1..24", "lmx:go-1.24rc1", "lmx:go-../escape"}, func(v string) error { _, err := NewModuleID(v); return err }},
+		{"ModuleName", []string{"my-tools", "my-tools2-extra", "git", "rust2", strings.Repeat("a", 63)}, []string{"", "2tools", "a--b", "tool-26", "tool-1alpha", "../tools", strings.Repeat("a", 64)}, func(v string) error { _, err := NewModuleName(v); return err }},
+		{"ModuleID", []string{"lmx:git", "work:git", "third-party:my-tools", "lmx:go-1.24", "lmx:my-tools-3.13"}, []string{"git", "./tools.nix", ":git", "Lmx:git", "third-party:../tools", "third-party:", "third-party:third-party:git", "lmx:go-1..24", "lmx:go-1.24rc1", "lmx:tool-1alpha", "tool-26:git", "lmx:go-../escape"}, func(v string) error { _, err := NewModuleID(v); return err }},
 		{"EnvName", []string{"TOKEN", "_TOKEN", "token2"}, []string{"", "1TOKEN", "TOKEN-NAME", "TOKEN\nNAME"}, func(v string) error { _, err := NewEnvName(v); return err }},
 	}
 	for _, tt := range tests {
@@ -41,6 +41,31 @@ func TestIdentityBoundaries(t *testing.T) {
 		versioned, err := NewModuleID("lmx:" + selector)
 		if err != nil || versioned.Selector() != selector {
 			t.Fatalf("versioned reference: %v, %v", versioned, err)
+		}
+	}
+}
+
+func TestModuleSelectorNameAndVersionBoundaries(t *testing.T) {
+	nameLimit := strings.Repeat("a", 63)
+	versionLimit := strings.Repeat("1", 63)
+	for _, value := range []string{
+		"lmx:tool-26",
+		"third-party:my-tools2-3.13",
+		"lmx:" + nameLimit + "-" + versionLimit,
+	} {
+		id, err := NewModuleID(value)
+		if err != nil || string(id) != value {
+			t.Errorf("valid selector %q: %q, %v", value, id, err)
+		}
+	}
+	for _, value := range []string{
+		"lmx:" + nameLimit + "a-26",
+		"lmx:tool-" + versionLimit + "1",
+		"lmx:tool-1alpha",
+		"lmx:tool-26-extra",
+	} {
+		if _, err := NewModuleID(value); err == nil {
+			t.Errorf("accepted invalid selector %q", value)
 		}
 	}
 }

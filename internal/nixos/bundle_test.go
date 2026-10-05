@@ -229,6 +229,9 @@ func assertBundledInterface(t *testing.T, flake string) {
 		t.Fatal(err)
 	}
 	for _, declaration := range source.PublicDeclarations() {
+		if declaration == "_shared/test.nix" {
+			t.Fatal("the shared test export must never be imported into a guest")
+		}
 		original, err := fs.ReadFile(source.Source(), declaration)
 		if err != nil {
 			t.Fatal(err)
