@@ -1,7 +1,7 @@
 # The summary and absolute command paths are supplied by workspace.nix.
 # shellcheck disable=SC2154
 if [ "$#" -ne 0 ]; then
-  printf '%s\n' 'Usage: limanix-info' >&2
+  printf '%s\n' 'Usage: lmx info' >&2
   exit 2
 fi
 

@@ -76,7 +76,7 @@ until `create` or `update` applies it.
 | `limanix.user.shell` | Select its login shell; Bash is the platform default |
 | `limanix.session.command` | Optional absolute provider executable for named sessions |
 | `limanix-session NAME` | Stable guest command invoked by `limanix shell --session NAME` |
-| `limanix-help`, `limanix-info` | Local guest navigation and environment inspection available with any module selection |
+| `lmx help`, `lmx info`, `lmx welcome` | Local guest navigation, environment inspection and welcome summary available with any module selection |
 | `lmx.capabilities.<area>.*` | Provider declarations shared by catalog and third-party modules |
 | Documented `lmx.<module>.*` options | Settings owned by the selected module |
 | Standard NixOS options | Packages, services, firewall rules and other system settings |
