@@ -51,7 +51,10 @@ type Homes interface {
 // Guest applies a prepared generation and opens the development user's session.
 type Guest interface {
 	Apply(context.Context, string, domain.Username) error
+	Prune(context.Context, string) error
+	Reserve(context.Context, string) error
 	Address(context.Context, lima.Instance) string
+	Disk(context.Context, lima.Instance) *domain.DiskUsage
 	Shell(context.Context, string, domain.Username, []string) (int, error)
 }
 

@@ -84,6 +84,7 @@ func (m *Manager) instanceInfo(ctx context.Context, entry state.Entry, instances
 		if instance, exists := instances[name]; exists {
 			info.BackendStatus = &instance.Status
 			info.Address = m.guest.Address(ctx, instance)
+			info.Disk = m.guest.Disk(ctx, instance)
 		}
 	}
 

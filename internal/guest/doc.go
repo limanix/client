@@ -17,6 +17,26 @@
 // development user can execute a command.
 // Rebuilds run in a transient guest systemd unit. Cancellation stops that unit before returning; it does not stop
 // the VM or roll back changes already applied. Failure to confirm the stop is reported as an error.
+// When installing environment files or rebuilding fails, Apply reads the usage of the store file system and adds a
+// [DiskError] if inodes or bytes are nearly exhausted or the guest reported ENOSPC. ext4 fixes its inode count when
+// the disk is sized, so a store of small files can fill it while bytes remain free.
+//
+// # Pruning the guest
+//
+//	delete system generations except the booted one
+//	             ↓
+//	rewrite boot entries for the remaining generation
+//	             ↓
+//	collect store paths that nothing references
+//
+// [Guest.Reserve] runs before an apply and before an update stops a running guest. It collects unreferenced store
+// paths when free bytes or inodes fall below [domain.DiskCollectPercent] and returns a [DiskError] below
+// [domain.DiskMinimumPercent]; Apply continues either way. [Guest.Disk] reads the same usage for listings.
+//
+// [Guest.Prune] runs after an apply has been recorded as ready. LimaNix boots only the generation it applied; older
+// ones, including the base image's, keep their closures and kernel copies in /boot alive. Collection also removes
+// evaluation-time sources such as pinned Nixpkgs trees. Generations stay when their removal fails, and the store is
+// still collected.
 //
 // # Sessions and address discovery
 //
@@ -28,6 +48,6 @@
 // an empty string. The listing layer propagates cancellation of the parent operation. The client must support
 // concurrent address probes.
 //
-// Read apply.go for provisioning order, rebuild.go for cancellation, shell.go for user switching, and address.go for
-// best-effort network discovery.
+// Read apply.go for provisioning order, rebuild.go for cancellation, disk.go for full-disk diagnostics, prune.go for
+// generation removal, shell.go for user switching, and address.go for best-effort network discovery.
 package guest

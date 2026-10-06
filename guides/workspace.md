@@ -25,17 +25,18 @@ Every guest supplies these commands, including with `modules = []`:
 | Command | Result |
 | -- | -- |
 | `lmx help` | VM identity, selected module selectors and guided guest/Mac commands |
-| `lmx info` | Identity, selected selectors, Linux kernel, shared mounts and failed system services |
+| `lmx info` | Identity, selected selectors, Linux kernel, guest disk usage, shared mounts and failed system services |
 | `lmx welcome` | Welcome summary with VM identity, NixOS version, architecture, resources, selected selectors, mounted guest directories and failed services |
 | `limanix-session NAME` | Dispatch to the selected provider, or explain which optional provider to select |
 
 The welcome shows the ASCII `LimaNix` wordmark in Catppuccin Mocha blue and
 mauve. Below it are the VM name, NixOS version and architecture; the number of
-CPUs, total memory and free disk space in the home directory; the original
-selected module selectors; and mounted `virtiofs` or `9p` guest directories with
-`rw` or `ro` access. Failed system services appear only when there are some,
-with a pointer to `lmx info`. The last line lists `lmx help`, `lmx info` and
-`exit`. A resource value that cannot be read is left out. Output stays within 80
+CPUs, total memory and free space on the guest disk; the original selected
+module selectors; and mounted `virtiofs` or `9p` guest directories with `rw` or
+`ro` access. Failed system services appear only when there are some, with a
+pointer to `lmx info`; so does a warning when less than 10% of the guest disk's
+space or inodes is free. The last line lists `lmx help`, `lmx info` and `exit`.
+A resource value that cannot be read is left out. Output stays within 80
 columns; long values wrap. It appears automatically once per session for the
 configured development account in an interactive shell with terminal output. Run
 `lmx welcome` to show it again. The Bash fallback prompt shows the account, VM

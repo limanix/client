@@ -137,3 +137,25 @@ func TestSizesAreNumericWithStablePublicEncoding(t *testing.T) {
 		}
 	}
 }
+
+func TestDiskUsageReportsTheScarcerLimit(t *testing.T) {
+	inodeBound := DiskUsage{Bytes: 100, FreeBytes: 61, Inodes: 1000, FreeInodes: 30}
+	if !inodeBound.Below(10) || inodeBound.Below(3) {
+		t.Fatalf("inode headroom misjudged: %+v", inodeBound)
+	}
+	if percent, inodes := inodeBound.Used(); percent != 97 || !inodes {
+		t.Fatalf("used %d%%, inodes=%t", percent, inodes)
+	}
+	byteBound := DiskUsage{Bytes: 100, FreeBytes: 5, Inodes: 1000, FreeInodes: 800}
+	if percent, inodes := byteBound.Used(); percent != 95 || inodes || !byteBound.Below(10) {
+		t.Fatalf("byte limit misjudged: %d%%, inodes=%t", percent, inodes)
+	}
+	noInodeTable := DiskUsage{Bytes: 100, FreeBytes: 50}
+	if percent, inodes := noInodeTable.Used(); percent != 50 || inodes || noInodeTable.Below(20) {
+		t.Fatalf("missing inode table counted as full: %d%%, inodes=%t", percent, inodes)
+	}
+	data, err := json.Marshal(inodeBound)
+	if err != nil || string(data) != `{"bytes":100,"free_bytes":61,"inodes":1000,"free_inodes":30}` {
+		t.Fatalf("disk usage JSON changed: %s %v", data, err)
+	}
+}

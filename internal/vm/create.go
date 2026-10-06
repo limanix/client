@@ -63,7 +63,12 @@ func (m *Manager) Create(ctx context.Context, path string) (result domain.Instan
 	}
 
 	result.MarkReady()
-	return result, m.store.Save(result)
+	if err = m.store.Save(result); err != nil {
+		return result, err
+	}
+
+	m.pruneGuest(ctx, result)
+	return result, nil
 }
 
 func newInstance(cfg config.Config) (domain.Instance, error) {

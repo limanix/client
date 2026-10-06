@@ -66,32 +66,34 @@ func (client *fakeClient) Shell(_ context.Context, _ string, args []string) (int
 }
 
 func TestApplyInstallsEnvironmentAndRebootsOnlyAfterBuild(t *testing.T) {
-	client := &fakeClient{run: func(ctx context.Context) (string, error) {
-		if deadline, exists := ctx.Deadline(); exists {
-			t.Fatalf("guest configuration command acquired a probe deadline: %v", deadline)
+	client := &fakeClient{}
+	client.run = func(ctx context.Context) (string, error) {
+		probe := client.calls[len(client.calls)-1].args[0] == "stat"
+		if deadline, exists := ctx.Deadline(); exists != probe {
+			t.Fatalf("only the disk probe may have a deadline: %v %v", deadline, client.calls)
 		}
 		return "", nil
-	}}
+	}
 	guest := New(client)
 	if err := guest.Apply(context.Background(), "sandbox", "developer"); err != nil {
 		t.Fatal(err)
 	}
-	if len(client.calls) != 7 {
+	if len(client.calls) != 8 || client.calls[0].args[0] != "stat" {
 		t.Fatalf("unexpected apply sequence: %v", client.calls)
 	}
 	for index, file := range []string{"environment", "environment.sh"} {
-		if !reflect.DeepEqual(client.calls[index+1].args, []string{"sudo", "install", "-m", "0644", "/mnt/limanix/" + file, "/etc/limanix/" + file}) {
+		if !reflect.DeepEqual(client.calls[index+2].args, []string{"sudo", "install", "-m", "0644", "/mnt/limanix/" + file, "/etc/limanix/" + file}) {
 			t.Fatal("runtime ENV must be available guest-wide before rebuild")
 		}
 	}
-	build := client.calls[3]
+	build := client.calls[4]
 	if build.capture || !slices.Contains(build.args, "/run/current-system/sw/bin/nixos-rebuild") {
 		t.Fatalf("rebuild must stream its output: %v", build)
 	}
 	if !slices.Contains(build.args, "--no-update-lock-file") || !slices.Contains(build.args, "--no-write-lock-file") {
 		t.Fatalf("rebuild must use the prepared lock without resolving new inputs: %v", build.args)
 	}
-	if client.calls[4].operation != "stop" || client.calls[5].operation != "start" || client.calls[6].args[len(client.calls[6].args)-1] != "true" {
+	if client.calls[5].operation != "stop" || client.calls[6].operation != "start" || client.calls[7].args[len(client.calls[7].args)-1] != "true" {
 		t.Fatalf("unexpected rebuild/reboot order: %v", client.calls)
 	}
 	for _, option := range []string{"--service-type=oneshot", "--property=TimeoutStartSec=infinity", "--property=KillMode=control-group"} {
@@ -99,12 +101,126 @@ func TestApplyInstallsEnvironmentAndRebootsOnlyAfterBuild(t *testing.T) {
 			t.Fatalf("missing rebuild supervision option: %s", option)
 		}
 	}
-	client = &fakeClient{failureAt: 4}
+	client = &fakeClient{failureAt: 5}
 	if err := New(client).Apply(context.Background(), "sandbox", "developer"); err == nil {
 		t.Fatal("rebuild failure disappeared")
 	}
-	if len(client.calls) != 4 {
-		t.Fatal("failed build rebooted the guest")
+	for _, call := range client.calls {
+		if call.operation != "run" {
+			t.Fatalf("failed build rebooted the guest: %v", client.calls)
+		}
+	}
+}
+
+// diskClient fails the rebuild and reports the given file-system usage.
+func diskClient(rebuild error, usage string) *fakeClient {
+	client := &fakeClient{}
+	client.run = func(context.Context) (string, error) {
+		args := client.calls[len(client.calls)-1].args
+		switch {
+		case slices.Contains(args, "systemd-run"):
+			return "", rebuild
+		case args[0] == "stat":
+			return usage, nil
+		default:
+			return "", nil
+		}
+	}
+	return client
+}
+
+func TestApplyFailureReportsFullGuestDisk(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		rebuild error
+		usage   string
+	}{
+		{name: "no-inodes", rebuild: errors.New("build failed"), usage: "4096 4000000 1500000 1000000 0\n"},
+		{name: "no-bytes", rebuild: errors.New("build failed"), usage: "4096 4000000 1000 1000000 900000\n"},
+		{name: "reclaimed-after-failure", rebuild: errors.New("error: creating directory: No space left on device"), usage: "4096 4000000 1500000 1000000 600000\n"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := diskClient(test.rebuild, test.usage)
+			err := New(client).Apply(context.Background(), "sandbox", "developer")
+			full, ok := errors.AsType[*DiskError](err)
+			if !ok || !errors.Is(err, test.rebuild) {
+				t.Fatalf("full guest disk was not reported with the build failure: %v", err)
+			}
+			if full.Usage.Inodes != 1000000 || full.Usage.Bytes != 4096*4000000 {
+				t.Fatalf("wrong usage: %+v", full.Usage)
+			}
+			if !strings.Contains(err.Error(), "resources.disk") {
+				t.Fatalf("missing remedy: %v", err)
+			}
+			probe := client.calls[len(client.calls)-1]
+			if !probe.capture || !slices.Contains(probe.args, "/nix/store") {
+				t.Fatalf("usage must be read from the store file system: %v", probe)
+			}
+		})
+	}
+}
+
+func TestApplyFailureKeepsCauseWithoutDiskShortage(t *testing.T) {
+	failure := errors.New("build failed")
+	for _, usage := range []string{"4096 4000000 1500000 1000000 600000\n", "unexpected\n", "4096 4000000 1500000 0 0\n"} {
+		err := New(diskClient(failure, usage)).Apply(context.Background(), "sandbox", "developer")
+		if !errors.Is(err, failure) {
+			t.Fatalf("build failure lost: %v", err)
+		}
+		if _, ok := errors.AsType[*DiskError](err); ok {
+			t.Fatalf("usage %q reported a full disk: %v", usage, err)
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	client := &fakeClient{}
+	client.run = func(context.Context) (string, error) {
+		if slices.Contains(client.calls[len(client.calls)-1].args, "systemd-run") {
+			cancel()
+			return "", context.Canceled
+		}
+		return "", nil
+	}
+	if err := New(client).Apply(ctx, "sandbox", "developer"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation lost: %v", err)
+	}
+	if last := client.calls[len(client.calls)-1]; last.args[0] == "stat" {
+		t.Fatal("canceled apply probed the guest disk")
+	}
+}
+
+func TestPruneRemovesReplacedGenerationsBeforeCollectingGarbage(t *testing.T) {
+	client := &fakeClient{}
+	if err := New(client).Prune(context.Background(), "sandbox"); err != nil {
+		t.Fatal(err)
+	}
+	expected := []call{
+		{operation: "run", args: []string{"sudo", "nix-env", "--profile", "/nix/var/nix/profiles/system", "--delete-generations", "old"}, capture: true},
+		{operation: "run", args: []string{"sudo", "/nix/var/nix/profiles/system/bin/switch-to-configuration", "boot"}, capture: true},
+		{operation: "run", args: []string{"sudo", "nix-store", "--gc", "--quiet"}},
+	}
+	if !reflect.DeepEqual(client.calls, expected) {
+		t.Fatalf("unexpected prune sequence: %v", client.calls)
+	}
+}
+
+func TestPruneCollectsGarbageWhenGenerationsRemain(t *testing.T) {
+	client := &fakeClient{failureAt: 1}
+	err := New(client).Prune(context.Background(), "sandbox")
+	if err == nil {
+		t.Fatal("generation removal failure disappeared")
+	}
+	if len(client.calls) != 2 || !slices.Contains(client.calls[1].args, "--gc") {
+		t.Fatalf("boot entries must stay unchanged and garbage must still be collected: %v", client.calls)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	client = &fakeClient{run: func(context.Context) (string, error) {
+		cancel()
+		return "", context.Canceled
+	}}
+	if err = New(client).Prune(ctx, "sandbox"); !errors.Is(err, context.Canceled) || len(client.calls) != 1 {
+		t.Fatalf("canceled prune continued: %v %v", err, client.calls)
 	}
 }
 
@@ -302,5 +418,77 @@ func TestInteractiveLoginOnceAndStatusPreserved(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("interactive shell logged in %d times", count)
+	}
+}
+
+// usageClient answers successive disk probes in order and succeeds every other command.
+func usageClient(usages ...string) *fakeClient {
+	client := &fakeClient{}
+	client.run = func(context.Context) (string, error) {
+		if client.calls[len(client.calls)-1].args[0] != "stat" {
+			return "", nil
+		}
+		usage := usages[0]
+		usages = usages[1:]
+		return usage, nil
+	}
+	return client
+}
+
+func TestReserveCollectsGarbageOnlyWhenHeadroomIsLow(t *testing.T) {
+	const (
+		healthy  = "4096 4000000 2000000 1000000 500000\n"
+		low      = "4096 4000000 2000000 1000000 150000\n"
+		critical = "4096 4000000 2000000 1000000 50000\n"
+	)
+	for _, test := range []struct {
+		name   string
+		usages []string
+		calls  int
+		full   bool
+	}{
+		{name: "healthy", usages: []string{healthy}, calls: 1},
+		{name: "recovered", usages: []string{low, healthy}, calls: 3},
+		{name: "still-low", usages: []string{low, low}, calls: 3},
+		{name: "critical", usages: []string{critical, critical}, calls: 3, full: true},
+		{name: "unreadable", usages: []string{"unexpected\n"}, calls: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := usageClient(test.usages...)
+			err := New(client).Reserve(context.Background(), "sandbox")
+			if _, full := errors.AsType[*DiskError](err); full != test.full || (!test.full && err != nil) {
+				t.Fatalf("unexpected reserve result: %v", err)
+			}
+			if len(client.calls) != test.calls {
+				t.Fatalf("unexpected reserve sequence: %v", client.calls)
+			}
+			if test.calls == 3 && !reflect.DeepEqual(client.calls[1].args, []string{"sudo", "nix-store", "--gc", "--quiet"}) {
+				t.Fatalf("low headroom must collect unreferenced store paths: %v", client.calls)
+			}
+		})
+	}
+}
+
+func TestDiskProbesOnlyRunningGuests(t *testing.T) {
+	client := usageClient("4096 4000000 2000000 1000000 500000\n")
+	instance := lima.Instance{Name: "sandbox", Status: lima.Running}
+	usage := New(client).Disk(context.Background(), instance)
+	if usage == nil || usage.Inodes != 1000000 || usage.FreeBytes != 4096*2000000 {
+		t.Fatalf("usage not read: %+v", usage)
+	}
+	client = &fakeClient{}
+	instance.Status = lima.Stopped
+	if usage = New(client).Disk(context.Background(), instance); usage != nil || len(client.calls) != 0 {
+		t.Fatalf("queried stopped instance: %+v %v", usage, client.calls)
+	}
+	client = &fakeClient{run: func(ctx context.Context) (string, error) {
+		if _, bounded := ctx.Deadline(); !bounded {
+			t.Error("disk probe has no deadline")
+		}
+		return "", context.DeadlineExceeded
+	}}
+	instance.Status = lima.Running
+	if usage = New(client).Disk(context.Background(), instance); usage != nil {
+		t.Fatalf("failed probe returned usage: %+v", usage)
 	}
 }

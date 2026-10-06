@@ -23,7 +23,7 @@ type Manager struct {
 	generations *generationBuilder
 	hostUID     int
 
-	// Warn receives non-fatal cleanup diagnostics after a successful update.
+	// Warn receives non-fatal cleanup diagnostics after a successful create or update.
 	Warn func(string, ...any)
 }
 
@@ -116,4 +116,11 @@ func (m *Manager) applyGuest(ctx context.Context, instance domain.Instance) erro
 	}
 
 	return m.guest.Apply(ctx, name, instance.Identity.Username)
+}
+
+// pruneGuest runs after the ready record, so a failure leaves the applied configuration usable.
+func (m *Manager) pruneGuest(ctx context.Context, instance domain.Instance) {
+	if err := m.guest.Prune(ctx, instance.Identity.LimaName()); err != nil {
+		m.Warn("VM '%s' is ready, but replaced guest generations and unused store paths could not be removed: %v", instance.Identity.Name, err)
+	}
 }

@@ -11,6 +11,8 @@ if ! "$limanix_cat" -- "$limanix_summary"; then
 fi
 printf '\nKernel: '
 "$limanix_uname" -sr || exit 1
+printf '\nGuest disk (NixOS, Nix store and service data)\n'
+"$limanix_df" --human-readable --output=size,used,avail,pcent,itotal,iused,iavail,ipcent -- / || exit 1
 printf '\nShared mounts (target, type, options)\n'
 mounts=$("$limanix_findmnt" --kernel --list --noheadings --types virtiofs,9p --output TARGET,FSTYPE,OPTIONS)
 mount_status=$?

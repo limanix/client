@@ -38,9 +38,12 @@ func (m *Manager) Update(ctx context.Context, path string) (result domain.Instan
 		return result, err
 	}
 
-	if _, err = m.checkUpdateBackend(ctx, result.Identity, cfg.Resources.Disk); err != nil {
+	actual, err := m.checkUpdateBackend(ctx, result.Identity, cfg.Resources.Disk)
+	if err != nil {
 		return result, err
 	}
+
+	m.reserveGuest(ctx, result, actual, cfg.Resources.Disk)
 
 	generation, err := randomID()
 	if err != nil {
@@ -67,6 +70,7 @@ func (m *Manager) Update(ctx context.Context, path string) (result domain.Instan
 		m.Warn("%v", warning)
 	}
 
+	m.pruneGuest(ctx, result)
 	return result, nil
 }
 
@@ -124,6 +128,18 @@ func (m *Manager) applyUpdate(ctx context.Context, instance domain.Instance, dis
 	}
 
 	return m.applyGuest(ctx, instance)
+}
+
+// reserveGuest makes room before a running VM stops; a growing disk gains room when it restarts instead.
+// A low disk only warns: removing modules may still fit, and the apply reports a failed build.
+func (m *Manager) reserveGuest(ctx context.Context, instance domain.Instance, actual lima.Instance, disk domain.ByteSize) {
+	if actual.Status != lima.Running || actual.Disk == nil || int64(disk) > *actual.Disk {
+		return
+	}
+
+	if err := m.guest.Reserve(ctx, actual.Name); err != nil {
+		m.Warn("VM '%s' may fail to update: %v", instance.Identity.Name, err)
+	}
 }
 
 func (m *Manager) checkUpdateBackend(ctx context.Context, identity domain.Identity, disk domain.ByteSize) (lima.Instance, error) {

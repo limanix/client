@@ -30,6 +30,7 @@ let
     limanix_name=${lib.escapeShellArg runtime.name}
     limanix_system=${lib.escapeShellArg "NixOS ${config.system.nixos.release}, ${runtime.arch}"}
     limanix_modules=${lib.escapeShellArg modules}
+    limanix_minimum_percent=${toString runtime.disk.minimumPercent}
     limanix_help=${pkgs.writeText "lmx-help.sh" (builtins.readFile ./help.sh)}
     limanix_info=${pkgs.writeText "lmx-info.sh" (builtins.readFile ./info.sh)}
     limanix_welcome=${pkgs.writeText "lmx-welcome.sh" (builtins.readFile ./welcome.sh)}

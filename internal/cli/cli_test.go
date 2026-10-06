@@ -335,6 +335,32 @@ func TestListJSONEmptyArraysAndDamagedRows(t *testing.T) {
 	}
 }
 
+func TestListShowsTheScarcerGuestDiskLimit(t *testing.T) {
+	running := lima.Running
+	manager := &fakeManager{entries: []vm.Info{
+		{Name: "inodes", BackendStatus: &running, Disk: &domain.DiskUsage{Bytes: 100, FreeBytes: 61, Inodes: 1000, FreeInodes: 30}},
+		{Name: "bytes", BackendStatus: &running, Disk: &domain.DiskUsage{Bytes: 100, FreeBytes: 61, Inodes: 1000, FreeInodes: 900}},
+		{Name: "unread", BackendStatus: &running},
+	}}
+	status, output, diagnostics := runCLI([]string{"list"}, fakeDependencies(manager, &fakeRegistry{}))
+	if status != 0 || diagnostics != "" {
+		t.Fatalf("list failed: %d %q", status, diagnostics)
+	}
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) != 4 || !strings.HasSuffix(lines[0], "DISK") || !strings.HasSuffix(lines[1], "97% inodes") ||
+		!strings.HasSuffix(lines[2], "39%") || !strings.HasSuffix(lines[3], "-") {
+		t.Fatalf("disk column lost: %q", output)
+	}
+	status, output, _ = runCLI([]string{"list", "--json"}, fakeDependencies(manager, &fakeRegistry{}))
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(output), &rows); err != nil || status != 0 {
+		t.Fatalf("list JSON failed: %v %s", err, output)
+	}
+	if disk, ok := rows[0]["disk"].(map[string]any); !ok || disk["free_inodes"] != float64(30) || rows[2]["disk"] != nil {
+		t.Fatalf("disk JSON lost: %s", output)
+	}
+}
+
 func TestModuleCommandsPassNamesAndSourceDirectory(t *testing.T) {
 	registry := &fakeRegistry{}
 	dependencies := fakeDependencies(&fakeManager{}, registry)
