@@ -6,6 +6,7 @@ import (
 	"io"
 	"text/tabwriter"
 
+	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/modules"
 	"github.com/limanix/client/internal/vm"
 )
@@ -27,7 +28,7 @@ func writeInstances(output io.Writer, entries []vm.Info) error {
 	}
 
 	writer := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(writer, "NAME\tSTATUS\tSTATE\tADDRESS"); err != nil {
+	if _, err := fmt.Fprintln(writer, "NAME\tSTATUS\tSTATE\tADDRESS\tDISK"); err != nil {
 		return err
 	}
 
@@ -50,7 +51,7 @@ func writeInstances(output io.Writer, entries []vm.Info) error {
 			address = "-"
 		}
 
-		if _, err := fmt.Fprintf(writer, "%s\t%s\t%s\t%s\n", entry.Name, backendStatus, operationStatus, address); err != nil {
+		if _, err := fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n", entry.Name, backendStatus, operationStatus, address, diskUsage(entry.Disk)); err != nil {
 			return err
 		}
 
@@ -62,6 +63,20 @@ func writeInstances(output io.Writer, entries []vm.Info) error {
 	}
 
 	return writer.Flush()
+}
+
+// diskUsage shows the used share of whichever guest limit is closer to running out.
+func diskUsage(usage *domain.DiskUsage) string {
+	if usage == nil {
+		return "-"
+	}
+
+	percent, inodes := usage.Used()
+	if inodes {
+		return fmt.Sprintf("%d%% inodes", percent)
+	}
+
+	return fmt.Sprintf("%d%%", percent)
 }
 
 func writeModules(output io.Writer, entries []modules.Info) error {

@@ -19,17 +19,19 @@
 //	        ↓                                   ↓
 //	start → guest apply                 start → guest apply
 //	        ↓                                   ↓
-//	save ready                          save ready → prune old inputs
+//	save ready → prune guest            save ready → prune old inputs → prune guest
 //
 // Create and Update load configuration and run preflight before taking the VM lock. Update checks saved identity and
-// backend disk size under that lock, then rechecks the live backend before editing. It preserves identity and home
+// backend disk size under that lock, makes room on a running guest whose disk does not grow, warns when the guest
+// disk stays nearly full, then rechecks the live backend before editing. It preserves identity and home
 // and refuses a disk shrink or an unknown current disk size.
 //
 // # Failure and deletion boundaries
 //
 // Creation rolls back locally prepared resources before backend creation when possible. Once backend operations have begun,
 // failures retain ownership and inputs for recovery. Update discards uncommitted inputs but preserves a generation that may
-// already be referenced by state. Old inputs are pruned only after a successful ready record.
+// already be referenced by state. Old inputs and replaced guest generations are pruned only after a successful ready
+// record; pruning failures are reported through [Manager.Warn] and leave the operation successful.
 //
 // Delete acquires the VM lock and reads identity independently of runtime state. It removes the backend first, then either
 // preserves home ownership or removes the exact managed home, and finally removes VM records. Force and home removal

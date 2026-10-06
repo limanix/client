@@ -15,10 +15,18 @@ type runtimeUser struct {
 	UID  int              `json:"uid"`
 }
 
+// runtimeDisk carries the configured size as a plain byte count for Nix arithmetic.
+type runtimeDisk struct {
+	Bytes          int64  `json:"bytes"`
+	CollectPercent uint64 `json:"collectPercent"`
+	MinimumPercent uint64 `json:"minimumPercent"`
+}
+
 type runtimeConfig struct {
 	Name            domain.VMName       `json:"name"`
 	Arch            domain.Architecture `json:"arch"`
 	User            runtimeUser         `json:"user"`
+	Disk            runtimeDisk         `json:"disk"`
 	Ports           config.Ports        `json:"ports"`
 	Modules         []string            `json:"modules"`
 	SelectedModules []domain.ModuleID   `json:"selectedModules"`
@@ -33,6 +41,11 @@ func writeRuntime(filename string, cfg config.Config, imports []string, uid int)
 			Home: cfg.User.Home,
 			Sudo: cfg.User.Sudo,
 			UID:  uid,
+		},
+		Disk: runtimeDisk{
+			Bytes:          int64(cfg.Resources.Disk),
+			CollectPercent: domain.DiskCollectPercent,
+			MinimumPercent: domain.DiskMinimumPercent,
 		},
 		Ports:           cfg.Network.Ports,
 		Modules:         imports,

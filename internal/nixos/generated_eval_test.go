@@ -121,6 +121,21 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
       assertion = !config.programs.neovim.enable;
       message = "Declaring a language must not activate an editor.";
     }
+    {
+      assertion = config.nix.gc.automatic && config.nix.settings.auto-optimise-store
+        && !config.documentation.doc.enable;
+      message = "The guest store must not keep unreachable paths or documentation outputs.";
+    }
+    {
+      assertion = config.nix.settings.min-free == 1073741824 && config.nix.settings.max-free == 2147483648
+        && builtins.elem "timers.target" config.systemd.timers.limanix-store-guard.wantedBy;
+      message = "The platform must keep 10-20% of the default guest disk free during builds and between them.";
+    }
+    {
+      assertion = !config.nix.channel.enable
+        && builtins.elem "r /nix/var/nix/profiles/per-user/root/channels-*-link" config.systemd.tmpfiles.rules;
+      message = "The base image's channel must not remain a garbage-collector root.";
+    }
   ];
 }`
 						if err := os.WriteFile(filepath.Join(source.Path, "default.nix"), []byte(declaration), 0o600); err != nil {

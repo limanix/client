@@ -77,6 +77,15 @@ welcome_size() {
   fi
 }
 
+# Adds a limit below the platform minimum to short; unreadable values are left out.
+welcome_short() {
+  case "$1" in '' | *[!0-9]*) return 0 ;; esac
+  case "$2" in '' | *[!0-9]*) return 0 ;; esac
+  if [ "$2" -gt 0 ] && [ $(($1 * 100)) -lt $(($2 * limanix_minimum_percent)) ]; then
+    short+=("$(($1 * 100 / $2))% of $3 free")
+  fi
+}
+
 printf '\n'
 while IFS= read -r line; do
   printf '  %s%s%s%s%s\n' "$blue" "${line:0:36}" "$mauve" "${line:36}" "$reset"
@@ -117,8 +126,9 @@ case "$memory" in
   '' | *[!0-9]*) ;;
   *) welcome_size "$memory"; resources+=("$size memory") ;;
 esac
-free=
-{ read -r _ && read -r _ _ _ free _; } < <("$limanix_df" -Pk -- "${HOME:-/}" 2>/dev/null)
+# The guest disk holds NixOS, the Nix store and service data; the home is a host mount.
+disk= free=
+{ read -r _ && read -r _ disk _ free _; } < <("$limanix_df" -Pk -- / 2>/dev/null)
 case "$free" in
   '' | *[!0-9]*) ;;
   *) welcome_size "$free"; resources+=("$size disk free") ;;
@@ -176,6 +186,21 @@ if [ "$mount_status" -ne 0 ]; then
   welcome_row Shared 'unavailable; run lmx info'
 fi
 printf '\n'
+
+# A nearly full guest disk stops NixOS builds; ext4 can run out of inodes while space remains.
+inodes= inodes_free=
+{ read -r _ && read -r _ inodes _ inodes_free _; } < <("$limanix_df" -Pi -- / 2>/dev/null)
+short=()
+welcome_short "$free" "$disk" space
+welcome_short "$inodes_free" "$inodes" inodes
+if [ "${#short[@]}" -gt 0 ]; then
+  detail=${short[0]}
+  [ "${#short[@]}" -eq 1 ] || detail+=" and ${short[1]}"
+  while IFS= read -r line; do
+    printf '  %s%s%s\n' "$yellow" "$line" "$reset"
+  done < <(welcome_wrap "▲ Guest disk nearly full: $detail. Run lmx info for details." 78)
+  printf '\n'
+fi
 
 # Failed units are shown only when there are some.
 failed=()

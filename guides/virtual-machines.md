@@ -77,7 +77,9 @@ limanix list --json
 ```
 
 `STATUS` describes the Lima backend; `STATE` describes the last Limanix
-operation.
+operation. `DISK` shows how much of the guest disk is used, by bytes or, when
+they are scarcer, by inodes, for example `97% inodes`; `-` means a stopped VM or
+an unreadable guest. `list --json` reports the same values in `disk`.
 
 | Example | Meaning |
 | -- | -- |
@@ -124,11 +126,14 @@ flowchart TD
     A["Check configuration and prepare inputs"] --> B["Stop VM if running; apply Lima settings"]
     B --> C["Start guest and build NixOS"]
     C --> D["Restart, check user, record ready"]
+    D --> E["Remove replaced generations and unused store paths"]
 ```
 
 The NixOS build prepares the next boot. LimaNix then restarts the guest and
 checks that the development user can run a command. A successful update leaves
-the VM running, even if it was stopped before.
+the VM running, even if it was stopped before. After recording the update,
+LimaNix removes the previous NixOS generations and the store paths only they
+used; a failure there is reported as a warning, and the update stays successful.
 
 | Can change through `update` | Requires a new VM |
 | -- | -- |
@@ -152,7 +157,7 @@ Read the error and follow [Troubleshooting](troubleshooting.md) before retrying.
 | -- | -- |
 | Managed home | `<home.root>/<name>-<id>` on the Mac, mounted at `user.home` in the guest; user files, dotfiles, and home-based caches. |
 | Project mounts | Mac directories listed in `[[mounts]]`; shared project files. |
-| Guest disk | NixOS, the Nix store, and files outside host mounts, including service data under `/var` unless configured elsewhere. |
+| Guest disk | NixOS, the Nix store, and files outside host mounts, including service data under `/var` unless configured elsewhere. Only the applied NixOS generation is kept; see [The guest disk is full](troubleshooting.md#the-guest-disk-is-full). |
 | Source inputs | Your TOML and module source directories on the Mac. |
 | [Limanix state](troubleshooting.md#state-directories) | Ownership, operation records, prepared configurations, and imported modules. |
 

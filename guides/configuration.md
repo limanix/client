@@ -106,7 +106,7 @@ including typos such as `resources.cpus`.
 | `resources.arch` | `arm64` for Apple Silicon or `amd64` for Intel. These spellings differ from Nix's `aarch64` and `x86_64`. |
 | `resources.cpu` | A positive whole number of virtual CPUs. |
 | `resources.mem` | A positive whole number of GiB, written as a quoted string such as `"8GiB"`. |
-| `resources.disk` | The guest system disk size, also in whole GiB. Shared host directories are separate from this disk. |
+| `resources.disk` | The guest system disk size, also in whole GiB. Shared host directories are separate from this disk. The size also limits the number of files: about one inode per 16 KiB. |
 | `schema_version` | Keep `1`; this is the configuration contract version, independent of the client release. |
 
 Sizes such as `"8GB"`, `"1.5GiB"`, `"0GiB"`, and `"08GiB"` are rejected.

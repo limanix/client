@@ -45,6 +45,7 @@ func workspaceProcess(t *testing.T, helper, summary string, env []string, args .
 		"limanix_name=sample",
 		"limanix_system=NixOS fixture, arm64",
 		"limanix_modules=none",
+		"limanix_minimum_percent=10",
 	}
 	if helper == "lmx" {
 		for _, name := range []string{"help", "info", "welcome"} {
@@ -123,7 +124,8 @@ func TestWorkspaceInfoReportsMountAndServiceFailures(t *testing.T) {
 			mounts := makeTool("findmnt", "printf '%s\\n' '/workspace virtiofs rw'\nexit "+string(rune('0'+test.mounts))+"\n")
 			services := makeTool("systemctl", "exit "+string(rune('0'+test.services))+"\n")
 			kernel := makeTool("uname", "printf '%s\\n' 'Linux fixture'\n")
-			command := workspaceProcess(t, "info", summary, []string{"limanix_findmnt=" + mounts, "limanix_systemctl=" + services, "limanix_uname=" + kernel})
+			disk := makeTool("df", "for last; do :; done\n[ \"$last\" = / ] || exit 1\nprintf '%s\\n' ' Size  Used Avail Use% Inodes IUsed IFree IUse%' '  16G  5.8G  9.1G  39%   1.0M  525K  484K   52%'\n")
+			command := workspaceProcess(t, "info", summary, []string{"limanix_findmnt=" + mounts, "limanix_systemctl=" + services, "limanix_uname=" + kernel, "limanix_df=" + disk})
 			var diagnostics bytes.Buffer
 			command.Stderr = &diagnostics
 			output, err := command.Output()
@@ -133,6 +135,9 @@ func TestWorkspaceInfoReportsMountAndServiceFailures(t *testing.T) {
 				}
 				if !strings.Contains(string(output), "Kernel: Linux fixture") || !strings.Contains(string(output), "Failed system services") {
 					t.Fatalf("missing overview: %s", output)
+				}
+				if !strings.Contains(string(output), "Guest disk") || !strings.Contains(string(output), "525K  484K   52%") {
+					t.Fatalf("missing guest disk usage: %s", output)
 				}
 				if test.mounts == 1 && !strings.Contains(string(output), "(none)") {
 					t.Fatalf("missing shares became failure: %s", output)
@@ -161,6 +166,7 @@ func TestWorkspaceCommandDispatch(t *testing.T) {
 		"limanix_findmnt=" + workspaceTool(t, "findmnt", "exit 1\n"),
 		"limanix_uname=" + workspaceTool(t, "uname", "printf '%s\\n' 'Linux fixture'\n"),
 		"limanix_systemctl=" + workspaceTool(t, "systemctl", "exit 0\n"),
+		"limanix_df=" + workspaceTool(t, "df", "printf '%s\\n' ' Size  Used Avail Use%'\n"),
 	}
 	for _, test := range []struct {
 		args []string
@@ -205,7 +211,10 @@ func TestWorkspaceWelcomeWrapsValuesAndReportsMountFailures(t *testing.T) {
 	}
 	probes := map[string]string{
 		"nproc": "printf '%s\\n' 4\n",
-		"df":    "printf '%s\\n' 'Filesystem 1024-blocks Used Available Capacity Mounted on' '/dev/vda2 103081248 61234567 39800000 61% /'\n",
+		"df": "for last; do :; done\n[ \"$last\" = / ] || exit 1\ncase \"$1\" in\n" +
+			"-Pk) printf '%s\\n' 'Filesystem 1024-blocks Used Available Capacity Mounted on' '/dev/vda2 103081248 61234567 39800000 61% /' ;;\n" +
+			"-Pi) printf '%s\\n' 'Filesystem Inodes IUsed IFree IUse% Mounted on' \"/dev/vda2 1000000 ${LIMANIX_TEST_IUSED:-500000} ${LIMANIX_TEST_IFREE:-500000} 50% /\" ;;\n" +
+			"*) exit 1 ;;\nesac\n",
 		"systemctl": "printf '%s\\n' '" + strings.Repeat("unit-", 12) + "a.service loaded failed failed A' " +
 			"'" + strings.Repeat("unit-", 12) + "b.service loaded failed failed B'\n",
 	}
@@ -214,10 +223,12 @@ func TestWorkspaceWelcomeWrapsValuesAndReportsMountFailures(t *testing.T) {
 		name           string
 		mounts, parser int
 		failedProbes   bool
+		inodesFree     string
 		want, absent   []string
 		code           int
 	}{
-		{name: "mounted", want: []string{"'quote'", resources, "▲ Failed:"}},
+		{name: "mounted", want: []string{"'quote'", resources, "▲ Failed:"}, absent: []string{"nearly full"}},
+		{name: "few-inodes", inodesFree: "40000", want: []string{resources, "▲ Guest disk nearly full: 4% of inodes free."}},
 		{name: "no-shares", mounts: 1, want: []string{"(none)"}},
 		{name: "mount-failure", mounts: 2, want: []string{"unavailable"}, code: 2},
 		{name: "malformed-mount-data", parser: 4, want: []string{"unavailable"}, code: 4},
@@ -225,6 +236,8 @@ func TestWorkspaceWelcomeWrapsValuesAndReportsMountFailures(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			env := []string{
+				"HOME=/home/dev",
+				"LIMANIX_TEST_IFREE=" + test.inodesFree,
 				"TERM=xterm-256color",
 				"NO_COLOR=1",
 				"limanix_name=" + strings.Repeat("long-vm-name-", 10),

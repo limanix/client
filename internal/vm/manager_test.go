@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -40,6 +41,8 @@ type fakeBackend struct {
 	shellExit         int
 	onValidate        func()
 	rejectStoppedStop bool
+	failCommand       string
+	diskUsage         string
 }
 
 func (f *fakeBackend) called(operation, name string, force bool, args []string) error {
@@ -163,6 +166,12 @@ func (f *fakeBackend) Edit(_ context.Context, name, template string) error {
 func (f *fakeBackend) Run(_ context.Context, name string, args []string, _ bool) (string, error) {
 	if err := f.called("run", name, false, args); err != nil {
 		return "", err
+	}
+	if f.failCommand != "" && slices.Contains(args, f.failCommand) {
+		return "", errors.New("guest command failed")
+	}
+	if args[0] == "stat" {
+		return f.diskUsage, nil
 	}
 	if reflect.DeepEqual(args, []string{"ip", "-j", "address", "show"}) {
 		return `[{"address":"52:55:55:4a:e4:84","addr_info":[{"family":"inet","scope":"global","local":"192.0.2.10"}]}]`, nil
@@ -510,6 +519,115 @@ func TestSuccessfulUpdateCleanupFailureOnlyWarns(t *testing.T) {
 				t.Fatalf("unexpected warning %q", warnings[0])
 			}
 		})
+	}
+}
+
+func (f fixtureData) assertGuestPrunedAfterReadyCheck(t *testing.T) {
+	t.Helper()
+	position := func(argument string) int {
+		return slices.IndexFunc(f.backend.calls, func(call backendCall) bool {
+			return slices.Contains(call.Arguments, argument)
+		})
+	}
+	check, removal, collection := position("limanix-command"), position("--delete-generations"), position("--gc")
+	if check < 0 || removal < check || collection < removal {
+		t.Fatalf("replaced guest generations must be pruned after the development-user check: %v", f.backend.calls)
+	}
+}
+
+func TestReadyVMKeepsOnlyAppliedGuestGeneration(t *testing.T) {
+	f := fixture(t)
+	_, path := f.create(t, "sandbox")
+	f.assertGuestPrunedAfterReadyCheck(t)
+	f.backend.calls = nil
+	if _, err := f.manager.Update(context.Background(), path); err != nil {
+		t.Fatal(err)
+	}
+	f.assertGuestPrunedAfterReadyCheck(t)
+}
+
+func TestGuestPruneFailureOnlyWarns(t *testing.T) {
+	for _, operation := range []string{"create", "update"} {
+		t.Run(operation, func(t *testing.T) {
+			f := fixture(t)
+			path := f.writeConfig(t, f.configuration("sandbox"))
+			if operation == "update" {
+				if _, err := f.manager.Create(context.Background(), path); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var warnings []string
+			f.manager.Warn = func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
+			f.backend.failCommand = "--gc"
+			apply := f.manager.Create
+			if operation == "update" {
+				apply = f.manager.Update
+			}
+			instance, err := apply(context.Background(), path)
+			if err != nil || instance.Status != domain.Ready || len(warnings) != 1 || !strings.Contains(warnings[0], "sandbox") {
+				t.Fatalf("guest cleanup changed operation outcome: %+v %v %v", instance, err, warnings)
+			}
+			loaded, err := f.store.Load(instance.Identity.Name)
+			if err != nil || loaded != instance {
+				t.Fatalf("ready commit lost: %+v %v", loaded, err)
+			}
+		})
+	}
+}
+
+// firstCall returns the index of the first backend call matching the predicate, or -1.
+func (f fixtureData) firstCall(match func(backendCall) bool) int {
+	return slices.IndexFunc(f.backend.calls, match)
+}
+
+func TestUpdateMakesRoomBeforeStoppingRunningVM(t *testing.T) {
+	const nearlyFull = "4096 4000000 2000000 1000000 50000\n"
+	for _, test := range []struct {
+		name   string
+		grow   bool
+		warned bool
+	}{
+		{name: "same-disk", warned: true},
+		{name: "growing-disk", grow: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			f := fixture(t)
+			instance, path := f.create(t, "sandbox")
+			if f.backend.instances[instance.Identity.LimaName()].Status != lima.Running {
+				t.Fatal("fixture VM is not running")
+			}
+			if test.grow {
+				cfg := f.configuration("sandbox")
+				cfg.Resources.Disk += domain.ByteSize(domain.GiB)
+				path = f.writeConfig(t, cfg)
+			}
+			var warnings []string
+			f.manager.Warn = func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
+			f.backend.calls = nil
+			f.backend.diskUsage = nearlyFull
+			updated, err := f.manager.Update(context.Background(), path)
+			if err != nil || updated.Status != domain.Ready {
+				t.Fatalf("a low guest disk must not block the update: %+v %v", updated, err)
+			}
+			stop := f.firstCall(func(call backendCall) bool { return call.Operation == "stop" })
+			collection := f.firstCall(func(call backendCall) bool { return slices.Contains(call.Arguments, "--gc") })
+			if test.grow != (collection > stop) {
+				t.Fatalf("garbage must be collected before stopping unless the disk grows: %v", f.backend.calls)
+			}
+			if warned := slices.ContainsFunc(warnings, func(warning string) bool { return strings.Contains(warning, "may fail") }); warned != test.warned {
+				t.Fatalf("unexpected low-disk warnings: %v", warnings)
+			}
+		})
+	}
+}
+
+func TestListReportsRunningGuestDisk(t *testing.T) {
+	f := fixture(t)
+	f.create(t, "sandbox")
+	f.backend.diskUsage = "4096 4000000 2000000 1000000 500000\n"
+	infos, err := f.manager.FetchAll(context.Background())
+	if err != nil || len(infos) != 1 || infos[0].Disk == nil || infos[0].Disk.FreeInodes != 500000 {
+		t.Fatalf("guest disk usage not listed: %+v %v", infos, err)
 	}
 }
 

@@ -8,12 +8,18 @@ import (
 
 // Apply installs global ENV before rebuilding; a failed rebuild never reboots.
 func (guest *Guest) Apply(ctx context.Context, name string, user domain.Username) error {
-	if err := guest.installEnvironment(ctx, name); err != nil {
+	// A low disk does not block the apply: a smaller selection may still fit, and a failed build reports the usage.
+	_ = guest.Reserve(ctx, name)
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 
+	if err := guest.installEnvironment(ctx, name); err != nil {
+		return guest.explainFailure(ctx, name, err)
+	}
+
 	if err := guest.buildGeneration(ctx, name); err != nil {
-		return err
+		return guest.explainFailure(ctx, name, err)
 	}
 
 	if err := guest.client.Stop(ctx, name); err != nil {

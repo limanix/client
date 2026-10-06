@@ -81,6 +81,33 @@ missing, follow [The backend is missing](#the-backend-is-missing).
 **A successful `start` is not a successful update.** It starts the saved VM
 without applying your corrected TOML file or resetting an operation error.
 
+## The guest disk is full
+
+The guest disk can run out of inodes while it still has free space. ext4 sets
+their number from the disk size, about one per 16 KiB, and each file or
+directory needs one; a Nixpkgs source tree alone uses about 90,000. Builds then
+fail with `No space left on device`, and `create` or `update` reports the guest
+disk usage. `limanix list` shows the usage in `DISK`; inside the **VM**,
+`lmx info` shows both limits, and the welcome warns when either falls below 10%.
+
+LimaNix keeps only the applied NixOS generation and collects unreferenced store
+paths after each `create` and `update`, and whenever free bytes or inodes fall
+below 20%. What remains is in use: the applied system, garbage-collector roots
+such as `nix-direnv` shells and `result` links, and data outside the Nix store,
+such as Docker images and volumes under `/var/lib/docker`.
+
+1. Inside the VM, run `lmx info` to see which limit is exhausted, and
+   `journalctl -u limanix-store-guard` for the roots that keep store paths
+   alive.
+
+1. Remove guest data you no longer need, for example with `docker system prune`
+   or by deleting a project's `.direnv` directory or `result` link. Run
+   `sudo nix-collect-garbage` to collect the paths they kept immediately.
+
+1. Or raise `resources.disk` in the TOML file and run
+   `limanix update --config limanix.toml` on your **Mac**. A larger disk also
+   has more inodes; a disk cannot shrink.
+
 ## An update is rejected
 
 | Diagnostic | Meaning and next step |

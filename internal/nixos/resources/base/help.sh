@@ -13,7 +13,7 @@ fi
 "$limanix_cat" <<'HELP'
 
 Inside this VM
-  lmx info              Show the kernel, shared mounts and failed services.
+  lmx info              Show the kernel, guest disk, shared mounts and failed services.
   lmx welcome           Show the workspace welcome again.
   limanix-session NAME  Open a named session with the selected session provider.
   exit                  Return to the Mac.
