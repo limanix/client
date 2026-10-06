@@ -36,9 +36,24 @@ let
     limanix_welcome=${pkgs.writeText "lmx-welcome.sh" (builtins.readFile ./welcome.sh)}
     ${builtins.readFile ./lmx.sh}
   '';
+  # Clipboard commands talk to the Mac terminal with OSC 52, directly or through tmux.
+  clipboard =
+    name:
+    pkgs.writeShellScriptBin name ''
+      limanix_base64=${pkgs.coreutils}/bin/base64
+      limanix_stty=${pkgs.coreutils}/bin/stty
+      limanix_tty_in=/dev/tty
+      limanix_tty_out=/dev/tty
+      limanix_paste_timeout=10
+      ${builtins.readFile (./. + "/${name}.sh")}
+    '';
 in
 {
-  environment.systemPackages = [ lmx ];
+  environment.systemPackages = [
+    lmx
+    (clipboard "pbcopy")
+    (clipboard "pbpaste")
+  ];
   environment.etc."limanix/workspace".source = summary;
 
   environment.interactiveShellInit = ''

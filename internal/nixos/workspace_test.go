@@ -81,7 +81,7 @@ func TestWorkspaceHelpWorksWithoutOptionalModules(t *testing.T) {
 		if err != nil {
 			t.Fatalf("help failed: %v: %s", err, output)
 		}
-		for _, expected := range []string{"Modules: none", "lmx info", "lmx welcome", "limanix-session NAME", "limanix shell NAME", "limanix update --config FILE"} {
+		for _, expected := range []string{"Modules: none", "lmx info", "lmx welcome", "pbcopy", "pbpaste", "limanix-session NAME", "limanix shell NAME", "limanix update --config FILE"} {
 			if !strings.Contains(string(output), expected) {
 				t.Errorf("missing guidance %q: %s", expected, output)
 			}
