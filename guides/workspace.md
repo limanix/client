@@ -28,6 +28,7 @@ Every guest supplies these commands, including with `modules = []`:
 | `lmx info` | Identity, selected selectors, Linux kernel, guest disk usage, shared mounts and failed system services |
 | `lmx welcome` | Welcome summary with VM identity, NixOS version, architecture, resources, selected selectors, mounted guest directories and failed services |
 | `limanix-session NAME` | Dispatch to the selected provider, or explain which optional provider to select |
+| `pbcopy`, `pbpaste` | Copy to and paste from the Mac clipboard through the terminal; see [Terminal and clipboard](https://limanix.dev/terminal.html) |
 
 The welcome shows the ASCII `LimaNix` wordmark in Catppuccin Mocha blue and
 mauve. Below it are the VM name, NixOS version and architecture; the number of
@@ -126,7 +127,9 @@ its guest path for language servers to see its Linux dependencies.
 The shell, tmux, editor, Yazi, Lazygit, Posting and Harlequin use Catppuccin
 Mocha defaults. Personal configuration takes precedence as described on each
 [module page](https://limanix.dev/categories/nixos/catalog.html). Set a Nerd
-Font, truecolor and OSC 52 clipboard support in the terminal on your Mac.
+Font, truecolor and OSC 52 clipboard support in the terminal on your Mac; see
+[Terminal and clipboard](https://limanix.dev/terminal.html) for copy and paste
+between the Mac and the VM.
 
 ## Work in your project
 

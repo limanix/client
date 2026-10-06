@@ -16,6 +16,8 @@ Inside this VM
   lmx info              Show the kernel, guest disk, shared mounts and failed services.
   lmx welcome           Show the workspace welcome again.
   limanix-session NAME  Open a named session with the selected session provider.
+  pbcopy < FILE         Copy to the Mac clipboard through the terminal.
+  pbpaste               Print the Mac clipboard, if the terminal allows reads.
   exit                  Return to the Mac.
 
 On the Mac

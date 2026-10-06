@@ -132,6 +132,12 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
       message = "The platform must keep 10-20% of the default guest disk free during builds and between them.";
     }
     {
+      assertion = builtins.all
+        (name: builtins.any (package: (package.name or "") == name) config.environment.systemPackages)
+        [ "pbcopy" "pbpaste" ];
+      message = "Every guest must reach the Mac clipboard without a catalog module.";
+    }
+    {
       assertion = !config.nix.channel.enable
         && builtins.elem "r /nix/var/nix/profiles/per-user/root/channels-*-link" config.systemd.tmpfiles.rules;
       message = "The base image's channel must not remain a garbage-collector root.";
