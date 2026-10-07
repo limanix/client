@@ -34,6 +34,7 @@ and recovery behavior.
 | `cmd/limanix/`, `internal/cli/` | CLI entry point, commands, flags, output |
 | `internal/config/`, `internal/domain/` | TOML parsing, defaults, validation, domain types |
 | `internal/vm/` | VM lifecycle and configuration generations |
+| `internal/guest/` | Guest steps through `lmx` and development-user sessions |
 | `internal/lima/`, `internal/hostagent/` | Lima integration and host-side VM process |
 | `internal/state/`, `internal/managedhome/` | Saved records and managed home ownership |
 | `internal/modules/` | Local imports and module selection |
@@ -223,14 +224,15 @@ their consumers. Follow
 to change it.
 
 To update `lmx`, copy the version and the `.sha256` files of an
-[lmx release](https://github.com/limanix/lmx/releases) into `lmx.json`.
-`ci/golang-test` checks the pin's shape, and `ci/nixos-eval` evaluates the
-platform that uses it; the archive itself is downloaded only by a guest.
-`resources/base/lmx.nix` renders the configuration that the release reads, so a
-release with other configuration fields needs the matching change there. A
-guest's system build runs the release on the rendered file and fails before a
-restart when the two disagree. The platform reads the catalog's theme, so it
-needs catalog v3 or newer.
+[lmx release](https://github.com/limanix/lmx/releases) into `lmx.json`, and the
+release's `contract/v1` examples that `internal/guest/testdata/` holds into that
+directory. `ci/golang-test` checks the pin's shape and decodes the examples, and
+`ci/nixos-eval` evaluates the platform that uses the pin; the archive itself is
+downloaded only by a guest. `resources/base/lmx.nix` renders the configuration
+that the release reads, so a release with other configuration fields needs the
+matching change there. A guest's system build runs the release on the rendered
+file and fails before a restart when the two disagree. The platform reads the
+catalog's theme, so it needs catalog v3 or newer.
 
 The client owns `internal/nixos/resources/flake.nix.tmpl` and `flake.lock.tmpl`,
 including the `nixos-lima` dependency graph. The catalog supplies the `nixpkgs`

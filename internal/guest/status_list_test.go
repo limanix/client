@@ -16,18 +16,18 @@ import (
 	"github.com/limanix/client/internal/vm"
 )
 
-type addressListBackend struct {
+type statusListBackend struct {
 	*lima.Client
 	instances   []lima.Instance
 	unreachable string
 	cancel      context.CancelFunc
 }
 
-func (backend *addressListBackend) FetchAll(context.Context) ([]lima.Instance, error) {
+func (backend *statusListBackend) FetchAll(context.Context) ([]lima.Instance, error) {
 	return backend.instances, nil
 }
 
-func (backend *addressListBackend) Run(ctx context.Context, name string, _ []string, _ bool) (string, error) {
+func (backend *statusListBackend) Run(ctx context.Context, name string, _ []string, _ bool) (string, error) {
 	if backend.cancel != nil {
 		backend.cancel()
 		return "", ctx.Err()
@@ -38,15 +38,15 @@ func (backend *addressListBackend) Run(ctx context.Context, name string, _ []str
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
-	return `[{"address":"52:55:55:aa:bb:cc","addr_info":[{"family":"inet","scope":"global","local":"192.0.2.10"}]}]`, nil
+	return `{"contract":1,"ok":true,"data":{"disk":null,"interfaces":[{"name":"enp0s1","mac":"52:55:55:aa:bb:cc","ipv4":["192.0.2.10"]}]}}`, nil
 }
 
-func TestVMListRetainsHealthyRowsAfterAddressProbeFailure(t *testing.T) {
+func TestVMListRetainsHealthyRowsAfterStatusProbeFailure(t *testing.T) {
 	store, err := state.NewStore(filepath.Join(t.TempDir(), "state"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	backend := &addressListBackend{}
+	backend := &statusListBackend{}
 	for index, name := range []domain.VMName{"a-unreachable", "b-healthy"} {
 		identifier := []string{"aaaaaaaaaaaa", "bbbbbbbbbbbb"}[index]
 		root := filepath.Join(store.Root(), "homes")
@@ -86,13 +86,13 @@ func TestVMListRetainsHealthyRowsAfterAddressProbeFailure(t *testing.T) {
 	})
 	entries, err := manager.FetchAll(ctx)
 	if err != nil || len(entries) != 2 {
-		t.Fatalf("an unavailable address blocked VM listing: entries=%v, error=%v", entries, err)
+		t.Fatalf("an unavailable guest blocked VM listing: entries=%v, error=%v", entries, err)
 	}
 	if entries[0].Name != "a-unreachable" || entries[0].Address != "" || entries[0].BackendStatus == nil || *entries[0].BackendStatus != lima.Running || entries[0].Error != nil {
 		t.Fatalf("unreachable VM row lost its valid state: %#v", entries[0])
 	}
 	if entries[1].Name != "b-healthy" || entries[1].Address != "192.0.2.10" || entries[1].Error != nil {
-		t.Fatalf("failed address probe prevented healthy VM listing: %#v", entries[1])
+		t.Fatalf("a failed status probe prevented healthy VM listing: %#v", entries[1])
 	}
 
 	canceled, cancel := context.WithCancel(ctx)

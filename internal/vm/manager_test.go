@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -41,8 +42,8 @@ type fakeBackend struct {
 	shellExit         int
 	onValidate        func()
 	rejectStoppedStop bool
-	failCommand       string
-	diskUsage         string
+	disk              *domain.DiskUsage
+	unfinalized       bool
 }
 
 func (f *fakeBackend) called(operation, name string, force bool, args []string) error {
@@ -167,16 +168,36 @@ func (f *fakeBackend) Run(_ context.Context, name string, args []string, _ bool)
 	if err := f.called("run", name, false, args); err != nil {
 		return "", err
 	}
-	if f.failCommand != "" && slices.Contains(args, f.failCommand) {
-		return "", errors.New("guest command failed")
+	return f.answer(strings.Join(args, " "))
+}
+
+// answer replies to guest lmx commands like a guest with the disk usage f.disk.
+func (f *fakeBackend) answer(command string) (string, error) {
+	failed := errors.New("exit status 1")
+	disk, err := json.Marshal(f.disk)
+	if err != nil {
+		return "", err
 	}
-	if args[0] == "stat" {
-		return f.diskUsage, nil
-	}
-	if reflect.DeepEqual(args, []string{"ip", "-j", "address", "show"}) {
-		return `[{"address":"52:55:55:4a:e4:84","addr_info":[{"family":"inet","scope":"global","local":"192.0.2.10"}]}]`, nil
+	switch {
+	case strings.HasPrefix(command, "sudo lmx store reserve"):
+		if f.disk != nil && f.disk.Below(domain.DiskMinimumPercent) {
+			return `{"contract":1,"ok":false,"error":{"code":"disk.low","message":"Disk low.","details":{"after":` + string(disk) + `}}}`, failed
+		}
+		return `{"contract":1,"ok":true,"data":{"freed_bytes":0,"collected":false}}`, nil
+	case strings.HasPrefix(command, "sudo lmx status --wait") && f.unfinalized:
+		return `{"contract":1,"ok":false,"error":{"code":"finalize.failed","message":"Finalizing generation failed."}}`, failed
+	case strings.HasPrefix(command, "sudo lmx status"):
+		return `{"contract":1,"ok":true,"data":{"disk":` + string(disk) + `,"interfaces":[{"name":"enp0s1","mac":"52:55:55:4a:e4:84","ipv4":["192.0.2.10"]}]}}`, nil
 	}
 	return "", nil
+}
+
+func (f *fakeBackend) Stream(_ context.Context, name string, args []string, output io.Writer) error {
+	if err := f.called("stream", name, false, args); err != nil {
+		return err
+	}
+	_, err := io.WriteString(output, `{"contract":1,"ok":true,"data":{"generation":"`+args[4]+`","state":"restart_required"}}`+"\n")
+	return err
 }
 
 func (f *fakeBackend) Shell(_ context.Context, name string, args []string) (int, error) {
@@ -522,31 +543,34 @@ func TestSuccessfulUpdateCleanupFailureOnlyWarns(t *testing.T) {
 	}
 }
 
-func (f fixtureData) assertGuestPrunedAfterReadyCheck(t *testing.T) {
+// assertGuestApplied checks that the guest applied the recorded generation and waited for it after the restart.
+func (f fixtureData) assertGuestApplied(t *testing.T, instance domain.Instance) {
 	t.Helper()
-	position := func(argument string) int {
-		return slices.IndexFunc(f.backend.calls, func(call backendCall) bool {
-			return slices.Contains(call.Arguments, argument)
-		})
-	}
-	check, removal, collection := position("limanix-command"), position("--delete-generations"), position("--gc")
-	if check < 0 || removal < check || collection < removal {
-		t.Fatalf("replaced guest generations must be pruned after the development-user check: %v", f.backend.calls)
+	apply := f.firstCall(func(call backendCall) bool {
+		return call.Operation == "stream" && slices.Contains(call.Arguments, instance.Generation)
+	})
+	start := slices.IndexFunc(f.backend.calls[max(apply, 0):], func(call backendCall) bool { return call.Operation == "start" })
+	wait := f.firstCall(func(call backendCall) bool {
+		return slices.Contains(call.Arguments, "--wait") && slices.Contains(call.Arguments, instance.Generation)
+	})
+	if apply < 0 || start < 0 || wait < apply+start {
+		t.Fatalf("the guest must apply generation %s, restart and wait for it: %v", instance.Generation, f.backend.calls)
 	}
 }
 
-func TestReadyVMKeepsOnlyAppliedGuestGeneration(t *testing.T) {
+func TestReadyVMRunsTheRecordedGeneration(t *testing.T) {
 	f := fixture(t)
-	_, path := f.create(t, "sandbox")
-	f.assertGuestPrunedAfterReadyCheck(t)
+	created, path := f.create(t, "sandbox")
+	f.assertGuestApplied(t, created)
 	f.backend.calls = nil
-	if _, err := f.manager.Update(context.Background(), path); err != nil {
+	updated, err := f.manager.Update(context.Background(), path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	f.assertGuestPrunedAfterReadyCheck(t)
+	f.assertGuestApplied(t, updated)
 }
 
-func TestGuestPruneFailureOnlyWarns(t *testing.T) {
+func TestUnfinalizedGenerationIsReadyWithWarning(t *testing.T) {
 	for _, operation := range []string{"create", "update"} {
 		t.Run(operation, func(t *testing.T) {
 			f := fixture(t)
@@ -558,14 +582,15 @@ func TestGuestPruneFailureOnlyWarns(t *testing.T) {
 			}
 			var warnings []string
 			f.manager.Warn = func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
-			f.backend.failCommand = "--gc"
+			f.backend.unfinalized = true
 			apply := f.manager.Create
 			if operation == "update" {
 				apply = f.manager.Update
 			}
 			instance, err := apply(context.Background(), path)
-			if err != nil || instance.Status != domain.Ready || len(warnings) != 1 || !strings.Contains(warnings[0], "sandbox") {
-				t.Fatalf("guest cleanup changed operation outcome: %+v %v %v", instance, err, warnings)
+			if err != nil || instance.Status != domain.Ready || len(warnings) != 1 ||
+				warnings[0] != "VM 'sandbox' is ready, but lmx reported: Finalizing generation failed." {
+				t.Fatalf("an unfinalized generation changed the outcome: %+v %v %q", instance, err, warnings)
 			}
 			loaded, err := f.store.Load(instance.Identity.Name)
 			if err != nil || loaded != instance {
@@ -581,7 +606,7 @@ func (f fixtureData) firstCall(match func(backendCall) bool) int {
 }
 
 func TestUpdateMakesRoomBeforeStoppingRunningVM(t *testing.T) {
-	const nearlyFull = "4096 4000000 2000000 1000000 50000\n"
+	nearlyFull := &domain.DiskUsage{Bytes: 100, FreeBytes: 50, Inodes: 100, FreeInodes: 5}
 	for _, test := range []struct {
 		name   string
 		grow   bool
@@ -604,15 +629,15 @@ func TestUpdateMakesRoomBeforeStoppingRunningVM(t *testing.T) {
 			var warnings []string
 			f.manager.Warn = func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
 			f.backend.calls = nil
-			f.backend.diskUsage = nearlyFull
+			f.backend.disk = nearlyFull
 			updated, err := f.manager.Update(context.Background(), path)
 			if err != nil || updated.Status != domain.Ready {
 				t.Fatalf("a low guest disk must not block the update: %+v %v", updated, err)
 			}
 			stop := f.firstCall(func(call backendCall) bool { return call.Operation == "stop" })
-			collection := f.firstCall(func(call backendCall) bool { return slices.Contains(call.Arguments, "--gc") })
-			if test.grow != (collection > stop) {
-				t.Fatalf("garbage must be collected before stopping unless the disk grows: %v", f.backend.calls)
+			reserve := f.firstCall(func(call backendCall) bool { return slices.Contains(call.Arguments, "reserve") })
+			if before := reserve >= 0 && reserve < stop; before == test.grow {
+				t.Fatalf("room must be made before stopping unless the disk grows: %v", f.backend.calls)
 			}
 			if warned := slices.ContainsFunc(warnings, func(warning string) bool { return strings.Contains(warning, "may fail") }); warned != test.warned {
 				t.Fatalf("unexpected low-disk warnings: %v", warnings)
@@ -624,7 +649,7 @@ func TestUpdateMakesRoomBeforeStoppingRunningVM(t *testing.T) {
 func TestListReportsRunningGuestDisk(t *testing.T) {
 	f := fixture(t)
 	f.create(t, "sandbox")
-	f.backend.diskUsage = "4096 4000000 2000000 1000000 500000\n"
+	f.backend.disk = &domain.DiskUsage{Bytes: 4000000, FreeBytes: 2000000, Inodes: 1000000, FreeInodes: 500000}
 	infos, err := f.manager.FetchAll(context.Background())
 	if err != nil || len(infos) != 1 || infos[0].Disk == nil || infos[0].Disk.FreeInodes != 500000 {
 		t.Fatalf("guest disk usage not listed: %+v %v", infos, err)

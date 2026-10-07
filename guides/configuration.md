@@ -232,7 +232,7 @@ does not copy the Mac's `TOKEN` variable or execute a shell command.
 
 ```{important}
 `[env]` is guest-wide plaintext configuration.
-Values are written to runtime files and copied into guest-readable files under `/etc/limanix`.
+Values are written to runtime files and installed under `/etc/limanix`, readable by root and the development account's group.
 They are kept outside the Nix store, but this is not encrypted secret storage.
 ```
 

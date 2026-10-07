@@ -10,7 +10,7 @@ import (
 	"github.com/limanix/client/internal/state"
 )
 
-const addressProbeConcurrency = 4
+const statusProbeConcurrency = 4
 
 // FetchAll lists every saved VM, including damaged or interrupted records.
 func (m *Manager) FetchAll(ctx context.Context) ([]Info, error) {
@@ -30,7 +30,7 @@ func (m *Manager) FetchAll(ctx context.Context) ([]Info, error) {
 
 	result := make([]Info, len(entries))
 	var probes errgroup.Group
-	probes.SetLimit(addressProbeConcurrency)
+	probes.SetLimit(statusProbeConcurrency)
 
 	for index, entry := range entries {
 		probes.Go(func() error {
@@ -82,9 +82,9 @@ func (m *Manager) instanceInfo(ctx context.Context, entry state.Entry, instances
 		info.LimaName = &name
 
 		if instance, exists := instances[name]; exists {
+			status := m.guest.Status(ctx, instance)
 			info.BackendStatus = &instance.Status
-			info.Address = m.guest.Address(ctx, instance)
-			info.Disk = m.guest.Disk(ctx, instance)
+			info.Address, info.Disk, info.Notice = status.Address, status.Disk, status.Notice
 		}
 	}
 
@@ -92,6 +92,11 @@ func (m *Manager) instanceInfo(ctx context.Context, entry state.Entry, instances
 		info.OperationStatus = &record.Status
 		if info.Error == nil {
 			info.Error = record.Error
+		}
+
+		// A running create or update installs lmx itself.
+		if record.Status.InFlight() {
+			info.Notice = ""
 		}
 	}
 

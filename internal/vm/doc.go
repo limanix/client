@@ -19,7 +19,7 @@
 //	        ↓                                   ↓
 //	start → guest apply                 start → guest apply
 //	        ↓                                   ↓
-//	save ready → prune guest            save ready → prune old inputs → prune guest
+//	save ready                          save ready → prune old inputs
 //
 // Create and Update load configuration and run preflight before taking the VM lock. Update checks saved identity and
 // backend disk size under that lock, makes room on a running guest whose disk does not grow, warns when the guest
@@ -30,8 +30,9 @@
 //
 // Creation rolls back locally prepared resources before backend creation when possible. Once backend operations have begun,
 // failures retain ownership and inputs for recovery. Update discards uncommitted inputs but preserves a generation that may
-// already be referenced by state. Old inputs and replaced guest generations are pruned only after a successful ready
-// record; pruning failures are reported through [Manager.Warn] and leave the operation successful.
+// already be referenced by state. Old inputs are pruned only after a successful ready record; pruning failures are
+// reported through [Manager.Warn] and leave the operation successful. The guest owner removes replaced guest
+// generations itself before the guest apply returns. A generation it could not finalize yet is ready, with a warning.
 //
 // Delete acquires the VM lock and reads identity independently of runtime state. It removes the backend first, then either
 // preserves home ownership or removes the exact managed home, and finally removes VM records. Force and home removal
@@ -39,7 +40,7 @@
 //
 // # Queries and entry points
 //
-// [Manager.FetchAll] combines state records with one backend listing and bounded parallel address probes, preserving row
+// [Manager.FetchAll] combines state records with one backend listing and bounded parallel guest status probes, preserving row
 // order and damaged records. [Manager.Shell] does not acquire the exclusive operation lock.
 // Lima power state and Limanix operation state remain separate in [Info].
 //

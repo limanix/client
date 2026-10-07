@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/limanix/client/internal/domain"
@@ -27,7 +29,10 @@ func writeInstances(output io.Writer, entries []vm.Info) error {
 		return err
 	}
 
-	writer := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
+	// A line without columns would end the aligned block, so the rows are aligned before the notes go under them.
+	var table bytes.Buffer
+
+	writer := tabwriter.NewWriter(&table, 0, 4, 2, ' ', 0)
 	if _, err := fmt.Fprintln(writer, "NAME\tSTATUS\tSTATE\tADDRESS\tDISK"); err != nil {
 		return err
 	}
@@ -54,15 +59,45 @@ func writeInstances(output io.Writer, entries []vm.Info) error {
 		if _, err := fmt.Fprintf(writer, "%s\t%s\t%s\t%s\t%s\n", entry.Name, backendStatus, operationStatus, address, diskUsage(entry.Disk)); err != nil {
 			return err
 		}
+	}
 
-		if entry.Error != nil {
-			if _, err := fmt.Fprintf(writer, "  %s\n", *entry.Error); err != nil {
+	if err := writer.Flush(); err != nil {
+		return err
+	}
+
+	rows := strings.SplitAfter(table.String(), "\n")
+	if _, err := io.WriteString(output, rows[0]); err != nil {
+		return err
+	}
+
+	for index, entry := range entries {
+		if _, err := io.WriteString(output, rows[index+1]); err != nil {
+			return err
+		}
+
+		for _, note := range notes(entry) {
+			if _, err := fmt.Fprintf(output, "  %s\n", note); err != nil {
 				return err
 			}
 		}
 	}
 
-	return writer.Flush()
+	return nil
+}
+
+// notes are the lines under a row: the error, then how to make the guest answer.
+func notes(entry vm.Info) []string {
+	var result []string
+
+	if entry.Error != nil {
+		result = append(result, *entry.Error)
+	}
+
+	if entry.Notice != "" {
+		result = append(result, entry.Notice)
+	}
+
+	return result
 }
 
 // diskUsage shows the used share of whichever guest limit is closer to running out.

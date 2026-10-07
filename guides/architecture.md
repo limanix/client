@@ -33,7 +33,7 @@ flowchart TB
 | `internal/modules` | Embedded catalog and copied third-party sources | Preserves the catalog tree and confines imported modules to their own tree |
 | `internal/nixos` | Platform base, catalog extraction and generated flake | Uses the catalog Nixpkgs pin; supplies public declarations to every guest |
 | `internal/lima` | Lima runtime, virtualization, management SSH and host agent | Calls embedded Lima libraries; guest account access is delegated to `internal/guest` |
-| `internal/guest` | Environment delivery, NixOS rebuild, restart and user shell | Does not allocate homes or save VM records |
+| `internal/guest` | Guest apply through `lmx`, restart, guest status and user shell | Does not allocate homes or save VM records |
 | Catalog | Tool packages, application settings, services and integrations | Public NixOS options and capability declarations |
 
 The platform orders final system-profile inputs by store path and existing
@@ -56,12 +56,12 @@ sequenceDiagram
     Mac->>Mac: Parse and validate TOML; check host requirements
     Mac->>Inputs: Copy selected modules and prepare pinned flake
     Mac->>VM: Start guest with read-only generation mount
-    Mac->>VM: Install literal environment files
-    VM->>VM: Build NixOS boot configuration
-    Mac->>VM: Restart after successful rebuild
-    Mac->>VM: Verify development-user command
+    Mac->>VM: Build the generation's lmx and run its lmxd
+    VM->>VM: Install literal environment files; build NixOS boot configuration
+    Mac->>VM: Restart after a successful build
+    VM->>VM: Check the guest; remove replaced generations
+    Mac->>VM: Wait until lmxd reports the generation converged
     Mac->>Mac: Save ready record; prune old inputs
-    Mac->>VM: Remove replaced generations; collect unused store paths
 ```
 
 Creation also allocates a managed home and creates the backend VM. Update
@@ -69,12 +69,21 @@ preserves the saved identity and home, checks the disk size, and stops a running
 VM before editing its backend configuration. Changing TOML alone has no effect
 until `create` or `update` applies it.
 
-After the ready record, the client deletes the guest's other system generations,
+The guest steps run through `lmx`, the guest owner, in the release that the
+generation pins. Before the restart, the client stops the guest's own `lmx`
+units, builds the generation's `lmx` package and runs its `lmxd` as a transient
+unit, so the base image, a VM created before `lmx` and a current VM take the
+same steps. That `lmxd` installs the environment files, makes room in the store
+and builds the generation; the client prints the build output. A failed build
+returns the guest to its own `lmxd` without a restart.
+
+After the restart, `lmxd` checks the platform units, the shared folders and the
+development account. It then deletes the guest's other system generations,
 including the base image's, rewrites the boot entries and collects store paths
 that nothing references, such as pinned Nixpkgs sources fetched for evaluation.
-A failure at that point is a warning; the applied configuration stays ready.
-`lmxd` also checks the platform units, the shared folders and the development
-account after each boot, and removes generations that remain.
+The client waits for that before it saves the ready record. When only the
+removal fails, the configuration is ready with a warning, and `lmxd` tries again
+later.
 
 ## Guest disk management
 
@@ -83,7 +92,7 @@ inode count with the disk size, so free bytes and free inodes are both limits.
 
 | Free bytes or inodes | Platform behavior |
 | -- | -- |
-| Below 20% | Collect unreferenced store paths: `lmxd` checks every 15 minutes, builds collect when bytes run low, and the client collects before stopping a running VM for an update and again before rebuilding |
+| Below 20% | Collect unreferenced store paths: `lmxd` checks every 15 minutes, builds collect when bytes run low, and `lmxd` collects before an update stops a running VM and before each apply builds |
 | Below 10% | Warn in `lmx welcome` and before an update; `lmxd` logs the remaining garbage-collector roots; a failed apply reports the usage |
 
 Low space never blocks an update: a smaller module selection may still fit, and
@@ -132,11 +141,11 @@ VM operation locks serialize conflicting lifecycle changes. Shell access does
 not take the exclusive lifecycle lock. Lima power state and LimaNix operation
 progress are separate values in `list --json`. A failed operation retains the
 records and inputs needed to diagnose work that may already have reached the
-backend. An update can install environment files before a later rebuild fails;
-it is not a transaction that rolls back every guest effect. Cancellation stops
-the managed guest rebuild unit and reports a failure when stopping cannot be
-confirmed. Follow [Troubleshooting](troubleshooting.md) before removing state by
-hand.
+backend. An update can install environment files before a later build fails; it
+is not a transaction that rolls back every guest effect. Cancellation asks
+`lmxd` to cancel the build and reports a failure when the stop cannot be
+confirmed; either way, the client then starts the guest's own `lmxd` again.
+Follow [Troubleshooting](troubleshooting.md) before removing state by hand.
 
 ## Validation boundaries
 

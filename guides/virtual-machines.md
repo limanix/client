@@ -79,7 +79,10 @@ limanix list --json
 `STATUS` describes the Lima backend; `STATE` describes the last Limanix
 operation. `DISK` shows how much of the guest disk is used, by bytes or, when
 they are scarcer, by inodes, for example `97% inodes`; `-` means a stopped VM or
-an unreadable guest. `list --json` reports the same values in `disk`.
+an unreadable guest. `list --json` reports the same values in `disk`. A VM
+created before the guest owner `lmx` shows the notice
+`the guest has no lmx yet; run limanix update` under its row and in `notice`;
+its next update installs `lmx`.
 
 | Example | Meaning |
 | -- | -- |
@@ -124,16 +127,19 @@ discovered. See [Networking](networking.md) for service access.
 ```{mermaid}
 flowchart TD
     A["Check configuration and prepare inputs"] --> B["Stop VM if running; apply Lima settings"]
-    B --> C["Start guest and build NixOS"]
-    C --> D["Restart, check user, record ready"]
-    D --> E["Remove replaced generations and unused store paths"]
+    B --> C["Start guest; its new lmxd builds NixOS"]
+    C --> D["Restart; lmxd checks the guest and removes replaced generations"]
+    D --> E["Record ready"]
 ```
 
-The NixOS build prepares the next boot. LimaNix then restarts the guest and
-checks that the development user can run a command. A successful update leaves
-the VM running, even if it was stopped before. After recording the update,
-LimaNix removes the previous NixOS generations and the store paths only they
-used; a failure there is reported as a warning, and the update stays successful.
+`lmxd`, the guest owner from the new configuration, builds NixOS for the next
+boot, and the client prints the build output. LimaNix then restarts the guest
+and waits until `lmxd` reports the configuration converged: the platform units,
+the shared folders and the development account passed their checks, and the
+previous NixOS generations and the store paths only they used are gone. A
+successful update leaves the VM running, even if it was stopped before. When
+only that removal fails, the update succeeds with a warning, and `lmxd` tries
+again later.
 
 | Can change through `update` | Requires a new VM |
 | -- | -- |

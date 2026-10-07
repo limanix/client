@@ -70,9 +70,10 @@ limanix list
 ```
 
 Read the VM's `ADDRESS` column. For an HTTP application, open
-`http://<guest-ip>:8080`, replacing `<guest-ip>` with that address. The address
-is discovered from the running guest's shared-network IPv4 interface; it is not
-a configured static address. Check the current value when reconnecting.
+`http://<guest-ip>:8080`, replacing `<guest-ip>` with that address. The guest
+owner `lmx` reports it from the running guest's shared-network IPv4 interface;
+it is not a configured static address. Check the current value when
+reconnecting.
 
 ### Try an HTTP connection
 
@@ -181,7 +182,8 @@ helper and authorization.
 ## Check a connection in order
 
 1. Run `limanix list` and check that the VM is running. `ADDRESS = -` means no
-   guest address was reported; it does not identify the cause.
+   guest address was reported; it does not identify the cause. A notice under
+   the row says what to do first.
 1. Run `limanix shell NAME` with your VM's name. Resolve a VM or SSH error
    before debugging the application.
 1. Check that the application is running on the expected port and a reachable

@@ -10,40 +10,51 @@ import (
 )
 
 // Run executes a management command without a host shell or a build timeout.
-func (client *Client) Run(ctx context.Context, name string, args []string, capture bool) (output string, failure error) {
+//
+// A captured run returns standard output also when the command fails, so a caller can read an answer that the
+// failing command printed.
+func (client *Client) Run(ctx context.Context, name string, args []string, capture bool) (string, error) {
+	if !capture {
+		return "", client.Stream(ctx, name, args, client.Stdout)
+	}
+
+	var stdout bytes.Buffer
+	err := client.run(ctx, name, args, &stdout, io.Discard)
+
+	return stdout.String(), err
+}
+
+// Stream executes a management command and writes its standard output to stdout as it arrives; standard error
+// reaches the client's diagnostics, as for an uncaptured Run.
+func (client *Client) Stream(ctx context.Context, name string, args []string, stdout io.Writer) error {
+	return client.run(ctx, name, args, stdout, client.Stderr)
+}
+
+func (client *Client) run(ctx context.Context, name string, args []string, stdout, diagnostics io.Writer) (failure error) {
 	defer func() {
 		failure = wrapOperation("SSH", failure)
 	}()
 
 	if len(args) == 0 {
-		return "", ErrEmptyCommand
+		return ErrEmptyCommand
 	}
 
 	command, err := client.session(ctx, name, args, false)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	configureProcessGroup(command)
 
-	var (
-		stdout bytes.Buffer
-		stderr = &tailBuffer{limit: 64 * 1024}
-	)
-
-	if capture {
-		command.Stdout = &stdout
-		command.Stderr = stderr
-	} else {
-		command.Stdout = client.Stdout
-		command.Stderr = io.MultiWriter(client.Stderr, stderr)
-	}
+	stderr := &tailBuffer{limit: 64 * 1024}
+	command.Stdout = stdout
+	command.Stderr = io.MultiWriter(diagnostics, stderr)
 
 	if err = command.Run(); err != nil {
-		return "", managementFailure(ctx, command, stderr, err)
+		return managementFailure(ctx, command, stderr, err)
 	}
 
-	return stdout.String(), nil
+	return nil
 }
 
 func managementFailure(ctx context.Context, command *exec.Cmd, stderr *tailBuffer, err error) error {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/guest"
 	"github.com/limanix/client/internal/lima"
 	"github.com/limanix/client/internal/modules"
 	"github.com/limanix/client/internal/state"
@@ -50,11 +51,9 @@ type Homes interface {
 
 // Guest applies a prepared generation and opens the development user's session.
 type Guest interface {
-	Apply(context.Context, string, domain.Username) error
-	Prune(context.Context, string) error
+	Apply(context.Context, string, string, domain.Architecture) error
 	Reserve(context.Context, string) error
-	Address(context.Context, lima.Instance) string
-	Disk(context.Context, lima.Instance) *domain.DiskUsage
+	Status(context.Context, lima.Instance) guest.Status
 	Shell(context.Context, string, domain.Username, []string) (int, error)
 }
 

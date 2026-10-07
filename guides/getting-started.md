@@ -138,8 +138,9 @@ limanix create --config limanix.toml
 ```
 
 Creation downloads the base image as needed, boots the guest, builds its NixOS
-configuration, and restarts it into that configuration. The first run needs
-network access for the image and Nix dependencies.
+configuration, and restarts it into that configuration. The guest owner `lmx`
+runs the build, and the client waits until it reports the guest ready. The first
+run needs network access for the image and Nix dependencies.
 
 After the command succeeds and prints the VM name and managed home's host path,
 inspect the environment:

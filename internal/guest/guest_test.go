@@ -1,9 +1,12 @@
 package guest
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,339 +17,346 @@ import (
 	"testing"
 	"time"
 
+	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/lima"
 )
 
-type call struct {
-	operation string
-	args      []string
-	capture   bool
-}
+const generation = "0123456789ab"
+
+// fakeClient records guest commands joined with spaces and answers them through run and stream.
 type fakeClient struct {
-	calls       []call
-	output      string
-	failureAt   int
+	mu          sync.Mutex
+	calls       []string
 	shellStatus int
-	run         func(context.Context) (string, error)
+	run         func(ctx context.Context, command string) (string, error)
+	stream      func(ctx context.Context, output io.Writer) error
 }
 
-type rebuildClient struct {
-	Client
-	run func(context.Context, []string) (string, error)
+func (client *fakeClient) record(call string) {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	client.calls = append(client.calls, call)
 }
 
-func (client *rebuildClient) Run(ctx context.Context, _ string, args []string, _ bool) (string, error) {
-	return client.run(ctx, args)
-}
-
-func (client *fakeClient) Run(ctx context.Context, _ string, args []string, capture bool) (string, error) {
-	client.calls = append(client.calls, call{operation: "run", args: args, capture: capture})
-	if client.run != nil {
-		return client.run(ctx)
+func (client *fakeClient) Run(ctx context.Context, _ string, args []string, _ bool) (string, error) {
+	command := strings.Join(args, " ")
+	client.record(command)
+	if client.run == nil {
+		return "", nil
 	}
-	if client.failureAt > 0 && len(client.calls) == client.failureAt {
-		return "", errors.New("build failed")
+	return client.run(ctx, command)
+}
+
+func (client *fakeClient) Stream(ctx context.Context, _ string, args []string, output io.Writer) error {
+	client.record(strings.Join(args, " "))
+	if client.stream == nil {
+		return nil
 	}
-	return client.output, nil
+	return client.stream(ctx, output)
 }
 
 func (client *fakeClient) Start(context.Context, string) error {
-	client.calls = append(client.calls, call{operation: "start"})
+	client.record("start")
 	return nil
 }
 
 func (client *fakeClient) Stop(context.Context, string) error {
-	client.calls = append(client.calls, call{operation: "stop"})
+	client.record("stop")
 	return nil
 }
 
 func (client *fakeClient) Shell(_ context.Context, _ string, args []string) (int, error) {
-	client.calls = append(client.calls, call{operation: "shell", args: args})
+	client.record(strings.Join(args, " "))
 	return client.shellStatus, nil
 }
 
-func TestApplyInstallsEnvironmentAndRebootsOnlyAfterBuild(t *testing.T) {
-	client := &fakeClient{}
-	client.run = func(ctx context.Context) (string, error) {
-		probe := client.calls[len(client.calls)-1].args[0] == "stat"
-		if deadline, exists := ctx.Deadline(); exists != probe {
-			t.Fatalf("only the disk probe may have a deadline: %v %v", deadline, client.calls)
-		}
-		return "", nil
-	}
-	guest := New(client)
-	if err := guest.Apply(context.Background(), "sandbox", "developer"); err != nil {
+// example reads a copy of a contract example of the pinned lmx release.
+func example(t *testing.T, name string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", name))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if len(client.calls) != 8 || client.calls[0].args[0] != "stat" {
-		t.Fatalf("unexpected apply sequence: %v", client.calls)
+	return string(data)
+}
+
+// line is an example as lmx writes it: one line.
+func line(t *testing.T, name string) string {
+	t.Helper()
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, []byte(example(t, name))); err != nil {
+		t.Fatal(err)
 	}
-	for index, file := range []string{"environment", "environment.sh"} {
-		if !reflect.DeepEqual(client.calls[index+2].args, []string{"sudo", "install", "-m", "0644", "/mnt/limanix/" + file, "/etc/limanix/" + file}) {
-			t.Fatal("runtime ENV must be available guest-wide before rebuild")
-		}
+	return compact.String() + "\n"
+}
+
+// commandFailure is the error of a guest command that exited with status after writing detail to standard error.
+func commandFailure(t *testing.T, status int, detail string) error {
+	t.Helper()
+	exit, ok := errors.AsType[*exec.ExitError](exec.Command("sh", "-c", fmt.Sprintf("exit %d", status)).Run())
+	if !ok {
+		t.Fatalf("no exit status %d", status)
 	}
-	build := client.calls[4]
-	if build.capture || !slices.Contains(build.args, "/run/current-system/sw/bin/nixos-rebuild") {
-		t.Fatalf("rebuild must stream its output: %v", build)
-	}
-	if !slices.Contains(build.args, "--no-update-lock-file") || !slices.Contains(build.args, "--no-write-lock-file") {
-		t.Fatalf("rebuild must use the prepared lock without resolving new inputs: %v", build.args)
-	}
-	if client.calls[5].operation != "stop" || client.calls[6].operation != "start" || client.calls[7].args[len(client.calls[7].args)-1] != "true" {
-		t.Fatalf("unexpected rebuild/reboot order: %v", client.calls)
-	}
-	for _, option := range []string{"--service-type=oneshot", "--property=TimeoutStartSec=infinity", "--property=KillMode=control-group"} {
-		if !slices.Contains(build.args, option) {
-			t.Fatalf("missing rebuild supervision option: %s", option)
-		}
-	}
-	client = &fakeClient{failureAt: 5}
-	if err := New(client).Apply(context.Background(), "sandbox", "developer"); err == nil {
-		t.Fatal("rebuild failure disappeared")
-	}
-	for _, call := range client.calls {
-		if call.operation != "run" {
-			t.Fatalf("failed build rebooted the guest: %v", client.calls)
-		}
+	return &lima.Error{Operation: "SSH", Err: &lima.CommandError{Exit: exit, Detail: detail}}
+}
+
+// applyClient follows an apply with follow, in pieces as a pipe passes it, and answers the wait after the restart
+// with wait.
+func applyClient(follow, wait string) *fakeClient {
+	return &fakeClient{
+		run: func(_ context.Context, command string) (string, error) {
+			if !strings.Contains(command, "--wait converged") {
+				return "", nil
+			}
+			return wait, nil
+		},
+		stream: func(_ context.Context, output io.Writer) error {
+			for chunk := range slices.Chunk([]byte(follow), 7) {
+				if _, err := output.Write(chunk); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
 	}
 }
 
-// diskClient fails the rebuild and reports the given file-system usage.
-func diskClient(rebuild error, usage string) *fakeClient {
-	client := &fakeClient{}
-	client.run = func(context.Context) (string, error) {
-		args := client.calls[len(client.calls)-1].args
-		switch {
-		case slices.Contains(args, "systemd-run"):
-			return "", rebuild
-		case args[0] == "stat":
-			return usage, nil
-		default:
-			return "", nil
-		}
+func TestApplyBuildsWithTheGenerationsLMXAndWaitsAfterRestart(t *testing.T) {
+	client := applyClient(strings.TrimSuffix(example(t, "apply-follow.jsonl"), "\n"), example(t, "status.json"))
+	var (
+		stdout, stderr bytes.Buffer
+		warnings       []string
+		guest          = New(client)
+	)
+	guest.Stdout, guest.Stderr = &stdout, &stderr
+	guest.Warn = func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
+
+	if err := guest.Apply(context.Background(), "sandbox", generation, domain.ARM64); err != nil {
+		t.Fatal(err)
 	}
-	return client
+	want := []string{
+		"sudo lmx store reserve --json",
+		"sudo systemctl stop lmx*",
+		"sudo nix build --extra-experimental-features nix-command flakes --no-write-lock-file --no-update-lock-file --out-link /run/limanix-lmx path:/mnt/limanix/flake#packages.aarch64-linux.lmx",
+		"sudo systemd-run --unit=lmx-transient.service --service-type=notify --property=TimeoutStopSec=25s --collect --quiet /run/limanix-lmx/bin/lmxd --transient --config /run/limanix-lmx/etc/lmx/config.json",
+		"sudo /run/limanix-lmx/bin/lmx apply -g 0123456789ab --follow --json",
+		"stop",
+		"start",
+		"sudo lmx status --wait converged -g 0123456789ab --json",
+	}
+	if !reflect.DeepEqual(client.calls, want) {
+		t.Fatalf("guest steps:\n%s", strings.Join(client.calls, "\n"))
+	}
+	if stdout.String() != "/nix/store/00000000000000000000000000000000-nixos-system-dev-box-26.05\n" ||
+		stderr.String() != "building the system configuration...\nthese 12 derivations will be built: …\n" {
+		t.Fatalf("build lines: stdout %q, stderr %q", stdout.String(), stderr.String())
+	}
+	if len(warnings) != 2 || !strings.HasPrefix(warnings[0], "Less than 10% of the guest disk") || warnings[1] != "12 lines of the build output were skipped" {
+		t.Fatalf("warnings: %q", warnings)
+	}
 }
 
-func TestApplyFailureReportsFullGuestDisk(t *testing.T) {
+func TestApplyReportsTheWaitAfterTheRestart(t *testing.T) {
+	timeout := `{"contract":1,"ok":false,"error":{"code":"wait.timeout","message":"Generation 0123456789ab did not converge within 10 minutes.",` +
+		`"details":{"conditions":[{"type":"RestartRequired","message":"Generation 0123456789ab is built; restart the VM to boot it."}]}}}`
 	for _, test := range []struct {
-		name    string
-		rebuild error
-		usage   string
+		name       string
+		wait       string
+		want       string
+		unfinished bool
 	}{
-		{name: "no-inodes", rebuild: errors.New("build failed"), usage: "4096 4000000 1500000 1000000 0\n"},
-		{name: "no-bytes", rebuild: errors.New("build failed"), usage: "4096 4000000 1000 1000000 900000\n"},
-		{name: "reclaimed-after-failure", rebuild: errors.New("error: creating directory: No space left on device"), usage: "4096 4000000 1500000 1000000 600000\n"},
+		{"unfinalized", example(t, "wait-finalize-failed.json"), "Finalizing generation 0123456789ab failed: boot loader update failed; lmxd tries again later.", true},
+		{"timeout", timeout, "lmx: Generation 0123456789ab did not converge within 10 minutes.\nGeneration 0123456789ab is built; restart the VM to boot it.", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			client := diskClient(test.rebuild, test.usage)
-			err := New(client).Apply(context.Background(), "sandbox", "developer")
-			full, ok := errors.AsType[*DiskError](err)
-			if !ok || !errors.Is(err, test.rebuild) {
-				t.Fatalf("full guest disk was not reported with the build failure: %v", err)
+			client := applyClient(example(t, "apply-follow.jsonl"), test.wait)
+			guest := New(client)
+			guest.Stdout, guest.Stderr, guest.Warn = io.Discard, io.Discard, func(string, ...any) {}
+
+			err := guest.Apply(context.Background(), "sandbox", generation, domain.ARM64)
+			if _, unfinished := errors.AsType[*FinalizeError](err); err == nil || err.Error() != test.want || unfinished != test.unfinished {
+				t.Fatalf("wait: %v", err)
 			}
-			if full.Usage.Inodes != 1000000 || full.Usage.Bytes != 4096*4000000 {
-				t.Fatalf("wrong usage: %+v", full.Usage)
-			}
-			if !strings.Contains(err.Error(), "resources.disk") {
-				t.Fatalf("missing remedy: %v", err)
-			}
-			probe := client.calls[len(client.calls)-1]
-			if !probe.capture || !slices.Contains(probe.args, "/nix/store") {
-				t.Fatalf("usage must be read from the store file system: %v", probe)
+			if slices.Contains(client.calls, "sudo systemctl start lmx.service") {
+				t.Fatal("a booted generation was handed back to the old lmxd")
 			}
 		})
 	}
 }
 
-func TestApplyFailureKeepsCauseWithoutDiskShortage(t *testing.T) {
-	failure := errors.New("build failed")
-	for _, usage := range []string{"4096 4000000 1500000 1000000 600000\n", "unexpected\n", "4096 4000000 1500000 0 0\n"} {
-		err := New(diskClient(failure, usage)).Apply(context.Background(), "sandbox", "developer")
-		if !errors.Is(err, failure) {
-			t.Fatalf("build failure lost: %v", err)
-		}
-		if _, ok := errors.AsType[*DiskError](err); ok {
-			t.Fatalf("usage %q reported a full disk: %v", usage, err)
-		}
-	}
+func TestApplyFailureReturnsTheGuestToItsOwnLMXD(t *testing.T) {
+	full := `{"contract":1,"ok":false,"error":{"code":"apply.build_failed","message":"nixos-rebuild failed with exit status 1.",` +
+		`"details":{"exit_code":1,"disk":{"bytes":100,"free_bytes":2,"available_bytes":0,"inodes":10,"free_inodes":5}}}}` + "\n"
+	for _, test := range []struct {
+		name   string
+		answer string
+		disk   *DiskError
+	}{
+		{name: "build", answer: line(t, "apply-build-failed.json")},
+		{name: "full disk", answer: full, disk: &DiskError{Usage: domain.DiskUsage{Bytes: 100, FreeBytes: 2, Inodes: 10, FreeInodes: 5}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := applyClient("", "")
+			client.stream = func(_ context.Context, output io.Writer) error {
+				_, _ = io.WriteString(output, test.answer)
+				return errors.New("exit status 1")
+			}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	client := &fakeClient{}
-	client.run = func(context.Context) (string, error) {
-		if slices.Contains(client.calls[len(client.calls)-1].args, "systemd-run") {
-			cancel()
-			return "", context.Canceled
+			err := New(client).Apply(context.Background(), "sandbox", generation, domain.ARM64)
+			build, ok := errors.AsType[*Error](err)
+			if !ok || build.Code != "apply.build_failed" || !strings.HasPrefix(err.Error(), "lmx: nixos-rebuild failed with exit status 1.") {
+				t.Fatalf("build failure: %v", err)
+			}
+			if disk, _ := errors.AsType[*DiskError](err); !reflect.DeepEqual(disk, test.disk) {
+				t.Fatalf("disk usage: %v", err)
+			}
+			restored := []string{"sudo systemctl stop lmx-transient.service", "sudo systemctl start lmx.service"}
+			if !reflect.DeepEqual(client.calls[len(client.calls)-2:], restored) || slices.Contains(client.calls, "stop") {
+				t.Fatalf("guest steps:\n%s", strings.Join(client.calls, "\n"))
+			}
+		})
+	}
+}
+
+func TestApplyExplainsAFullDiskBeforeLMXRuns(t *testing.T) {
+	failure := commandFailure(t, 1, "error: writing to file: No space left on device")
+	client := applyClient("", "")
+	client.run = func(_ context.Context, command string) (string, error) {
+		if strings.HasPrefix(command, "sudo nix build") {
+			return "", failure
 		}
 		return "", nil
 	}
-	if err := New(client).Apply(ctx, "sandbox", "developer"); !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancellation lost: %v", err)
+
+	err := New(client).Apply(context.Background(), "sandbox", generation, domain.ARM64)
+	if !errors.Is(err, failure) || !errors.Is(err, errDiskFull) {
+		t.Fatalf("full disk: %v", err)
 	}
-	if last := client.calls[len(client.calls)-1]; last.args[0] == "stat" {
-		t.Fatal("canceled apply probed the guest disk")
+	if !slices.Contains(client.calls, "sudo systemctl start lmx.service") {
+		t.Fatalf("guest steps:\n%s", strings.Join(client.calls, "\n"))
 	}
 }
 
-func TestPruneRemovesReplacedGenerationsBeforeCollectingGarbage(t *testing.T) {
-	client := &fakeClient{}
-	if err := New(client).Prune(context.Background(), "sandbox"); err != nil {
-		t.Fatal(err)
-	}
-	expected := []call{
-		{operation: "run", args: []string{"sudo", "nix-env", "--profile", "/nix/var/nix/profiles/system", "--delete-generations", "old"}, capture: true},
-		{operation: "run", args: []string{"sudo", "/nix/var/nix/profiles/system/bin/switch-to-configuration", "boot"}, capture: true},
-		{operation: "run", args: []string{"sudo", "nix-store", "--gc", "--quiet"}},
-	}
-	if !reflect.DeepEqual(client.calls, expected) {
-		t.Fatalf("unexpected prune sequence: %v", client.calls)
-	}
-}
-
-func TestPruneCollectsGarbageWhenGenerationsRemain(t *testing.T) {
-	client := &fakeClient{failureAt: 1}
-	err := New(client).Prune(context.Background(), "sandbox")
-	if err == nil {
-		t.Fatal("generation removal failure disappeared")
-	}
-	if len(client.calls) != 2 || !slices.Contains(client.calls[1].args, "--gc") {
-		t.Fatalf("boot entries must stay unchanged and garbage must still be collected: %v", client.calls)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	client = &fakeClient{run: func(context.Context) (string, error) {
-		cancel()
-		return "", context.Canceled
-	}}
-	if err = New(client).Prune(ctx, "sandbox"); !errors.Is(err, context.Canceled) || len(client.calls) != 1 {
-		t.Fatalf("canceled prune continued: %v %v", err, client.calls)
-	}
-}
-
-func TestRebuildCancellationWaitsForGuest(t *testing.T) {
-	for _, test := range []struct {
-		name        string
-		stopFailure bool
-	}{
-		{name: "late-start"},
-		{name: "stop-failure", stopFailure: true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
+func TestApplyCancellationStopsTheGuestApply(t *testing.T) {
+	for _, confirmed := range []bool{true, false} {
+		t.Run(fmt.Sprintf("confirmed=%t", confirmed), func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-
 			stopped := make(chan struct{})
-			var release sync.Once
-			var unit string
-			attempts := 0
-			failure := errors.New("guest stop failed")
-			client := &rebuildClient{run: func(session context.Context, args []string) (string, error) {
-				if args[1] == "systemd-run" {
-					unit = strings.TrimPrefix(args[2], "--unit=")
-					cancel()
-					if err := session.Err(); err != nil {
-						t.Errorf("SSH closed before guest stop: %v", err)
-					}
-					<-stopped
-					return "", errors.New("service terminated")
+			client := applyClient("", "")
+			client.stream = func(session context.Context, output io.Writer) error {
+				cancel()
+				select {
+				case <-stopped:
+					_, _ = io.WriteString(output, `{"contract":1,"ok":false,"error":{"code":"apply.cancelled","message":"The apply was cancelled."}}`+"\n")
+					return errors.New("exit status 130")
+				case <-session.Done():
+					return session.Err()
 				}
+			}
+			client.run = func(cleanup context.Context, command string) (string, error) {
+				if !strings.Contains(command, "apply cancel") {
+					return "", nil
+				}
+				if _, bounded := cleanup.Deadline(); !bounded || cleanup.Err() != nil {
+					t.Errorf("the cancel has no context of its own: %v", cleanup.Err())
+				}
+				if !confirmed {
+					return "", errors.New("guest unreachable")
+				}
+				close(stopped)
+				return `{"contract":1,"ok":true,"data":{"cancelled":true}}`, nil
+			}
 
-				if !reflect.DeepEqual(args, []string{"sudo", "systemctl", "stop", unit}) || session.Err() != nil {
-					t.Errorf("invalid cleanup command or context: %v, %v", args, session.Err())
-				}
-				if _, bounded := session.Deadline(); !bounded {
-					t.Error("cleanup has no deadline")
-				}
-
-				attempts++
-				if attempts == 1 && !test.stopFailure {
-					return "", errors.New("unit not loaded yet")
-				}
-
-				release.Do(func() { close(stopped) })
-				if test.stopFailure {
-					return "", failure
-				}
-				return "", nil
-			}}
-
-			err := New(client).buildGeneration(ctx, "sandbox")
-			if test.stopFailure {
-				if !errors.Is(err, failure) || errors.Is(err, context.Canceled) {
-					t.Fatalf("stop failure hidden by cancellation: %v", err)
-				}
-			} else if !errors.Is(err, context.Canceled) || attempts < 2 {
-				t.Fatalf("launch race escaped cleanup: attempts=%d, error=%v", attempts, err)
+			err := New(client).Apply(ctx, "sandbox", generation, domain.ARM64)
+			if confirmed != errors.Is(err, context.Canceled) || !confirmed && !strings.Contains(err.Error(), "cannot confirm the guest apply stopped") {
+				t.Fatalf("cancellation: %v", err)
+			}
+			if !slices.Contains(client.calls, "sudo /run/limanix-lmx/bin/lmx apply cancel -g 0123456789ab --json") ||
+				!slices.Contains(client.calls, "sudo systemctl start lmx.service") || slices.Contains(client.calls, "stop") {
+				t.Fatalf("guest steps:\n%s", strings.Join(client.calls, "\n"))
 			}
 		})
 	}
 }
 
-func TestAddressMatchesSharedMAC(t *testing.T) {
-	client := &fakeClient{output: `[{"address":"52:55:55:00:00:01","addr_info":[{"family":"inet","scope":"global","local":"192.168.5.15"}]},{"address":"52:55:55:AA:BB:CC","addr_info":[{"family":"inet6","scope":"global","local":"2001:db8::1"},{"family":"inet","scope":"global","local":"192.0.2.10"}]}]`}
-	instance := lima.Instance{Name: "sandbox", Status: lima.Running, Networks: []lima.Network{{MACAddress: "52:55:55:aa:bb:cc", Shared: true}}}
-	guest := New(client)
-	if address := guest.Address(context.Background(), instance); address != "192.0.2.10" {
-		t.Fatalf("wrong interface selected: %s", address)
+func TestStatusReadsAddressAndDiskFromLMX(t *testing.T) {
+	instance := lima.Instance{Name: "sandbox", Status: lima.Running, Networks: []lima.Network{{MACAddress: "52:55:55:AA:BB:CC", Shared: true}}}
+	notice := Status{Notice: "the guest has no lmx yet; run limanix update"}
+	for _, test := range []struct {
+		name   string
+		output string
+		err    error
+		want   Status
+	}{
+		{"complete", example(t, "status.json"), nil, Status{Address: "192.0.2.10", Disk: &domain.DiskUsage{Bytes: 17179869184, FreeBytes: 9663676416, Inodes: 1048576, FreeInodes: 495616}}},
+		{"partial", example(t, "status-partial.json"), nil, Status{Disk: &domain.DiskUsage{Bytes: 17179869184, FreeBytes: 1073741824, Inodes: 1048576, FreeInodes: 52428}}},
+		{"without lmx", "", commandFailure(t, 1, "sudo: lmx: command not found"), notice},
+		{"before lmx", "", commandFailure(t, 2, "Usage: lmx {help|info|welcome}"), notice},
+		{"unreachable", "", context.DeadlineExceeded, Status{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := &fakeClient{run: func(ctx context.Context, _ string) (string, error) {
+				if deadline, bounded := ctx.Deadline(); !bounded || time.Until(deadline) > statusTimeout {
+					t.Error("the status probe has no deadline")
+				}
+				return test.output, test.err
+			}}
+			if status := New(client).Status(context.Background(), instance); !reflect.DeepEqual(status, test.want) {
+				t.Fatalf("status: %+v", status)
+			}
+			if !reflect.DeepEqual(client.calls, []string{"sudo lmx status --json"}) {
+				t.Fatalf("calls: %q", client.calls)
+			}
+		})
 	}
-	for _, output := range []string{"not-json", "null", "[1]", `[{"address":null}]`, "[]", `[{"address":"52:55:55:aa:bb:cc","addr_info":[{"family":"inet","scope":"global","local":"invalid"}]}]`} {
-		client.output = output
-		if address := guest.Address(context.Background(), instance); address != "" {
-			t.Fatalf("unexpected unavailable address: %s", address)
-		}
-	}
-	client.calls = nil
+
+	client := &fakeClient{}
 	instance.Status = lima.Stopped
-	if guest.Address(context.Background(), instance) != "" || len(client.calls) != 0 {
-		t.Fatal("queried stopped instance")
+	if status := New(client).Status(context.Background(), instance); status != (Status{}) || len(client.calls) != 0 {
+		t.Fatal("asked a stopped guest")
 	}
 }
 
-func TestAddressBoundsProbeWithoutCancelingCaller(t *testing.T) {
-	caller, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	var probe context.Context
-	client := &fakeClient{run: func(ctx context.Context) (string, error) {
-		probe = ctx
-		deadline, exists := ctx.Deadline()
-		if remaining := time.Until(deadline); !exists || remaining <= 0 || remaining > 5*time.Second {
-			t.Fatalf("address probe has no bounded deadline: %v, %v", deadline, exists)
-		}
-		return "", context.DeadlineExceeded
-	}}
-	instance := lima.Instance{Name: "sandbox", Status: lima.Running, Networks: []lima.Network{{MACAddress: "52:55:55:aa:bb:cc", Shared: true}}}
-	guest := New(client)
-	if address := guest.Address(caller, instance); address != "" {
-		t.Fatalf("failed probe returned an address: %q", address)
-	}
-	if probe == nil {
-		t.Fatal("address query did not reach the client")
-	}
-	if probe == caller || !errors.Is(probe.Err(), context.Canceled) || caller.Err() != nil {
-		t.Fatalf("probe context was not released independently: probe=%v, caller=%v", probe.Err(), caller.Err())
-	}
-	client.run = nil
-	client.output = `[{"address":"52:55:55:aa:bb:cc","addr_info":[{"family":"inet","scope":"global","local":"192.0.2.10"}]}]`
-	if address := guest.Address(caller, instance); address != "192.0.2.10" {
-		t.Fatalf("failed probe prevented the next address query: %q", address)
+func TestReserveWarnsOnlyAboutALowDisk(t *testing.T) {
+	failed := errors.New("exit status 1")
+	for _, test := range []struct {
+		name   string
+		output string
+		err    error
+		want   error
+	}{
+		{"room", example(t, "store-reserve.json"), nil, nil},
+		{"low", example(t, "store-reserve-disk-low.json"), failed, &DiskError{Usage: domain.DiskUsage{Bytes: 17179869184, FreeBytes: 1342177280, Inodes: 1048576, FreeInodes: 98304}}},
+		{"without lmx", "", commandFailure(t, 1, "sudo: lmx: command not found"), nil},
+		{"without lmxd", `{"contract":1,"ok":false,"error":{"code":"owner.unavailable","message":"lmxd did not answer"}}`, failed, nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := &fakeClient{run: func(context.Context, string) (string, error) { return test.output, test.err }}
+			if err := New(client).Reserve(context.Background(), "sandbox"); !reflect.DeepEqual(err, test.want) {
+				t.Fatalf("reserve: %v", err)
+			}
+			if !reflect.DeepEqual(client.calls, []string{"sudo lmx store reserve --json"}) {
+				t.Fatalf("calls: %q", client.calls)
+			}
+		})
 	}
 }
 
-func TestAddressHonorsEarlierCallerDeadline(t *testing.T) {
-	caller, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-	callerDeadline, _ := caller.Deadline()
-	client := &fakeClient{run: func(ctx context.Context) (string, error) {
-		if deadline, exists := ctx.Deadline(); !exists || !deadline.Equal(callerDeadline) {
-			t.Fatalf("address query extended the caller deadline: %v", deadline)
+func TestDecodeAnswerFollowsTheContract(t *testing.T) {
+	failed := errors.New("exit status 1")
+	for _, test := range []struct {
+		output string
+		want   string
+	}{
+		{`{"contract":2,"ok":true,"data":{}}`, "lmx answered with host contract 2; this LimaNix reads contract 1"},
+		{`{"contract":1,"ok":true}`, "exit status 1"},
+		{"Usage: lmx {help|info|welcome}", "exit status 1"},
+		{`{"contract":1,"ok":false,"error":{"code":"future.code","message":"Something failed."}}`, "lmx: Something failed."},
+	} {
+		if err := decodeAnswer([]byte(test.output), failed, nil); err == nil || err.Error() != test.want {
+			t.Errorf("%s: %v", test.output, err)
 		}
-		<-ctx.Done()
-		return "", ctx.Err()
-	}}
-	instance := lima.Instance{Name: "sandbox", Status: lima.Running, Networks: []lima.Network{{MACAddress: "52:55:55:aa:bb:cc", Shared: true}}}
-	if address := New(client).Address(caller, instance); address != "" || !errors.Is(caller.Err(), context.DeadlineExceeded) {
-		t.Fatalf("deadline did not end address query: address=%q, caller=%v", address, caller.Err())
 	}
 }
 
@@ -407,88 +417,7 @@ func TestInteractiveLoginOnceAndStatusPreserved(t *testing.T) {
 	if err != nil || status != 7 {
 		t.Fatalf("shell status changed: %d %v", status, err)
 	}
-	if !reflect.DeepEqual(client.calls[0].args, []string{"sudo", "--login", "--user", "dev"}) {
-		t.Fatalf("interactive login must use the account shell: %v", client.calls[0].args)
-	}
-	count := 0
-	for _, arg := range client.calls[0].args {
-		if arg == "--login" {
-			count++
-		}
-	}
-	if count != 1 {
-		t.Fatalf("interactive shell logged in %d times", count)
-	}
-}
-
-// usageClient answers successive disk probes in order and succeeds every other command.
-func usageClient(usages ...string) *fakeClient {
-	client := &fakeClient{}
-	client.run = func(context.Context) (string, error) {
-		if client.calls[len(client.calls)-1].args[0] != "stat" {
-			return "", nil
-		}
-		usage := usages[0]
-		usages = usages[1:]
-		return usage, nil
-	}
-	return client
-}
-
-func TestReserveCollectsGarbageOnlyWhenHeadroomIsLow(t *testing.T) {
-	const (
-		healthy  = "4096 4000000 2000000 1000000 500000\n"
-		low      = "4096 4000000 2000000 1000000 150000\n"
-		critical = "4096 4000000 2000000 1000000 50000\n"
-	)
-	for _, test := range []struct {
-		name   string
-		usages []string
-		calls  int
-		full   bool
-	}{
-		{name: "healthy", usages: []string{healthy}, calls: 1},
-		{name: "recovered", usages: []string{low, healthy}, calls: 3},
-		{name: "still-low", usages: []string{low, low}, calls: 3},
-		{name: "critical", usages: []string{critical, critical}, calls: 3, full: true},
-		{name: "unreadable", usages: []string{"unexpected\n"}, calls: 1},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			client := usageClient(test.usages...)
-			err := New(client).Reserve(context.Background(), "sandbox")
-			if _, full := errors.AsType[*DiskError](err); full != test.full || (!test.full && err != nil) {
-				t.Fatalf("unexpected reserve result: %v", err)
-			}
-			if len(client.calls) != test.calls {
-				t.Fatalf("unexpected reserve sequence: %v", client.calls)
-			}
-			if test.calls == 3 && !reflect.DeepEqual(client.calls[1].args, []string{"sudo", "nix-store", "--gc", "--quiet"}) {
-				t.Fatalf("low headroom must collect unreferenced store paths: %v", client.calls)
-			}
-		})
-	}
-}
-
-func TestDiskProbesOnlyRunningGuests(t *testing.T) {
-	client := usageClient("4096 4000000 2000000 1000000 500000\n")
-	instance := lima.Instance{Name: "sandbox", Status: lima.Running}
-	usage := New(client).Disk(context.Background(), instance)
-	if usage == nil || usage.Inodes != 1000000 || usage.FreeBytes != 4096*2000000 {
-		t.Fatalf("usage not read: %+v", usage)
-	}
-	client = &fakeClient{}
-	instance.Status = lima.Stopped
-	if usage = New(client).Disk(context.Background(), instance); usage != nil || len(client.calls) != 0 {
-		t.Fatalf("queried stopped instance: %+v %v", usage, client.calls)
-	}
-	client = &fakeClient{run: func(ctx context.Context) (string, error) {
-		if _, bounded := ctx.Deadline(); !bounded {
-			t.Error("disk probe has no deadline")
-		}
-		return "", context.DeadlineExceeded
-	}}
-	instance.Status = lima.Running
-	if usage = New(client).Disk(context.Background(), instance); usage != nil {
-		t.Fatalf("failed probe returned usage: %+v", usage)
+	if !reflect.DeepEqual(client.calls, []string{"sudo --login --user dev"}) {
+		t.Fatalf("interactive login must use the account shell once: %q", client.calls)
 	}
 }

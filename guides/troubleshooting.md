@@ -47,6 +47,17 @@ Replace `NAME` with the VM's actual name. If access still fails, keep the SSH or
 guest error rather than treating the power state as success. After a failed
 configuration operation, follow the next section.
 
+## `list` shows `-` or a notice
+
+`ADDRESS` and `DISK` come from `lmx status`, which `list` runs in each running
+VM with a 10-second limit. `-` means that the VM is stopped, did not answer in
+time, or has no address on the shared network.
+
+The notice `the guest has no lmx yet; run limanix update` under a VM means that
+an older client created it, before the guest owner `lmx`. Run
+`limanix update --config limanix.toml` with that VM's file: the update installs
+`lmx`, and `list` shows both values again.
+
 ## Create or update failed during provisioning
 
 A failed operation may leave a VM and managed home for recovery, but completed
@@ -57,8 +68,8 @@ changes are not automatically undone.
 | `create`: input validation or preparation | The new VM has not started. |
 | `update`: input validation or preparation | The existing VM has not yet been stopped for this update. If it was running, its applications may still be running. A rejected update can leave the previous operation state unchanged. |
 | `update`: stopping or editing the backend | The VM may already be stopped or have new Lima settings. |
-| NixOS evaluation or build | New environment files have already been installed. The failed build does not trigger Limanix's post-build restart. |
-| Restart or development-user check | The NixOS build may have succeeded, but the complete operation has not been marked ready. |
+| NixOS evaluation or build | `lmxd` may already have installed the new environment files; an evaluation error stops before it starts. The failed build does not trigger the restart, and the guest returns to its own `lmxd`. |
+| Restart, or the wait for `lmxd` | The NixOS build succeeded, but the operation has not been marked ready. A platform check that keeps failing after the boot is reported as `Generation … is booted but unhealthy` with the reason; inside the VM, `sudo lmx doctor` shows the check. |
 
 If the backend exists and both saved records are valid:
 
@@ -81,14 +92,20 @@ missing, follow [The backend is missing](#the-backend-is-missing).
 **A successful `start` is not a successful update.** It starts the saved VM
 without applying your corrected TOML file or resetting an operation error.
 
+A warning `VM '…' is ready, but lmx reported: Finalizing generation … failed`
+means the new configuration runs, but `lmxd` could not yet remove the older
+generations or rewrite their boot entries. It tries again later. Inside the VM,
+`sudo lmx logs finalize` shows why it failed.
+
 ## The guest disk is full
 
 The guest disk can run out of inodes while it still has free space. ext4 sets
 their number from the disk size, about one per 16 KiB, and each file or
 directory needs one; a Nixpkgs source tree alone uses about 90,000. Builds then
-fail with `No space left on device`, and `create` or `update` reports the guest
-disk usage. `limanix list` shows the usage in `DISK`; inside the **VM**,
-`lmx info` shows both limits, and the welcome warns when either falls below 10%.
+fail with `No space left on device`, and `create` or `update` says that the
+guest disk is full, with its usage when `lmx` measured it. `limanix list` shows
+the usage in `DISK`; inside the **VM**, `lmx info` shows both limits, and the
+welcome warns when either falls below 10%.
 
 LimaNix keeps only the applied NixOS generation and collects unreferenced store
 paths after each `create` and `update`, and whenever free bytes or inodes fall
@@ -132,9 +149,12 @@ result; the command does not rewrite the saved record or roll back the guest.
   issue, and retry `update` if the backend exists.
 - After an interrupted deletion, check whether the command included
   `--remove-home` before retrying it.
-- If cancellation reports `cannot confirm guest rebuild stopped`, guest build
-  work may still be running. Keep the service name from the error for
-  investigation.
+- If cancellation reports `cannot confirm the guest apply stopped`, the guest
+  may still be building. Inside the VM, `systemctl status lmx-transient.service`
+  shows whether the build's `lmxd` still runs;
+  `sudo systemctl stop lmx-transient.service` stops it, and
+  `sudo systemctl start lmx.service` starts the guest's own `lmxd` again. The
+  next `update` does both too.
 
 LimaNix uses operating-system file locks, released when their owning process
 exits. The presence of a `.lock` file does not mean an operation is still

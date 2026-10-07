@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -305,7 +306,12 @@ func TestListJSONEmptyArraysAndDamagedRows(t *testing.T) {
 	running := lima.Running
 	failure := "identity.json is damaged"
 	home := "/managed/home"
-	manager.entries = []vm.Info{{Name: "healthy", OperationStatus: &ready, BackendStatus: &running, Home: &home, Address: "192.0.2.10"}, {Name: "damaged", Error: &failure}}
+	notice := "the guest has no lmx yet; run limanix update"
+	manager.entries = []vm.Info{
+		{Name: "healthy", OperationStatus: &ready, BackendStatus: &running, Home: &home, Address: "192.0.2.10"},
+		{Name: "damaged", Error: &failure},
+		{Name: "old", OperationStatus: &ready, BackendStatus: &running, Home: &home, Notice: notice},
+	}
 	status, output, diagnostics := runCLI([]string{"list", "--json"}, fakeDependencies(manager, registry))
 	if status != 0 || diagnostics != "" {
 		t.Fatalf("damaged row blocked list: %d %q", status, diagnostics)
@@ -314,12 +320,21 @@ func TestListJSONEmptyArraysAndDamagedRows(t *testing.T) {
 	if err := json.Unmarshal([]byte(output), &rows); err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 2 || rows[0]["status"] != "Running" || rows[1]["error"] != failure || rows[1]["state"] != nil {
+	_, healthyNotice := rows[0]["notice"]
+	if len(rows) != 3 || rows[0]["status"] != "Running" || healthyNotice || rows[1]["error"] != failure || rows[1]["state"] != nil || rows[2]["notice"] != notice {
 		t.Fatalf("damaged row JSON lost: %s", output)
 	}
 	status, output, diagnostics = runCLI([]string{"list"}, fakeDependencies(manager, registry))
-	if status != 0 || diagnostics != "" || !strings.Contains(output, "healthy") || !strings.Contains(output, "damaged") || !strings.Contains(output, "corrupt") || !strings.Contains(output, failure) {
+	if status != 0 || diagnostics != "" || !strings.Contains(output, "healthy") || !strings.Contains(output, "damaged") || !strings.Contains(output, "corrupt") || !strings.Contains(output, failure) || !strings.Contains(output, "  "+notice) {
 		t.Fatalf("damaged table row lost: %d %q %q", status, output, diagnostics)
+	}
+	lines := strings.Split(output, "\n")
+	row := func(name string) int {
+		return slices.IndexFunc(lines, func(line string) bool { return strings.HasPrefix(line, name+" ") })
+	}
+	healthy, old := row("healthy"), row("old")
+	if healthy < 0 || old < 0 || strings.Index(lines[healthy], "Running") != strings.Index(lines[old], "Running") {
+		t.Fatalf("rows below a note lost their alignment: %q", output)
 	}
 	registry.entries = []modules.Info{{Name: "lmx:git", Source: "lmx", Description: "Git version control."}, {Name: "third-party:broken", Source: "third-party", Error: &failure}}
 	status, output, diagnostics = runCLI([]string{"modules", "list", "--json"}, fakeDependencies(manager, registry))
