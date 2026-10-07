@@ -9,9 +9,7 @@ let
   pin = builtins.fromJSON (builtins.readFile ./lmx.json);
   inherit (pkgs.stdenv.hostPlatform) system;
   archive = pin.systems.${system} or (throw "lmx ${pin.version} has no release for ${system}");
-  theme =
-    config.lmx.capabilities.theme
-      or (throw "The LimaNix platform needs the theme capability of module catalog v3 or newer.");
+  inherit (config.lmx.capabilities) theme;
 
   # Static lmx and lmxd from the pinned release for the guest's system.
   release = pkgs.stdenvNoCC.mkDerivation {

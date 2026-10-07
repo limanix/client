@@ -36,20 +36,21 @@ from [`lmx`](https://github.com/limanix/lmx), the guest owner:
 | `pbcopy`, `pbpaste` | Copy to and paste from the Mac clipboard through the terminal; see [Terminal and clipboard](https://limanix.dev/terminal.html) |
 
 The welcome shows the ASCII `LimaNix` wordmark in the theme's blue and mauve;
-the theme is Catppuccin Mocha. Below it are the VM name, NixOS version and
-architecture; the number of CPUs, total memory and free space on the guest disk;
-the original selected module selectors; and mounted `virtiofs` or `9p` guest
-directories with `rw` or `ro` access. Failed system services appear only when
-there are some, with a pointer to `lmx info`; so does a warning when less than
-10% of the guest disk's space or inodes is free. The last line lists `lmx help`,
-`lmx info` and `exit`. A resource value that cannot be read is left out. Output
-stays within 80 columns; long values wrap. It appears automatically once per
-session for the configured development account in an interactive shell with
-terminal output. Run `lmx welcome` to show it again. The Bash fallback prompt
-shows the account, VM hostname and directory with the theme's accents when
-Starship is disabled. `NO_COLOR` or `TERM=dumb` selects plain welcome output and
-a plain fallback prompt. Optional shell and prompt modules keep their own
-configuration; the base does not require Console, tmux or Docker.
+the theme is the Catppuccin flavor from `[theme]`, Mocha by default. Below it
+are the VM name, NixOS version and architecture; the number of CPUs, total
+memory and free space on the guest disk; the original selected module selectors;
+and mounted `virtiofs` or `9p` guest directories with `rw` or `ro` access.
+Failed system services appear only when there are some, with a pointer to
+`lmx info`; so does a warning when less than 10% of the guest disk's space or
+inodes is free. The last line lists `lmx help`, `lmx info` and `exit`. A
+resource value that cannot be read is left out. Output stays within 80 columns;
+long values wrap. It appears automatically once per session for the configured
+development account in an interactive shell with terminal output. Run
+`lmx welcome` to show it again. The Bash fallback prompt shows the account, VM
+hostname and directory with the theme's accents when Starship is disabled.
+`NO_COLOR` or `TERM=dumb` selects plain welcome output and a plain fallback
+prompt. Optional shell and prompt modules keep their own configuration; the base
+does not require Console, tmux or Docker.
 
 ## Create the workbench
 
@@ -129,8 +130,9 @@ adds rust-analyzer through the same contract. The editor's bundled plugins and
 parsers come from Nix rather than first-launch downloads. Open the project at
 its guest path for language servers to see its Linux dependencies.
 
-The shell, tmux, editor, Yazi, Lazygit, Posting and Harlequin use Catppuccin
-Mocha defaults. Personal configuration takes precedence as described on each
+The shell, tmux, editor, Yazi, Lazygit, Posting and Harlequin use the Catppuccin
+flavor from `[theme]`, Mocha by default. Personal configuration takes precedence
+as described on each
 [module page](https://limanix.dev/categories/nixos/catalog.html). Set a Nerd
 Font, truecolor and OSC 52 clipboard support in the terminal on your Mac; see
 [Terminal and clipboard](https://limanix.dev/terminal.html) for copy and paste

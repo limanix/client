@@ -94,6 +94,9 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 				cfg.User.Home = "/home/eval-user"
 				cfg.Network.Ports.TCP = []int{8080}
 				cfg.NixOS.Modules = selection.modules
+				if selection.thirdParty {
+					cfg.Theme.Flavor = "latte"
+				}
 				sources := make([]modules.Source, 0, len(selection.modules))
 				for _, id := range selection.modules {
 					source := modules.Source{ID: id}
@@ -155,7 +158,8 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
         && builtins.elem "users" config.users.users.eval-user.extraGroups
         && settings.network.ports == { tcp = [ 22 8080 9000 9001 9002 ]; udp = [ ]; }
         && settings.health.units == [ "sshd.service" "lima-guestagent.service" "lmx.socket" ]
-        && settings.theme.flavor == "mocha" && builtins.length (builtins.attrNames settings.theme.palette) == 26
+        && settings.theme.flavor == "latte" && settings.theme.palette.base == "#eff1f5"
+        && builtins.length (builtins.attrNames settings.theme.palette) == 26
         && settings.session.providers == config.limanix.session.providers
         && builtins.all (path: lib.hasPrefix "/nix/store/" path) (builtins.attrValues tools)
         && settings.tools.sudo == "/run/wrappers/bin/sudo";

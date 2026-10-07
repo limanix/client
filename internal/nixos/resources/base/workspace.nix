@@ -1,11 +1,6 @@
 { config, lib, ... }:
 let
-  inherit
-    (config.lmx.capabilities.theme
-      or (throw "The LimaNix platform needs the theme capability of module catalog v3 or newer.")
-    )
-    palette
-    ;
+  inherit (config.lmx.capabilities.theme) palette;
   # A theme color such as "#89b4fa" as the "137;180;250" of a 24-bit terminal color.
   rgb =
     color:

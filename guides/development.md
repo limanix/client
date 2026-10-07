@@ -231,8 +231,9 @@ directory. `ci/golang-test` checks the pin's shape and decodes the examples, and
 downloaded only by a guest. `resources/base/lmx.nix` renders the configuration
 that the release reads, so a release with other configuration fields needs the
 matching change there. A guest's system build runs the release on the rendered
-file and fails before a restart when the two disagree. The platform reads the
-catalog's theme, so it needs catalog v3 or newer.
+file and fails before a restart when the two disagree. The platform reads and
+sets the catalog's theme, so it needs catalog v3 or newer; an older catalog
+fails the evaluation because the option `lmx.capabilities.theme` does not exist.
 
 The client owns `internal/nixos/resources/flake.nix.tmpl` and `flake.lock.tmpl`,
 including the `nixos-lima` dependency graph. The catalog supplies the `nixpkgs`

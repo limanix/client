@@ -13,7 +13,7 @@
 //	│  ├─ flake.nix + flake.lock + base NixOS modules
 //	│  ├─ lmx.json                pinned lmx release for each guest system
 //	│  ├─ interface.nix           catalog's public NixOS option declarations
-//	│  ├─ runtime.json            generation, user, architecture, ports, module imports
+//	│  ├─ runtime.json            generation, user, architecture, ports, theme, module imports
 //	│  ├─ modules/lmx/_shared/    public declaration sources, including their private dependencies
 //	│  ├─ modules/lmx/<name>/     complete catalog entries, when a standard module is selected
 //	│  └─ modules/<index>/        selected third-party module trees
@@ -52,7 +52,8 @@
 // an entire generation transactional.
 //
 // Every generation includes lmx, the guest owner: its commands, its daemon and /etc/lmx/config.json, rendered from
-// the same declaration. The flake also exports them with that file as packages.<system>.lmx. The Bash fallback prompt
+// the same declaration. The flake also exports them with that file as packages.<system>.lmx. The configuration's
+// theme flavor sets lmx.capabilities.theme, which lmx and the catalog modules read. The Bash fallback prompt
 // uses the theme's colors only when no Starship provider is enabled; dumb terminals and NO_COLOR use plain text. Guest
 // help, identity, and terminal compatibility remain available with an empty optional module selection.
 //

@@ -144,7 +144,7 @@ again later.
 | Can change through `update` | Requires a new VM |
 | -- | -- |
 | CPU, memory, and disk growth | Guest architecture |
-| Modules, environment, firewall ports, and explicit mounts | Development username and guest home path |
+| Modules, theme, environment, firewall ports, and explicit mounts | Development username and guest home path |
 | Development user's sudo setting | Managed host home root |
 
 Disk shrinking is rejected against the actual size reported by Lima, including
