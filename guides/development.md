@@ -207,6 +207,7 @@ This builds local files; it does not create a Git tag or publish a release.
 | NixOS catalog and Nixpkgs pin | Explicit `modules_version` task argument | `cmd/bundle-modules` downloads the selected modules tag |
 | Linux guest agents | Lima dependency in `go.mod` | `cmd/bundle-guestagent` builds `amd64` and `arm64` agents |
 | macOS network helper | `socket_vmnet` version, hashes, and sizes in `Taskfile.yml` | `cmd/bundle-socketvmnet` downloads and validates both archives |
+| `lmx` guest owner | Release version, URLs and SHA-256 hashes in `internal/nixos/resources/base/lmx.json` | None; the guest fetches the pinned archive while it builds a generation |
 
 Generated archives are ignored by Git. Without `modules_source`, tasks that
 prepare the catalog require the selected modules tag to exist upstream. With it,
@@ -220,6 +221,16 @@ guest configuration; private `_shared/internal/` files are imported only by
 their consumers. Follow
 [Update the NixOS base](https://limanix.dev/categories/nixos/writing-modules.html#update-the-nixos-base)
 to change it.
+
+To update `lmx`, copy the version and the `.sha256` files of an
+[lmx release](https://github.com/limanix/lmx/releases) into `lmx.json`.
+`ci/golang-test` checks the pin's shape, and `ci/nixos-eval` evaluates the
+platform that uses it; the archive itself is downloaded only by a guest.
+`resources/base/lmx.nix` renders the configuration that the release reads, so a
+release with other configuration fields needs the matching change there. A
+guest's system build runs the release on the rendered file and fails before a
+restart when the two disagree. The platform reads the catalog's theme, so it
+needs catalog v3 or newer.
 
 The client owns `internal/nixos/resources/flake.nix.tmpl` and `flake.lock.tmpl`,
 including the `nixos-lima` dependency graph. The catalog supplies the `nixpkgs`

@@ -20,31 +20,36 @@ selectors and version lines.
 
 ## Shared VM conventions
 
-Every guest supplies these commands, including with `modules = []`:
+Every guest supplies these commands, including with `modules = []`. They come
+from [`lmx`](https://github.com/limanix/lmx), the guest owner:
 
 | Command | Result |
 | -- | -- |
 | `lmx help` | VM identity, selected module selectors and guided guest/Mac commands |
 | `lmx info` | Identity, selected selectors, Linux kernel, guest disk usage, shared mounts and failed system services |
 | `lmx welcome` | Welcome summary with VM identity, NixOS version, architecture, resources, selected selectors, mounted guest directories and failed services |
+| `lmx status` | Applied generations, guest disk usage, interfaces and failed system services; `--short` prints only what needs attention |
+| `lmx doctor` | Findings about the guest configuration, the `lmxd` daemon and the applied generations, with what to do next |
+| `lmx net check PORT` | Why the Mac cannot reach a guest port: firewall rule, listener and process |
+| `lmx logs KIND` | Output of the latest `lmxd` task of a kind, such as `health` or `collect`; use `sudo` to read it |
 | `limanix-session NAME` | Dispatch to the selected provider, or explain which optional provider to select |
 | `pbcopy`, `pbpaste` | Copy to and paste from the Mac clipboard through the terminal; see [Terminal and clipboard](https://limanix.dev/terminal.html) |
 
-The welcome shows the ASCII `LimaNix` wordmark in Catppuccin Mocha blue and
-mauve. Below it are the VM name, NixOS version and architecture; the number of
-CPUs, total memory and free space on the guest disk; the original selected
-module selectors; and mounted `virtiofs` or `9p` guest directories with `rw` or
-`ro` access. Failed system services appear only when there are some, with a
-pointer to `lmx info`; so does a warning when less than 10% of the guest disk's
-space or inodes is free. The last line lists `lmx help`, `lmx info` and `exit`.
-A resource value that cannot be read is left out. Output stays within 80
-columns; long values wrap. It appears automatically once per session for the
-configured development account in an interactive shell with terminal output. Run
-`lmx welcome` to show it again. The Bash fallback prompt shows the account, VM
-hostname and directory with Mocha accents when Starship is disabled. `NO_COLOR`
-or `TERM=dumb` selects plain welcome output and a plain fallback prompt.
-Optional shell and prompt modules keep their own configuration; the base does
-not require Console, tmux or Docker.
+The welcome shows the ASCII `LimaNix` wordmark in the theme's blue and mauve;
+the theme is Catppuccin Mocha. Below it are the VM name, NixOS version and
+architecture; the number of CPUs, total memory and free space on the guest disk;
+the original selected module selectors; and mounted `virtiofs` or `9p` guest
+directories with `rw` or `ro` access. Failed system services appear only when
+there are some, with a pointer to `lmx info`; so does a warning when less than
+10% of the guest disk's space or inodes is free. The last line lists `lmx help`,
+`lmx info` and `exit`. A resource value that cannot be read is left out. Output
+stays within 80 columns; long values wrap. It appears automatically once per
+session for the configured development account in an interactive shell with
+terminal output. Run `lmx welcome` to show it again. The Bash fallback prompt
+shows the account, VM hostname and directory with the theme's accents when
+Starship is disabled. `NO_COLOR` or `TERM=dumb` selects plain welcome output and
+a plain fallback prompt. Optional shell and prompt modules keep their own
+configuration; the base does not require Console, tmux or Docker.
 
 ## Create the workbench
 

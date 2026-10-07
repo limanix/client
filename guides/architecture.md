@@ -73,6 +73,8 @@ After the ready record, the client deletes the guest's other system generations,
 including the base image's, rewrites the boot entries and collects store paths
 that nothing references, such as pinned Nixpkgs sources fetched for evaluation.
 A failure at that point is a warning; the applied configuration stays ready.
+`lmxd` also checks the platform units, the shared folders and the development
+account after each boot, and removes generations that remain.
 
 ## Guest disk management
 
@@ -81,16 +83,16 @@ inode count with the disk size, so free bytes and free inodes are both limits.
 
 | Free bytes or inodes | Platform behavior |
 | -- | -- |
-| Below 20% | Collect unreferenced store paths: the guard checks every 15 minutes, builds collect when bytes run low, and the client collects before stopping a running VM for an update and again before rebuilding |
-| Below 10% | Warn in `lmx welcome` and before an update; the guard logs the remaining garbage-collector roots; a failed apply reports the usage |
+| Below 20% | Collect unreferenced store paths: `lmxd` checks every 15 minutes, builds collect when bytes run low, and the client collects before stopping a running VM for an update and again before rebuilding |
+| Below 10% | Warn in `lmx welcome` and before an update; `lmxd` logs the remaining garbage-collector roots; a failed apply reports the usage |
 
 Low space never blocks an update: a smaller module selection may still fit, and
-raising `resources.disk` adds both bytes and inodes. A daily collection, file
-deduplication, disabled Nix channels and omitted documentation outputs keep the
-store small. The client writes both thresholds into the generated configuration,
-so the client and the guest apply the same policy. User roots such as
-`nix-direnv` shells and `result` links are reported, not removed, because their
-owners rely on them.
+raising `resources.disk` adds both bytes and inodes. Collection after each
+apply, file deduplication, disabled Nix channels and omitted documentation
+outputs keep the store small. The client writes both thresholds into the
+generated configuration, so the client and the guest apply the same policy. User
+roots such as `nix-direnv` shells and `result` links are reported, not removed,
+because their owners rely on them.
 
 ## Public guest contract
 
@@ -100,7 +102,7 @@ owners rely on them.
 | `limanix.user.shell` | Select its login shell; Bash is the platform default |
 | `limanix.session.command` | Optional absolute provider executable for named sessions |
 | `limanix-session NAME` | Stable guest command invoked by `limanix shell --session NAME` |
-| `lmx help`, `lmx info`, `lmx welcome` | Local guest navigation, environment inspection and welcome summary available with any module selection |
+| `lmx help`, `info`, `welcome`, `status`, `doctor`, `net check`, `logs` | Local guest navigation, inspection, diagnostics and welcome summary available with any module selection |
 | `pbcopy`, `pbpaste` | Mac clipboard through OSC 52 in the attached terminal, directly or through tmux |
 | `lmx.capabilities.<area>.*` | Provider declarations shared by catalog and third-party modules |
 | Documented `lmx.<module>.*` options | Settings owned by the selected module |

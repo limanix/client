@@ -25,6 +25,7 @@ type runtimeDisk struct {
 type runtimeConfig struct {
 	Name            domain.VMName       `json:"name"`
 	Arch            domain.Architecture `json:"arch"`
+	Generation      string              `json:"generation"`
 	User            runtimeUser         `json:"user"`
 	Disk            runtimeDisk         `json:"disk"`
 	Ports           config.Ports        `json:"ports"`
@@ -32,10 +33,11 @@ type runtimeConfig struct {
 	SelectedModules []domain.ModuleID   `json:"selectedModules"`
 }
 
-func writeRuntime(filename string, cfg config.Config, imports []string, uid int) error {
+func writeRuntime(filename string, cfg config.Config, generation string, imports []string, uid int) error {
 	record := runtimeConfig{
-		Name: cfg.Name,
-		Arch: cfg.Resources.Arch,
+		Name:       cfg.Name,
+		Arch:       cfg.Resources.Arch,
+		Generation: generation,
 		User: runtimeUser{
 			Name: cfg.User.Name,
 			Home: cfg.User.Home,

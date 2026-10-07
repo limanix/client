@@ -97,12 +97,13 @@ such as `nix-direnv` shells and `result` links, and data outside the Nix store,
 such as Docker images and volumes under `/var/lib/docker`.
 
 1. Inside the VM, run `lmx info` to see which limit is exhausted, and
-   `journalctl -u limanix-store-guard` for the roots that keep store paths
-   alive.
+   `sudo nix-store --gc --print-roots` for the roots that keep store paths
+   alive. Below 10%, `sudo lmx logs roots` shows the list that `lmxd` logged.
 
 1. Remove guest data you no longer need, for example with `docker system prune`
    or by deleting a project's `.direnv` directory or `result` link. Run
-   `sudo nix-collect-garbage` to collect the paths they kept immediately.
+   `sudo lmx store reserve` to collect the paths they kept while less than 20%
+   is free, or `sudo nix-store --gc` to collect them in any case.
 
 1. Or raise `resources.disk` in the TOML file and run
    `limanix update --config limanix.toml` on your **Mac**. A larger disk also

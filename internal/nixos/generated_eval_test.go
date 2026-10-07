@@ -92,14 +92,18 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 				cfg.Resources.Arch = arch
 				cfg.User.Name = "eval-user"
 				cfg.User.Home = "/home/eval-user"
+				cfg.Network.Ports.TCP = []int{8080}
 				cfg.NixOS.Modules = selection.modules
 				sources := make([]modules.Source, 0, len(selection.modules))
 				for _, id := range selection.modules {
 					source := modules.Source{ID: id}
 					if selection.thirdParty {
 						source.Path = t.TempDir()
-						declaration := `{ config, pkgs, ... }: {
+						declaration := `{ config, lib, pkgs, ... }: {
   lmx.capabilities.languageSupport.languages.python.parsers = [ "python" ];
+  # A port that the configuration declares too, and a range: the configuration of lmx lists each once.
+  networking.firewall.allowedTCPPorts = [ 8080 ];
+  networking.firewall.allowedTCPPortRanges = [ { from = 9000; to = 9002; } ];
   # NixOS accepts contextual strings and string-like store objects as packages.
   environment.systemPackages = [
     "${pkgs.hello}"
@@ -122,20 +126,47 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
       message = "Declaring a language must not activate an editor.";
     }
     {
-      assertion = config.nix.gc.automatic && config.nix.settings.auto-optimise-store
+      assertion = !config.nix.gc.automatic && config.nix.settings.auto-optimise-store
         && !config.documentation.doc.enable;
-      message = "The guest store must not keep unreachable paths or documentation outputs.";
+      message = "lmxd, not a timer, collects the guest store, and documentation outputs stay out.";
     }
     {
       assertion = config.nix.settings.min-free == 1073741824 && config.nix.settings.max-free == 2147483648
-        && builtins.elem "timers.target" config.systemd.timers.limanix-store-guard.wantedBy;
-      message = "The platform must keep 10-20% of the default guest disk free during builds and between them.";
+        && !(config.systemd.services ? limanix-store-guard) && !(config.systemd.timers ? limanix-store-guard)
+        && lib.hasInfix "SystemMaxUse=512M" config.services.journald.extraConfig;
+      message = "The platform must keep 10-20% of the default guest disk free during builds, lmxd checks between them, and the journal stays bounded.";
     }
     {
-      assertion = builtins.all
-        (name: builtins.any (package: (package.name or "") == name) config.environment.systemPackages)
-        [ "pbcopy" "pbpaste" ];
-      message = "Every guest must reach the Mac clipboard without a catalog module.";
+      assertion = builtins.any (package: (package.pname or "") == "lmx") config.environment.systemPackages;
+      message = "Every guest must reach lmx, the Mac clipboard and sessions without a catalog module.";
+    }
+    {
+      assertion =
+        let
+          # Tools are store paths, and fromJSON rejects their string context.
+          text = builtins.unsafeDiscardStringContext config.environment.etc."lmx/config.json".text;
+          settings = builtins.fromJSON text;
+          tools = builtins.removeAttrs settings.tools [ "sudo" ];
+        in
+        builtins.attrNames settings == [ "disk" "generation" "health" "modules" "network" "schema" "session" "theme" "tools" "user" "vm" ]
+        && builtins.attrNames settings.tools == [ "bash" "grep" "ionice" "ip" "journalctl" "nice" "nix_env" "nix_store" "nixos_rebuild" "sudo" "systemctl" "systemd_run" ]
+        && settings.generation == "0123456789ab"
+        && settings.user == { name = "eval-user"; home = "/home/eval-user"; uid = 501; gid = 100; }
+        && builtins.elem "users" config.users.users.eval-user.extraGroups
+        && settings.network.ports == { tcp = [ 22 8080 9000 9001 9002 ]; udp = [ ]; }
+        && settings.health.units == [ "sshd.service" "lima-guestagent.service" "lmx.socket" ]
+        && settings.theme.flavor == "mocha" && builtins.length (builtins.attrNames settings.theme.palette) == 26
+        && settings.session.providers == config.limanix.session.providers
+        && builtins.all (path: lib.hasPrefix "/nix/store/" path) (builtins.attrValues tools)
+        && settings.tools.sudo == "/run/wrappers/bin/sudo";
+      message = "lmx must receive the platform configuration of its generation.";
+    }
+    {
+      assertion = builtins.elem "sockets.target" config.systemd.sockets.lmx.wantedBy
+        && builtins.elem "multi-user.target" config.systemd.services.lmx.wantedBy
+        && config.systemd.services.lmx.serviceConfig.Type == "notify" && !config.systemd.services.lmx.restartIfChanged
+        && builtins.any (check: lib.hasPrefix "lmx-config-check" check.name) config.system.checks;
+      message = "lmxd must run from boot, answer on its socket and accept the configuration of its generation.";
     }
     {
       assertion = !config.nix.channel.enable
@@ -151,7 +182,7 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 					sources = append(sources, source)
 				}
 
-				flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "generation"), sources, 501)
+				flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "generation"), testGeneration, sources, 501)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -175,6 +206,25 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 					t.Fatalf("evaluation did not return a system derivation: %s", output)
 				}
 				t.Logf("Evaluated %s", derivation)
+				if selection.thirdParty {
+					// The host starts the transient lmxd from this output; one case keeps the cost low.
+					system := map[domain.Architecture]string{"arm64": "aarch64-linux", "amd64": "x86_64-linux"}[arch]
+					lmxCommand := exec.CommandContext(
+						t.Context(), nix,
+						"eval", "--raw", "--show-trace",
+						"--extra-experimental-features", "nix-command flakes",
+						"--no-update-lock-file", "--no-write-lock-file",
+						"--option", "allow-import-from-derivation", "false",
+						"path:.#packages."+system+".lmx.drvPath",
+					)
+					lmxCommand.Dir = flake
+					diagnostics.Reset()
+					lmxCommand.Stderr = &diagnostics
+					output, err := lmxCommand.Output()
+					if err != nil || !strings.HasSuffix(strings.TrimSpace(string(output)), ".drv") {
+						t.Fatalf("evaluate the lmx package: %v\n%s\n%s", err, output, diagnostics.String())
+					}
+				}
 			})
 		}
 	}

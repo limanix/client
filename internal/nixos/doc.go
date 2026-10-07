@@ -11,8 +11,9 @@
 //	<generation>/
 //	├─ flake/
 //	│  ├─ flake.nix + flake.lock + base NixOS modules
+//	│  ├─ lmx.json                pinned lmx release for each guest system
 //	│  ├─ interface.nix           catalog's public NixOS option declarations
-//	│  ├─ runtime.json            user, architecture, ports, module imports
+//	│  ├─ runtime.json            generation, user, architecture, ports, module imports
 //	│  ├─ modules/lmx/_shared/    public declaration sources, including their private dependencies
 //	│  ├─ modules/lmx/<name>/     complete catalog entries, when a standard module is selected
 //	│  └─ modules/<index>/        selected third-party module trees
@@ -50,12 +51,14 @@
 // the VM generation owner decides whether to discard it or retain it for recovery. Individual writes do not make
 // an entire generation transactional.
 //
-// Every generation includes local guest help and read-only workspace information. The Bash fallback prompt uses
-// Mocha colors only when no Starship provider is enabled; dumb terminals and NO_COLOR use plain text. Guest help,
-// identity, and terminal compatibility remain available with an empty optional module selection.
+// Every generation includes lmx, the guest owner: its commands, its daemon and /etc/lmx/config.json, rendered from
+// the same declaration. The flake also exports them with that file as packages.<system>.lmx. The Bash fallback prompt
+// uses the theme's colors only when no Starship provider is enabled; dumb terminals and NO_COLOR use plain text. Guest
+// help, identity, and terminal compatibility remain available with an empty optional module selection.
 //
 // Read bundle.go for ordering, modules.go and resources.go for copying, runtime.go for the private flake JSON contract,
-// environment.go for ENV encoding, and resources/base/workspace.nix for base guest presentation.
+// environment.go for ENV encoding, resources/base/lmx.nix for lmx and its configuration, and
+// resources/base/workspace.nix for the fallback prompt.
 //
 // [catalog contract]: https://limanix.dev/categories/nixos/catalog-contract.html
 package nixos
