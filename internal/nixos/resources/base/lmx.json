@@ -1,13 +1,13 @@
 {
-  "version": "0.0.2",
+  "version": "0.1.0",
   "systems": {
     "aarch64-linux": {
-      "url": "https://github.com/limanix/lmx/releases/download/v0.0.2/lmx-0.0.2-aarch64-linux.tar.gz",
-      "sha256": "e7217bf3a47eac815919ecc662cb31afa123c87049eae2339afdec5c627748d9"
+      "url": "https://github.com/limanix/lmx/releases/download/v0.1.0/lmx-0.1.0-aarch64-linux.tar.gz",
+      "sha256": "7c0f74d72bc4e379f5496479f8ad041e2f00faa0d2653f94e722ccd0faf61c66"
     },
     "x86_64-linux": {
-      "url": "https://github.com/limanix/lmx/releases/download/v0.0.2/lmx-0.0.2-x86_64-linux.tar.gz",
-      "sha256": "c9667856aecd5874e3a5771240d98704d5a703000830adcebc92543c1f72e9e3"
+      "url": "https://github.com/limanix/lmx/releases/download/v0.1.0/lmx-0.1.0-x86_64-linux.tar.gz",
+      "sha256": "e12135a812688e434cf30333dd5a2fea5ada1ee7b64abd5291c7f2a91905d47c"
     }
   }
 }

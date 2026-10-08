@@ -162,11 +162,12 @@ lmx welcome
 ```
 
 The first three commands return `Linux`, `dev`, and `/home/dev` for this
-configuration. `lmx help` shows guest and Mac commands. `lmx info` reports the
-guest identity, selected modules, Linux kernel, guest disk usage, shared mounts
-and failed services. `lmx welcome` repeats the welcome summary shown when you
-enter the shell. These local helpers work without optional modules. Return to
-your Mac with `exit`.
+configuration. `lmx help` shows guest and Mac commands, and `lmx help NAME`
+explains a selected module, such as `lmx help go`. `lmx info` reports the guest
+identity, selected modules, Linux kernel, guest disk usage, shared mounts and
+failed services. `lmx welcome` repeats the welcome summary shown when you enter
+the shell. These local helpers work without optional modules. Return to your Mac
+with `exit`.
 
 ## Add development tools
 

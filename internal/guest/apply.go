@@ -46,8 +46,8 @@ func (guest *Guest) Apply(ctx context.Context, name, generation string, arch dom
 	return guest.converge(ctx, name, generation)
 }
 
-// build replaces the guest's lmxd with the one of the mounted generation, so that every platform, the base image
-// included, applies the generation the same way.
+// build replaces the guest's lmxd with the one of the mounted generation: every platform, the base image
+// included, then applies the generation the same way.
 func (guest *Guest) build(ctx context.Context, name, generation string, arch domain.Architecture) error {
 	system, err := arch.LimaArch()
 	if err != nil {
@@ -135,8 +135,8 @@ func (guest *Guest) converge(ctx context.Context, name, generation string) error
 }
 
 // restore stops the generation's lmxd and starts the guest's own service, which brings its socket; a guest without
-// one rejects the start. Each half has its own time, so a stop that takes all of it still leaves the start. It is
-// best effort: a restart of the VM resets both.
+// one rejects the start. Each half has its own time: a stop that takes all of it still leaves time for the start.
+// It is best effort: a restart of the VM resets both.
 func (guest *Guest) restore(ctx context.Context, name string) {
 	for _, command := range [][]string{
 		{"sudo", "systemctl", "stop", transientUnit},

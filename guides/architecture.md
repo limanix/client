@@ -72,10 +72,11 @@ until `create` or `update` applies it.
 The guest steps run through `lmx`, the guest owner, in the release that the
 generation pins. Before the restart, the client stops the guest's own `lmx`
 units, builds the generation's `lmx` package and runs its `lmxd` as a transient
-unit, so the base image, a VM created before `lmx` and a current VM take the
-same steps. That `lmxd` installs the environment files, makes room in the store
-and builds the generation; the client prints the build output. A failed build
-returns the guest to its own `lmxd` without a restart.
+unit. Because that `lmxd` comes from the generation, the base image, a VM
+created before `lmx` and a current VM take the same steps. That `lmxd` installs
+the environment files, makes room in the store and builds the generation; the
+client prints the build output. A failed build returns the guest to its own
+`lmxd` without a restart.
 
 After the restart, `lmxd` checks the platform units, the shared folders and the
 development account. It then deletes the guest's other system generations,
@@ -87,8 +88,9 @@ later.
 
 ## Guest disk management
 
-The platform manages the guest disk for any module selection. ext4 fixes its
-inode count with the disk size, so free bytes and free inodes are both limits.
+The platform manages the guest disk for any module selection. Free bytes and
+free inodes are both limits, because ext4 fixes its inode count with the disk
+size.
 
 | Free bytes or inodes | Platform behavior |
 | -- | -- |
@@ -98,9 +100,9 @@ inode count with the disk size, so free bytes and free inodes are both limits.
 Low space never blocks an update: a smaller module selection may still fit, and
 raising `resources.disk` adds both bytes and inodes. Collection after each
 apply, file deduplication, disabled Nix channels and omitted documentation
-outputs keep the store small. The client writes both thresholds into the
-generated configuration, so the client and the guest apply the same policy. User
-roots such as `nix-direnv` shells and `result` links are reported, not removed,
+outputs keep the store small. The client and the guest apply the same policy:
+the client writes both thresholds into the generated configuration. User roots
+such as `nix-direnv` shells and `result` links are reported, not removed,
 because their owners rely on them.
 
 ## Public guest contract
@@ -110,6 +112,7 @@ because their owners rely on them.
 | `config.limanix.user.name`, `.home` | Read the development account supplied by the client |
 | `limanix.user.shell` | Select its login shell; Bash is the platform default |
 | `limanix.session.command` | Optional absolute provider executable for named sessions |
+| `limanix.help.<topic>` | Help card that `lmx help TOPIC` shows in the guest: summary, commands, common tasks and a guide |
 | `limanix-session NAME` | Stable guest command invoked by `limanix shell --session NAME` |
 | `lmx help`, `info`, `welcome`, `status`, `doctor`, `net check`, `logs` | Local guest navigation, inspection, diagnostics and welcome summary available with any module selection |
 | `pbcopy`, `pbpaste` | Mac clipboard through OSC 52 in the attached terminal, directly or through tmux |

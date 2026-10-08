@@ -200,9 +200,9 @@ needs attention:
 | `process` | Which process and user hold the socket, when something listens. |
 | `connect` | The Mac connects to the address and port within 3 seconds. |
 
-Add `--udp` for a UDP port; UDP has no connection to try, so `connect` is left
-out. `--json` prints the same checks for scripts. A failed check makes the
-command exit with status 1.
+Add `--udp` for a UDP port; the result has no `connect` check, because UDP has
+no connection to try. `--json` prints the same checks for scripts. A failed
+check makes the command exit with status 1.
 
 When the guest checks pass but `connect` fails, the connection stops on the Mac:
 check a VPN, a firewall, and the Local Network permission of your terminal app

@@ -69,7 +69,7 @@ func (m *Manager) NetworkCheck(ctx context.Context, name domain.VMName, port uin
 	noAddress := guest.Check{
 		Check:   "address",
 		Status:  guest.CheckFailed,
-		Message: "No IPv4 address on the shared network was read from the guest, so the Mac has nothing to connect to.",
+		Message: "No IPv4 address on the shared network was read from the guest; the Mac has nothing to connect to.",
 	}
 
 	info, answers, err := m.inspect(ctx, &report, noAddress)
@@ -112,7 +112,7 @@ func (m *Manager) inspect(ctx context.Context, report *Report, noAddress guest.C
 		report.Checks = append(report.Checks, guest.Check{
 			Check:   "address",
 			Status:  guest.CheckFailed,
-			Message: "The guest has no lmx yet, so it reports neither its address nor its checks.",
+			Message: "The guest has no lmx yet and reports neither its address nor its checks.",
 			Hint:    "Run limanix update; it installs lmx.",
 		})
 	case info.Address == "":

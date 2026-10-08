@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-// follow runs the apply in the generation's lmxd and prints its build as it runs. The apply belongs to lmxd, so when
+// follow runs the apply in the generation's lmxd and prints its build as it runs. The apply belongs to lmxd: when
 // ctx ends, follow cancels it in the guest and returns ctx's error once lmx confirms the stop.
 func (guest *Guest) follow(ctx context.Context, name, generation string) error {
 	if err := ctx.Err(); err != nil {

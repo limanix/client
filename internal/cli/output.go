@@ -75,7 +75,7 @@ func writeInstances(output io.Writer, entries []vm.Info) error {
 		return err
 	}
 
-	// A line without columns would end the aligned block, so the rows are aligned before the notes go under them.
+	// The rows are aligned before the notes go under them: a line without columns would end the aligned block.
 	var table bytes.Buffer
 
 	writer := tabwriter.NewWriter(&table, 0, 4, 2, ' ', 0)

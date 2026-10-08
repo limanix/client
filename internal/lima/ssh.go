@@ -11,7 +11,7 @@ import (
 
 // Run executes a management command without a host shell or a build timeout.
 //
-// A captured run returns standard output also when the command fails, so a caller can read an answer that the
+// A captured run also returns standard output when the command fails, for callers that read an answer the
 // failing command printed.
 func (client *Client) Run(ctx context.Context, name string, args []string, capture bool) (string, error) {
 	if !capture {

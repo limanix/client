@@ -21,7 +21,7 @@ import (
 //
 // TestGeneratedFlakeEvaluation evaluates Prepare's complete output, including the
 // client platform, runtime mapping and embedded catalog; it does not build or boot a VM.
-// Run through task ci/nixos-eval so the selected catalog and Nix are available.
+// Run through task ci/nix/eval so the selected catalog and Nix are available.
 func TestGeneratedFlakeEvaluation(t *testing.T) {
 	nix, err := exec.LookPath("nix")
 	if err != nil {
@@ -107,6 +107,12 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
   # A port that the configuration declares too, and a range: the configuration of lmx lists each once.
   networking.firewall.allowedTCPPorts = [ 8080 ];
   networking.firewall.allowedTCPPortRanges = [ { from = 9000; to = 9002; } ];
+  # A project module explains itself in the guest like a catalog module.
+  limanix.help.project = {
+    summary = "Tools of the project.";
+    commands = [ "hello" ];
+    tips = [ { label = "Greet"; text = "hello"; } ];
+  };
   # NixOS accepts contextual strings and string-like store objects as packages.
   environment.systemPackages = [
     "${pkgs.hello}"
@@ -164,6 +170,19 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
         && builtins.all (path: lib.hasPrefix "/nix/store/" path) (builtins.attrValues tools)
         && settings.tools.sudo == "/run/wrappers/bin/sudo";
       message = "lmx must receive the platform configuration of its generation.";
+    }
+    {
+      assertion = builtins.fromJSON config.environment.etc."lmx/help.json".text == {
+        schema = 1;
+        topics.project = {
+          title = "project";
+          summary = "Tools of the project.";
+          commands = [ "hello" ];
+          tips = [ { label = "Greet"; text = "hello"; } ];
+          guide = null;
+        };
+      };
+      message = "lmx must receive the help cards of the evaluated modules.";
     }
     {
       assertion = builtins.elem "sockets.target" config.systemd.sockets.lmx.wantedBy

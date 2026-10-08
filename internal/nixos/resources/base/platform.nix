@@ -53,8 +53,8 @@ in
   # uses ~90k.
   nix.settings.auto-optimise-store = lib.mkDefault true;
 
-  # Builds collect garbage themselves when free bytes fall below the minimum. Nix has no inode
-  # equivalent, so lmxd checks both limits between builds.
+  # Builds collect garbage themselves when free bytes fall below the minimum. lmxd checks both
+  # limits between builds, because Nix has no inode equivalent.
   nix.settings.min-free = lib.mkDefault (disk.bytes * disk.minimumPercent / 100);
   nix.settings.max-free = lib.mkDefault (disk.bytes * disk.collectPercent / 100);
 
@@ -62,8 +62,9 @@ in
   # `lmx logs --previous` reads, without letting them fill a small guest disk.
   services.journald.extraConfig = "SystemMaxUse=512M";
 
-  # Configurations come from the generated flake. Disabling channels keeps their state files, so
-  # the base image's copy of Nixpkgs would otherwise stay a garbage-collector root.
+  # Configurations come from the generated flake. Disabling channels keeps their state files,
+  # and without the rules below the base image's copy of Nixpkgs would stay a garbage-collector
+  # root.
   nix.channel.enable = lib.mkDefault false;
   systemd.tmpfiles.rules = lib.mkIf (!config.nix.channel.enable) [
     "r /nix/var/nix/profiles/per-user/root/channels"

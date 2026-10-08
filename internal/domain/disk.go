@@ -10,7 +10,7 @@ const (
 
 // DiskUsage describes the guest file system that holds the Nix store.
 //
-// ext4 fixes its inode count with the file-system size, so either limit can run out first.
+// Either limit can run out first, because ext4 fixes its inode count with the file-system size.
 type DiskUsage struct {
 	Bytes      uint64 `json:"bytes"`
 	FreeBytes  uint64 `json:"free_bytes"`

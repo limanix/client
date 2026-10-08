@@ -27,8 +27,8 @@ let
     '';
   };
 
-  # Commands for people. lmx dispatches on the name it runs under, so the clipboard and session
-  # commands are links to it. lmxd stays out of PATH.
+  # Commands for people. The clipboard and session commands are links to lmx, which dispatches
+  # on the name it runs under. lmxd stays out of PATH.
   commands =
     pkgs.runCommand "lmx-${pin.version}"
       {
@@ -42,14 +42,14 @@ let
         done
       '';
 
-  # Ports the firewall opens, as NixOS evaluated them, so ports that modules open count too.
+  # Ports the firewall opens, as NixOS evaluated them, including the ports that modules open.
   ports =
     protocol:
     let
       inherit (config.networking) firewall;
       ranges = lib.concatMap (range: lib.range range.from range.to) firewall."allowed${protocol}PortRanges";
       sorted = lib.sort lib.lessThan (firewall."allowed${protocol}Ports" ++ ranges);
-      # In sorted order a repeat equals its predecessor, so one pass keeps a wide range cheap.
+      # One pass keeps a wide range cheap: in sorted order a repeat equals its predecessor.
       repeat = index: port: index > 0 && builtins.elemAt sorted (index - 1) == port;
     in
     lib.filter (port: port != null) (
@@ -90,7 +90,7 @@ let
         if config.limanix.session.command == null then null else toString config.limanix.session.command;
       inherit (config.limanix.session) providers;
     };
-    # lmxd runs its tools with a cleared environment, so each tool is named by its path.
+    # Each tool is named by its path: lmxd runs its tools with a cleared environment.
     tools = {
       ip = lib.getExe' pkgs.iproute2 "ip";
       systemctl = lib.getExe' config.systemd.package "systemctl";
@@ -107,17 +107,33 @@ let
     };
   };
 
-  # This generation's lmx, lmxd and configuration, for an lmxd that runs before the system is built.
+  # Help cards that the evaluated modules declare, for lmx help TOPIC.
+  help = {
+    schema = 1;
+    topics = lib.mapAttrs (_: card: {
+      inherit (card)
+        title
+        summary
+        commands
+        guide
+        ;
+      tips = map (tip: { inherit (tip) label text; }) card.tips;
+    }) config.limanix.help;
+  };
+
+  # This generation's lmx, lmxd, configuration and help cards, for an lmxd that runs before the
+  # system is built. lmx reads the help cards beside the configuration.
   generation = pkgs.runCommand "lmx-generation-${runtime.generation}" { } ''
     mkdir -p "$out/bin" "$out/etc/lmx"
     ln -s ${release}/bin/lmx ${release}/bin/lmxd "$out/bin/"
     ln -s ${config.environment.etc."lmx/config.json".source} "$out/etc/lmx/config.json"
+    ln -s ${config.environment.etc."lmx/help.json".source} "$out/etc/lmx/help.json"
   '';
 
-  # The release rejects unknown and missing fields. A configuration it cannot read fails the system
-  # build here, before a restart, instead of every lmx command after it.
+  # The release rejects unknown and missing fields. A configuration or help cards it cannot read
+  # fail the system build here, before a restart, instead of every lmx command after it.
   configCheck = pkgs.runCommand "lmx-config-check" { } ''
-    if ! page=$(LMX_CONFIG=${config.environment.etc."lmx/config.json".source} ${release}/bin/lmx help); then
+    if ! page=$(LMX_CONFIG=${generation}/etc/lmx/config.json ${release}/bin/lmx help); then
       printf '%s\n' "$page" | grep 'cannot be read' >&2
       exit 1
     fi
@@ -128,6 +144,7 @@ in
   # The system profile and /run/booted-system carry this file too: lmx reads their generation
   # markers from it.
   environment.etc."lmx/config.json".text = builtins.toJSON settings;
+  environment.etc."lmx/help.json".text = builtins.toJSON help;
   environment.systemPackages = [ commands ];
   system.build.lmx = generation;
   system.checks = [ configCheck ];
@@ -160,7 +177,7 @@ in
       # lmxd pings at half this interval; a frozen daemon is aborted and restarted.
       WatchdogSec = "30s";
       Restart = "on-failure";
-      # Task processes live in this unit's control group, so stopping it never leaves them behind.
+      # Task processes live in this unit's control group and stop with it.
       KillMode = "control-group";
       # A watchdog abort would otherwise store a core of every process in the unit.
       LimitCORE = 0;

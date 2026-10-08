@@ -51,8 +51,9 @@
 // the VM generation owner decides whether to discard it or retain it for recovery. Individual writes do not make
 // an entire generation transactional.
 //
-// Every generation includes lmx, the guest owner: its commands, its daemon and /etc/lmx/config.json, rendered from
-// the same declaration. The flake also exports them with that file as packages.<system>.lmx. The configuration's
+// Every generation includes lmx, the guest owner: its commands, its daemon, /etc/lmx/config.json and the help cards
+// of the evaluated modules in /etc/lmx/help.json, rendered from the same declaration. The flake also exports them
+// with those files as packages.<system>.lmx. The configuration's
 // theme flavor sets lmx.capabilities.theme, which lmx and the catalog modules read. The Bash fallback prompt
 // uses the theme's colors only when no Starship provider is enabled; dumb terminals and NO_COLOR use plain text. Guest
 // help, identity, and terminal compatibility remain available with an empty optional module selection.

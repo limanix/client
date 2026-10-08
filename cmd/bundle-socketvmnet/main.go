@@ -3,7 +3,7 @@
 // It downloads socket_vmnet archives for arm64 and amd64 using the release pins supplied by Taskfile, then verifies their contents.
 // The bundle package embeds these archives in Limanix and supplies the selected helper for administrator-approved network setup.
 //
-// Run this command through task ci/build or task ci/test to supply the required release pins and macOS baseline.
+// Run this command through task release/build or task ci/golang/test to supply the required release pins and macOS baseline.
 // The --root flag selects the repository directory.
 //
 // Upstream: https://github.com/lima-vm/socket_vmnet.

@@ -16,17 +16,17 @@
 //	             ↓
 //	stop → start → lmx status --wait converged
 //
-// [Guest.Apply] runs the lmxd of the generation it applies, so the base image, a VM created before lmx and a
+// Because [Guest.Apply] runs the lmxd of the generation it applies, the base image, a VM created before lmx and a
 // current VM take the same steps. lmxd installs the environment files, makes room in the store and builds the
-// generation for the next boot. Apply prints the build lines on Stdout and Stderr and passes lmx warnings to Warn.
-// A build that fails on a full disk adds a [DiskError] with the usage lmx reported; a package build that runs out of
+// generation for the next boot. Apply prints the build lines on Stdout and Stderr and passes lmx warnings to Warn. A
+// build that fails on a full disk adds a [DiskError] with the usage lmx reported; a package build that runs out of
 // room before lmx runs says that the disk is full.
 //
 // A failure before the restart stops the transient lmxd and starts the guest's own lmx.service, if there is one; the
-// VM is not restarted. The apply belongs to lmxd, so cancellation runs lmx apply cancel and returns the context's
-// error once lmx confirms the stop; a stop that cannot be confirmed is an error. After the restart, a
-// [FinalizeError] means that the generation runs, but lmxd could not remove the older generations yet and tries
-// again later. Any other end of the wait carries the conditions lmxd reported last.
+// VM is not restarted. The apply belongs to lmxd: cancellation runs lmx apply cancel and returns the context's error
+// once lmx confirms the stop; a stop that cannot be confirmed is an error. After the restart, a [FinalizeError]
+// means that the generation runs, but lmxd could not remove the older generations yet and tries again later. Any
+// other end of the wait carries the conditions lmxd reported last.
 //
 // # Disk and status
 //
