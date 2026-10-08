@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 
 	"github.com/limanix/client/internal/config"
@@ -44,6 +46,9 @@ type fakeBackend struct {
 	rejectStoppedStop bool
 	disk              *domain.DiskUsage
 	unfinalized       bool
+
+	// checks answers lmx doctor and lmx net check.
+	checks string
 }
 
 func (f *fakeBackend) called(operation, name string, force bool, args []string) error {
@@ -186,6 +191,8 @@ func (f *fakeBackend) answer(command string) (string, error) {
 		return `{"contract":1,"ok":true,"data":{"freed_bytes":0,"collected":false}}`, nil
 	case strings.HasPrefix(command, "sudo lmx status --wait") && f.unfinalized:
 		return `{"contract":1,"ok":false,"error":{"code":"finalize.failed","message":"Finalizing generation failed."}}`, failed
+	case strings.HasPrefix(command, "sudo lmx doctor"), strings.HasPrefix(command, "sudo lmx net check"):
+		return f.checks, nil
 	case strings.HasPrefix(command, "sudo lmx status"):
 		return `{"contract":1,"ok":true,"data":{"disk":` + string(disk) + `,"interfaces":[{"name":"enp0s1","mac":"52:55:55:4a:e4:84","ipv4":["192.0.2.10"]}]}}`, nil
 	}
@@ -1092,6 +1099,118 @@ func TestShellPreservesArgumentsAndChildExitStatus(t *testing.T) {
 	}
 	if _, err := f.manager.Shell(context.Background(), instance.Identity.Name, nil); err == nil || !strings.Contains(err.Error(), "not running") {
 		t.Fatalf("entered a stopped VM: %v", err)
+	}
+}
+
+func TestDoctorAsksNoGuestOfAStoppedOrBusyVM(t *testing.T) {
+	f := fixture(t)
+	instance, _ := f.create(t, "sandbox")
+	if err := f.manager.Stop(context.Background(), "sandbox"); err != nil {
+		t.Fatal(err)
+	}
+	calls := len(f.backend.calls)
+
+	report, err := f.manager.Doctor(context.Background(), "sandbox")
+	want := []guest.Check{{Check: "vm", Status: guest.CheckFailed, Message: "The VM is stopped.", Hint: "Run limanix start sandbox."}}
+	if err != nil || !reflect.DeepEqual(report.Checks, want) || !report.Failed() {
+		t.Fatalf("doctor: %+v %v", report, err)
+	}
+
+	// An update that holds the VM starts it itself.
+	instance.Status = domain.Updating
+	if err := f.store.Save(instance); err != nil {
+		t.Fatal(err)
+	}
+	lock, err := f.store.InstanceLock(context.Background(), "sandbox")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := lock.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	report, err = f.manager.Doctor(context.Background(), "sandbox")
+	want = []guest.Check{{Check: "vm", Status: guest.CheckWarning, Message: "Another limanix command is updating the VM.", Hint: "Wait for it to finish, then check again."}}
+	if err != nil || !reflect.DeepEqual(report.Checks, want) || report.Failed() {
+		t.Fatalf("doctor during an update: %+v %v", report, err)
+	}
+	if slices.ContainsFunc(f.backend.calls[calls:], func(call backendCall) bool { return call.Operation == "run" }) {
+		t.Fatalf("asked the guest: %+v", f.backend.calls[calls:])
+	}
+	if _, err := f.manager.Doctor(context.Background(), "unknown"); err == nil {
+		t.Fatal("doctor of an unknown VM succeeded")
+	}
+}
+
+func TestDoctorAddsTheGuestChecksAfterTheHosts(t *testing.T) {
+	f := fixture(t)
+	f.create(t, "sandbox")
+	owner := guest.Check{Check: "owner", Status: guest.CheckFailed, Message: "lmxd does not answer.", Hint: "Check systemctl status lmx.socket lmx.service and journalctl -u lmx."}
+	answer, err := json.Marshal(map[string]any{"contract": 1, "ok": true, "data": map[string]any{"checks": []guest.Check{owner}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.backend.checks = string(answer)
+
+	report, err := f.manager.Doctor(context.Background(), "sandbox")
+	want := []guest.Check{
+		{Check: "vm", Status: guest.CheckOK, Message: "Running; the last create or update completed."},
+		{Check: "address", Status: guest.CheckOK, Message: "The guest has 192.0.2.10 on the shared network."},
+		owner,
+	}
+	if err != nil || report.Name != "sandbox" || !reflect.DeepEqual(report.Checks, want) || !report.Failed() {
+		t.Fatalf("doctor: %+v %v", report, err)
+	}
+
+	f.backend.checks = ""
+	report, err = f.manager.Doctor(context.Background(), "sandbox")
+	silent := guest.Check{Check: "guest", Status: guest.CheckFailed, Message: "lmx gave no answer of the host contract", Hint: "Check guest access with limanix shell sandbox -- true."}
+	if err != nil || len(report.Checks) != 3 || report.Checks[2] != silent {
+		t.Fatalf("a guest without an answer: %+v %v", report, err)
+	}
+}
+
+func TestNetworkCheckConnectsToATCPPortFromTheMac(t *testing.T) {
+	f := fixture(t)
+	f.create(t, "sandbox")
+	f.backend.checks = `{"contract":1,"ok":true,"data":{"port":8080,"protocol":"tcp","checks":[{"check":"listener","status":"ok","message":"TCP 8080 listens on 0.0.0.0."}]}}`
+	refused := &net.OpError{Op: "dial", Net: "tcp", Err: os.NewSyscallError("connect", syscall.ECONNREFUSED)}
+	for _, test := range []struct {
+		name     string
+		protocol Protocol
+		refused  error
+		want     guest.Check
+	}{
+		{"connected", TCP, nil, guest.Check{Check: "connect", Status: guest.CheckOK, Message: "Connected to 192.0.2.10:8080 from the Mac."}},
+		{"refused", TCP, refused, guest.Check{
+			Check: "connect", Status: guest.CheckFailed, Message: "Cannot connect to 192.0.2.10:8080 from the Mac: connection refused.",
+			Hint: "The guest checks passed; check a VPN, a firewall, or the Local Network permission of your terminal app.",
+		}},
+		{"udp", UDP, nil, guest.Check{Check: "listener", Status: guest.CheckOK, Message: "TCP 8080 listens on 0.0.0.0."}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var dialed []string
+			f.manager.dial = func(_ context.Context, network, address string) (net.Conn, error) {
+				dialed = append(dialed, network+" "+address)
+				if test.refused != nil {
+					return nil, test.refused
+				}
+				client, server := net.Pipe()
+				return client, server.Close()
+			}
+
+			report, err := f.manager.NetworkCheck(context.Background(), "sandbox", 8080, test.protocol)
+			if err != nil || report.Port != 8080 || report.Protocol != test.protocol || len(report.Checks) == 0 || report.Checks[len(report.Checks)-1] != test.want {
+				t.Fatalf("network check: %+v %v", report, err)
+			}
+			if test.protocol == UDP && (len(dialed) != 0 || !strings.HasSuffix(strings.Join(f.backend.calls[len(f.backend.calls)-1].Arguments, " "), "--udp --json")) {
+				t.Fatalf("UDP check: dialed %q, calls %+v", dialed, f.backend.calls)
+			}
+			if test.protocol == TCP && !reflect.DeepEqual(dialed, []string{"tcp 192.0.2.10:8080"}) {
+				t.Fatalf("dialed %q", dialed)
+			}
+		})
 	}
 }
 

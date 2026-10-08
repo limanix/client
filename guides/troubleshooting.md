@@ -1,7 +1,21 @@
 # Troubleshooting
 
-Start with the command that failed and its original output. Then inspect the
-saved and live state from your **Mac**:
+Start with the command that failed and its original output. Then check the VM
+from your **Mac**, replacing `dev-box` with its name:
+
+```console
+limanix doctor dev-box
+```
+
+`doctor` prints one row per check: `vm` from the saved record and Lima,
+`address` from the guest, then the checks of the guest owner `lmx`: its
+configuration, `lmxd`, the NixOS generations and, when it runs low, the disk. A
+VM that is not running, or that another command is changing, shows only `vm`; a
+guest that gives no answer shows a `guest` row instead of its checks. A hint
+under a row says what to do. The command exits with status 1 when a check
+failed, and `--json` prints the same checks.
+
+Then inspect the saved and live state of every VM:
 
 ```console
 limanix --version
@@ -9,8 +23,8 @@ limanix list
 limanix list --json
 ```
 
-`list` does not repair or restart a VM. Keep the VM name, both status fields,
-and the error text together when investigating a failure.
+`doctor` and `list` do not repair or restart a VM. Keep the VM name, both status
+fields, and the error text together when investigating a failure.
 
 ## Creation fails before the VM starts
 
@@ -69,7 +83,7 @@ changes are not automatically undone.
 | `update`: input validation or preparation | The existing VM has not yet been stopped for this update. If it was running, its applications may still be running. A rejected update can leave the previous operation state unchanged. |
 | `update`: stopping or editing the backend | The VM may already be stopped or have new Lima settings. |
 | NixOS evaluation or build | `lmxd` may already have installed the new environment files; an evaluation error stops before it starts. The failed build does not trigger the restart, and the guest returns to its own `lmxd`. |
-| Restart, or the wait for `lmxd` | The NixOS build succeeded, but the operation has not been marked ready. A platform check that keeps failing after the boot is reported as `Generation … is booted but unhealthy` with the reason; inside the VM, `sudo lmx doctor` shows the check. |
+| Restart, or the wait for `lmxd` | The NixOS build succeeded, but the operation has not been marked ready. A platform check that keeps failing after the boot is reported as `Generation … is booted but unhealthy` with the reason; `limanix doctor NAME` shows the check. |
 
 If the backend exists and both saved records are valid:
 
@@ -244,9 +258,17 @@ address all produce an empty result. Check guest access first:
 limanix shell dev-box -- true
 ```
 
-If the shell works, continue with [Networking](networking.md) to check the
-service's listening address and guest firewall ports. A successful shell
-connection does not confirm that a separate application is healthy.
+If the shell works, check the service's port, for example `8080`:
+
+```console
+limanix network check dev-box 8080
+```
+
+It checks the guest firewall, the listener and its process, then connects from
+the Mac. See
+[Check a connection in order](networking.md#check-a-connection-in-order). A
+successful shell connection does not confirm that a separate application is
+healthy.
 
 ## Keep useful diagnostics
 

@@ -26,8 +26,8 @@ limanix modules --help
 limanix network --help
 ```
 
-`limanix list --json` and `limanix modules list --json` provide JSON output for
-scripts.
+`limanix list`, `limanix modules list`, `limanix doctor` and
+`limanix network check` print JSON for scripts with `--json`.
 
 ## Generate a configuration example
 

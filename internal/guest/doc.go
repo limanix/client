@@ -39,11 +39,16 @@
 // call. A guest without lmx gets a notice to run limanix update; any other failure leaves the status empty. The
 // listing layer propagates cancellation of the parent operation. The client must support concurrent status calls.
 //
+// # Checks
+//
+// [Guest.Doctor] and [Guest.NetCheck] run lmx doctor and lmx net check within 30 seconds and return their [Check]
+// records unchanged. lmx exits with status 1 when a check failed, but its answer is still a success.
+//
 // # Sessions
 //
 // [Guest.Shell] changes to the development user's home and preserves literal command arguments and exit status.
 // An empty argument list opens a login shell. The management account and the development account are distinct.
 //
-// Read apply.go for the steps, follow.go for the build output and cancellation, lmx.go for the contract, status.go
-// and reserve.go for the queries, and shell.go for user switching.
+// Read apply.go for the steps, follow.go for the build output and cancellation, lmx.go for the contract, status.go,
+// reserve.go, and check.go for the queries, and shell.go for user switching.
 package guest

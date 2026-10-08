@@ -45,7 +45,7 @@ func Command(streams IO, dependencies Dependencies) *cobra.Command {
 	root.AddCommand(
 		hostagent.Command(),
 		networkInstallerCommand(),
-		networkCommand(),
+		networkCommand(dependencies),
 		firstConfigCommand(),
 		createCommand(dependencies),
 		updateCommand(dependencies),
@@ -54,6 +54,7 @@ func Command(streams IO, dependencies Dependencies) *cobra.Command {
 		stopCommand(dependencies),
 		deleteCommand(dependencies),
 		shellCommand(dependencies),
+		doctorCommand(dependencies),
 		modulesCommand(dependencies),
 	)
 	return root

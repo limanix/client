@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	"github.com/limanix/client/internal/buildinfo"
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/guest"
 	"github.com/limanix/client/internal/lima"
 	"github.com/limanix/client/internal/modules"
 	"github.com/limanix/client/internal/vm"
@@ -34,6 +36,7 @@ type managerCall struct {
 type fakeManager struct {
 	calls       []managerCall
 	entries     []vm.Info
+	report      vm.Report
 	failure     error
 	shellStatus int
 	create      func(context.Context) (domain.Instance, error)
@@ -79,6 +82,16 @@ func (manager *fakeManager) Shell(ctx context.Context, name domain.VMName, args 
 		return manager.shell(ctx)
 	}
 	return manager.shellStatus, manager.failure
+}
+
+func (manager *fakeManager) Doctor(_ context.Context, name domain.VMName) (vm.Report, error) {
+	manager.calls = append(manager.calls, managerCall{operation: "doctor", name: name})
+	return manager.report, manager.failure
+}
+
+func (manager *fakeManager) NetworkCheck(_ context.Context, name domain.VMName, port uint16, protocol vm.Protocol) (vm.Report, error) {
+	manager.calls = append(manager.calls, managerCall{operation: "network check", name: name, args: []string{strconv.Itoa(int(port)), string(protocol)}})
+	return manager.report, manager.failure
 }
 
 type registryCall struct {
@@ -142,7 +155,7 @@ func TestHelpVersionAndReferenceDoNotInitializeHostServices(t *testing.T) {
 
 func TestUsageFailuresReturnTwoBeforeInitializingDependencies(t *testing.T) {
 	dependencies := Dependencies{Manager: func() (Manager, error) { t.Fatal("invalid usage initialized VM services"); return nil, nil }, Registry: func() (Registry, error) { t.Fatal("invalid usage initialized module services"); return nil, nil }}
-	for _, args := range [][]string{{"unknown"}, {"--unknown"}, {"list", "--unknown"}, {"list", "extra"}, {"create"}, {"create", "--config"}, {"create", "--config=", "extra"}, {"create", "name", "--config=cfg.toml"}, {"update"}, {"update", "name", "--config=cfg.toml"}, {"start"}, {"stop", "one", "two"}, {"delete"}, {"delete", "name", "--force=invalid"}, {"shell"}, {"first-config", "one", "two"}, {"modules"}, {"modules", "unknown"}, {"modules", "add", "one"}, {"modules", "remove", "one", "two"}, {"modules", "list", "--unknown"}} {
+	for _, args := range [][]string{{"unknown"}, {"--unknown"}, {"list", "--unknown"}, {"list", "extra"}, {"create"}, {"create", "--config"}, {"create", "--config=", "extra"}, {"create", "name", "--config=cfg.toml"}, {"update"}, {"update", "name", "--config=cfg.toml"}, {"start"}, {"stop", "one", "two"}, {"delete"}, {"delete", "name", "--force=invalid"}, {"shell"}, {"first-config", "one", "two"}, {"modules"}, {"modules", "unknown"}, {"modules", "add", "one"}, {"modules", "remove", "one", "two"}, {"modules", "list", "--unknown"}, {"doctor"}, {"network", "check", "sandbox"}, {"network", "check", "sandbox", "0"}, {"network", "check", "sandbox", "65536"}} {
 		status, output, diagnostics := runCLI(args, dependencies)
 		if status != 2 || output != "" || !strings.HasPrefix(diagnostics, "limanix: ") || strings.Contains(diagnostics, "warning:") {
 			t.Fatalf("usage %v returned %d %q %q", args, status, output, diagnostics)
@@ -153,7 +166,7 @@ func TestUsageFailuresReturnTwoBeforeInitializingDependencies(t *testing.T) {
 func TestOperationAndDependencyFailuresReturnOne(t *testing.T) {
 	manager := &fakeManager{failure: errors.New("VM unavailable")}
 	registry := &fakeRegistry{failure: errors.New("registry unavailable")}
-	for _, args := range [][]string{{"create", "--config=cfg.toml"}, {"update", "--config=cfg.toml"}, {"list"}, {"start", "sandbox"}, {"stop", "sandbox"}, {"delete", "sandbox"}, {"shell", "sandbox"}, {"modules", "list"}, {"modules", "add", "custom", "/source"}, {"modules", "remove", "custom"}} {
+	for _, args := range [][]string{{"create", "--config=cfg.toml"}, {"update", "--config=cfg.toml"}, {"list"}, {"start", "sandbox"}, {"stop", "sandbox"}, {"delete", "sandbox"}, {"shell", "sandbox"}, {"modules", "list"}, {"modules", "add", "custom", "/source"}, {"modules", "remove", "custom"}, {"doctor", "sandbox"}, {"network", "check", "sandbox", "8080"}} {
 		status, output, diagnostics := runCLI(args, fakeDependencies(manager, registry))
 		if status != 1 || output != "" || !strings.HasPrefix(diagnostics, "limanix: ") || strings.Contains(diagnostics, "warning:") {
 			t.Fatalf("operation %v returned %d %q %q", args, status, output, diagnostics)
@@ -373,6 +386,35 @@ func TestListShowsTheScarcerGuestDiskLimit(t *testing.T) {
 	}
 	if disk, ok := rows[0]["disk"].(map[string]any); !ok || disk["free_inodes"] != float64(30) || rows[2]["disk"] != nil {
 		t.Fatalf("disk JSON lost: %s", output)
+	}
+}
+
+func TestChecksAlignLikeLMXAndAFailedCheckExitsWithOne(t *testing.T) {
+	manager := &fakeManager{report: vm.Report{Name: "sandbox", Checks: []guest.Check{
+		{Check: "vm", Status: guest.CheckOK, Message: "Running; the last create or update completed."},
+		{Check: "generations", Status: guest.CheckWarning, Message: "Generation 0123456789ab is built; restart the VM to boot it.", Hint: "Restart the VM from the Mac; limanix update does it."},
+		{Check: "process", Status: guest.CheckUnknown, Message: "first line\nsecond \x1b[1mline\n"},
+	}}}
+	status, output, diagnostics := runCLI([]string{"doctor", "sandbox"}, fakeDependencies(manager, &fakeRegistry{}))
+	want := "ok       vm          Running; the last create or update completed.\n" +
+		"warning  generations Generation 0123456789ab is built; restart the VM to boot it.\n" +
+		"                     Restart the VM from the Mac; limanix update does it.\n" +
+		"unknown  process     first line\n" +
+		"                     second [1mline\n"
+	if status != 0 || output != want || diagnostics != "" {
+		t.Fatalf("a warning changed the result: %d %q %q", status, output, diagnostics)
+	}
+
+	manager.report.Checks[1].Status = guest.CheckFailed
+	for _, args := range [][]string{{"doctor", "sandbox", "--json"}, {"network", "check", "sandbox", "8080", "--udp", "--json"}} {
+		status, output, diagnostics = runCLI(args, fakeDependencies(manager, &fakeRegistry{}))
+		var report vm.Report
+		if err := json.Unmarshal([]byte(output), &report); err != nil || status != 1 || diagnostics != "" || !reflect.DeepEqual(report, manager.report) {
+			t.Fatalf("%v: %d %q %q", args, status, output, diagnostics)
+		}
+	}
+	if call := manager.calls[len(manager.calls)-1]; call.name != "sandbox" || !reflect.DeepEqual(call.args, []string{"8080", "udp"}) {
+		t.Fatalf("network check arguments: %+v", call)
 	}
 }
 

@@ -14,6 +14,8 @@ examples use a VM named `dev-box`; replace it with your VM's name.
 | `limanix stop dev-box` | Shut down the VM and keep its disk and managed home. |
 | `limanix shell dev-box` | Open a terminal as the development user in their home. |
 | `limanix list` | Show backend power state, the last Limanix operation, and the discovered guest address. |
+| `limanix doctor dev-box` | Check the VM, its address, and the guest owner `lmx`, with a hint for each problem. |
+| `limanix network check dev-box 8080` | Check why a guest port is unreachable from the Mac. |
 | `limanix delete dev-box` | Remove the VM disk and saved VM record; preserve the managed home. |
 
 `create` and `update` use `name` from the TOML file; the other VM commands take
@@ -98,16 +100,24 @@ stopping a VM does not reset an earlier operation error to `ready`. See
 [Troubleshooting](troubleshooting.md) for error, interrupted, missing, or
 corrupt records.
 
-`ready` is a saved result, not a continuous health check. Check current guest
-access with:
+`ready` is a saved result, not a continuous health check. Check the VM and its
+guest now with:
+
+```console
+limanix doctor dev-box
+```
+
+`doctor` checks the saved record and Lima, the guest's address, and the guest
+owner `lmx`; see [Troubleshooting](troubleshooting.md). Check access as the
+development user with:
 
 ```console
 limanix shell dev-box -- true
 ```
 
-A successful exit confirms access as the development user; check application
-health separately. An `ADDRESS` of `-` means no shared-network IPv4 address was
-discovered. See [Networking](networking.md) for service access.
+A successful exit confirms that access; check application health separately. An
+`ADDRESS` of `-` means no shared-network IPv4 address was discovered. See
+[Networking](networking.md) for service access.
 
 ## Apply a configuration change
 

@@ -133,6 +133,47 @@ func shellCommand(dependencies Dependencies) *cobra.Command {
 	return command
 }
 
+func doctorCommand(dependencies Dependencies) *cobra.Command {
+	var asJSON bool
+
+	command := &cobra.Command{
+		Use:   "doctor NAME",
+		Short: "Check a VM, its address, and the guest owner lmx.",
+		Long: "Check a VM, its address, and the guest owner lmx. Each check is ok, warning, failed, or unknown, with a hint " +
+			"when there is something to do. The command exits with status 1 when a check failed.",
+		Args: exactArgs(1),
+
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name, err := domain.NewVMName(args[0])
+			if err != nil {
+				return err
+			}
+
+			manager, err := dependencies.Manager()
+			if err != nil {
+				return err
+			}
+
+			report, err := manager.Doctor(cmd.Context(), name)
+			if err != nil {
+				return err
+			}
+
+			if err := writeReport(cmd.OutOrStdout(), report, asJSON); err != nil {
+				return err
+			}
+
+			if report.Failed() {
+				return &exitError{code: 1}
+			}
+
+			return nil
+		},
+	}
+	command.Flags().BoolVar(&asJSON, "json", false, "Print machine-readable JSON.")
+	return command
+}
+
 func shellArguments(args []string) (string, []string, error) {
 	var name, session string
 	var hasName, hasSession bool

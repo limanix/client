@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"text/tabwriter"
+	"unicode"
 
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/modules"
@@ -18,9 +19,54 @@ func writeJSON[T any](writer io.Writer, entries []T) error {
 		entries = []T{}
 	}
 
+	return encodeJSON(writer, entries)
+}
+
+func encodeJSON(writer io.Writer, value any) error {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(entries)
+	return encoder.Encode(value)
+}
+
+// writeReport prints a report as JSON, or as lmx prints checks: aligned rows of status, check, and message, each hint
+// on its own line under its row.
+func writeReport(output io.Writer, report vm.Report, asJSON bool) error {
+	if asJSON {
+		return encodeJSON(output, report)
+	}
+
+	for _, check := range report.Checks {
+		if _, err := fmt.Fprintf(output, "%-8s %-11s %s\n", check.Status, check.Check, column(check.Message)); err != nil {
+			return err
+		}
+
+		if check.Hint == "" {
+			continue
+		}
+
+		if _, err := fmt.Fprintf(output, "%s%s\n", checkIndent, column(check.Hint)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// checkIndent puts a hint and the further lines of a message under the message column.
+var checkIndent = strings.Repeat(" ", 21)
+
+// column keeps text in the message column: it drops control characters, such as an escape sequence in a process name
+// from the guest, and indents further lines, such as those of an SSH error.
+func column(text string) string {
+	text = strings.Map(func(character rune) rune {
+		if character != '\n' && unicode.IsControl(character) {
+			return -1
+		}
+
+		return character
+	}, strings.TrimSpace(text))
+
+	return strings.ReplaceAll(text, "\n", "\n"+checkIndent)
 }
 
 func writeInstances(output io.Writer, entries []vm.Info) error {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
 
 	"github.com/limanix/client/internal/config"
@@ -23,6 +24,9 @@ type Manager struct {
 
 	generations *generationBuilder
 	hostUID     int
+
+	// dial opens the connection of a TCP network check from the Mac.
+	dial func(context.Context, string, string) (net.Conn, error)
 
 	// Warn receives the problems of a create or update that do not fail it.
 	Warn func(string, ...any)
@@ -50,6 +54,7 @@ func New(deps Dependencies) *Manager {
 		guest:       deps.Guest,
 		hostUID:     deps.HostUID,
 		generations: newGenerationBuilder(deps),
+		dial:        (&net.Dialer{Timeout: connectTimeout}).DialContext,
 		Warn:        log.New(os.Stderr, "limanix: warning: ", 0).Printf,
 	}
 }

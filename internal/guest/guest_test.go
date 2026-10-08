@@ -343,6 +343,39 @@ func TestReserveWarnsOnlyAboutALowDisk(t *testing.T) {
 	}
 }
 
+func TestChecksReadTheContractExamples(t *testing.T) {
+	client := &fakeClient{run: func(ctx context.Context, command string) (string, error) {
+		if deadline, bounded := ctx.Deadline(); !bounded || time.Until(deadline) > checkTimeout {
+			t.Error("the checks have no deadline")
+		}
+		if strings.Contains(command, "net check") {
+			// lmx exits with status 1 after a failed check, but answers.
+			return line(t, "net-check.json"), commandFailure(t, 1, "")
+		}
+		return line(t, "doctor.json"), nil
+	}}
+
+	doctor, err := New(client).Doctor(context.Background(), "sandbox")
+	restart := Check{Check: "generations", Status: CheckWarning, Message: "Generation 0123456789ab is built; restart the VM to boot it.", Hint: "Restart the VM from the Mac; limanix update does it."}
+	if err != nil || len(doctor) != 3 || doctor[2] != restart {
+		t.Fatalf("doctor: %+v %v", doctor, err)
+	}
+	port, err := New(client).NetCheck(context.Background(), "sandbox", 8080, false)
+	if err != nil || len(port) != 3 || port[1].Check != "listener" || port[1].Status != CheckFailed || port[1].Hint == "" {
+		t.Fatalf("net check: %+v %v", port, err)
+	}
+	if !reflect.DeepEqual(client.calls, []string{"sudo lmx doctor --json", "sudo lmx net check 8080 --json"}) {
+		t.Fatalf("calls: %q", client.calls)
+	}
+
+	slow := &fakeClient{run: func(context.Context, string) (string, error) {
+		return "", &lima.Error{Operation: "SSH", Err: context.DeadlineExceeded}
+	}}
+	if _, err := New(slow).Doctor(context.Background(), "sandbox"); err == nil || err.Error() != "lmx doctor gave no answer within 30s" {
+		t.Fatalf("timeout: %v", err)
+	}
+}
+
 func TestDecodeAnswerFollowsTheContract(t *testing.T) {
 	failed := errors.New("exit status 1")
 	for _, test := range []struct {

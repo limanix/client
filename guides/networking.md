@@ -181,6 +181,35 @@ helper and authorization.
 
 ## Check a connection in order
 
+On your **Mac**, check the service's port, replacing `dev-box` and `8080` with
+your VM's name and the port:
+
+```console
+limanix network check dev-box 8080
+```
+
+The command runs these checks in order and prints a hint under a check that
+needs attention:
+
+| Check | What it checks |
+| -- | -- |
+| `vm` | The VM is running, and its last create or update completed. |
+| `address` | The guest has an IPv4 address on the shared network. |
+| `firewall` | The guest firewall opens the port for its protocol. |
+| `listener` | Something listens on the port on an address other than loopback. |
+| `process` | Which process and user hold the socket, when something listens. |
+| `connect` | The Mac connects to the address and port within 3 seconds. |
+
+Add `--udp` for a UDP port; UDP has no connection to try, so `connect` is left
+out. `--json` prints the same checks for scripts. A failed check makes the
+command exit with status 1.
+
+When the guest checks pass but `connect` fails, the connection stops on the Mac:
+check a VPN, a firewall, and the Local Network permission of your terminal app
+in System Settings › Privacy & Security.
+
+To check by hand, or when every check passes but your client still fails:
+
 1. Run `limanix list` and check that the VM is running. `ADDRESS = -` means no
    guest address was reported; it does not identify the cause. A notice under
    the row says what to do first.

@@ -18,7 +18,8 @@
 //
 // [Execute] returns an exit code rather than calling os.Exit.
 // Success returns 0, usage errors return 2, ordinary failures return 1, and canceled foreground operations return 130.
-// Shell commands retain the remote process exit status.
+// Shell commands retain the remote process exit status; doctor and network check return 1 after printing every check
+// when one failed.
 //
 // Normal commands handle SIGINT and SIGTERM through cancellation. Interactive SSH handles foreground SIGINT itself.
 // The hidden hostagent command owns its shutdown lifecycle and uses JSON diagnostics, unlike ordinary CLI output.
@@ -26,5 +27,5 @@
 // # Reading the implementation
 //
 // Read cli.go and dependencies.go for command assembly, execute.go and error.go for process behavior, then configuration.go,
-// power.go, vms.go, and modules.go for handlers. output.go and reference.go contain presentation, not lifecycle or persistence rules.
+// power.go, vms.go, network.go, and modules.go for handlers. output.go and reference.go contain presentation, not lifecycle or persistence rules.
 package cli
