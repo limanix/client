@@ -7,14 +7,6 @@
 }:
 let
   inherit ((builtins.fromJSON (builtins.readFile ./runtime.json))) disk;
-  storeGuard = pkgs.writeShellScript "limanix-store-guard" ''
-    limanix_stat=${pkgs.coreutils}/bin/stat
-    limanix_nix_store=${config.nix.package}/bin/nix-store
-    limanix_grep=${pkgs.gnugrep}/bin/grep
-    limanix_collect_percent=${toString disk.collectPercent}
-    limanix_minimum_percent=${toString disk.minimumPercent}
-    ${builtins.readFile ./store-guard.sh}
-  '';
 in
 {
   imports = [
@@ -56,34 +48,23 @@ in
     "flakes"
   ];
 
-  # The client removes replaced generations after each apply; this collects what guest use leaves
-  # behind. ext4 sizes its inode table with the disk, and a Nixpkgs source tree alone uses ~90k.
-  nix.gc.automatic = lib.mkDefault true;
+  # lmxd collects unreferenced paths after each update and whenever free space or inodes fall below
+  # the collect limit. ext4 sizes its inode table with the disk, and a Nixpkgs source tree alone
+  # uses ~90k.
   nix.settings.auto-optimise-store = lib.mkDefault true;
 
-  # Builds collect garbage themselves when free bytes fall below the minimum. Nix has no inode
-  # equivalent, so the guard checks both limits between builds.
+  # Builds collect garbage themselves when free bytes fall below the minimum. lmxd checks both
+  # limits between builds, because Nix has no inode equivalent.
   nix.settings.min-free = lib.mkDefault (disk.bytes * disk.minimumPercent / 100);
   nix.settings.max-free = lib.mkDefault (disk.bytes * disk.collectPercent / 100);
-  systemd.services.limanix-store-guard = {
-    description = "Keep free space and inodes on the guest disk";
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = storeGuard;
-      Nice = 19;
-      IOSchedulingClass = "idle";
-    };
-  };
-  systemd.timers.limanix-store-guard = {
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnBootSec = "5min";
-      OnUnitActiveSec = "15min";
-    };
-  };
 
-  # Configurations come from the generated flake. Disabling channels keeps their state files, so
-  # the base image's copy of Nixpkgs would otherwise stay a garbage-collector root.
+  # The journal is persistent. This keeps weeks of logs, including the previous boot that
+  # `lmx logs --previous` reads, without letting them fill a small guest disk.
+  services.journald.extraConfig = "SystemMaxUse=512M";
+
+  # Configurations come from the generated flake. Disabling channels keeps their state files,
+  # and without the rules below the base image's copy of Nixpkgs would stay a garbage-collector
+  # root.
   nix.channel.enable = lib.mkDefault false;
   systemd.tmpfiles.rules = lib.mkIf (!config.nix.channel.enable) [
     "r /nix/var/nix/profiles/per-user/root/channels"

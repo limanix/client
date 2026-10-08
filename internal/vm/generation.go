@@ -51,7 +51,7 @@ func (g *generationBuilder) prepare(ctx context.Context, instance domain.Instanc
 		return "", err
 	}
 
-	if err = g.prepareBundle(ctx, cfg, directory); err != nil {
+	if err = g.prepareBundle(ctx, cfg, directory, instance.Generation); err != nil {
 		return "", err
 	}
 
@@ -72,7 +72,7 @@ func (g *generationBuilder) prepare(ctx context.Context, instance domain.Instanc
 	return template, ctx.Err()
 }
 
-func (g *generationBuilder) prepareBundle(ctx context.Context, cfg config.Config, directory string) (err error) {
+func (g *generationBuilder) prepareBundle(ctx context.Context, cfg config.Config, directory, generation string) (err error) {
 	sources, err := g.modules.Sources(ctx, cfg.NixOS.Modules)
 	if err != nil {
 		return err
@@ -82,7 +82,7 @@ func (g *generationBuilder) prepareBundle(ctx context.Context, cfg config.Config
 		err = errors.Join(err, sources.Close())
 	}()
 
-	if _, err = nixos.Prepare(cfg, directory, sources.Sources, g.hostUID); err != nil {
+	if _, err = nixos.Prepare(cfg, directory, generation, sources.Sources, g.hostUID); err != nil {
 		return err
 	}
 

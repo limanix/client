@@ -1,6 +1,6 @@
 # Packaged Lima resources
 
-`cmd/bundle-socketvmnet` runs from `task ci/build` or `task ci/golang-test`.
+`cmd/bundle-socketvmnet` runs from `task release/build` or `task ci/golang/test`.
 It downloads the pinned macOS helper release for arm64 and amd64.
 Taskfile supplies its version, archive digests, sizes, and minimum macOS through linker flags.
 A direct invocation without those flags fails.

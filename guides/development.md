@@ -34,6 +34,7 @@ and recovery behavior.
 | `cmd/limanix/`, `internal/cli/` | CLI entry point, commands, flags, output |
 | `internal/config/`, `internal/domain/` | TOML parsing, defaults, validation, domain types |
 | `internal/vm/` | VM lifecycle and configuration generations |
+| `internal/guest/` | Guest steps through `lmx` and development-user sessions |
 | `internal/lima/`, `internal/hostagent/` | Lima integration and host-side VM process |
 | `internal/state/`, `internal/managedhome/` | Saved records and managed home ownership |
 | `internal/modules/` | Local imports and module selection |
@@ -49,25 +50,25 @@ The shared Go tasks run in containers. For tests, choose a published module
 catalog tag and pass it as `modules_version`; replace `v4` below with that tag.
 
 ```console
-task --yes ci/golang-fmt
-task --yes ci/golang-lint
-task --yes ci/golang-test modules_version=v4
-task --yes ci/golang-vuln
-task --yes ci/nixos-eval modules_version=v4
+task --yes ci/golang/fmt
+task --yes ci/golang/lint
+task --yes ci/golang/test modules_version=v4
+task --yes ci/golang/vuln
+task --yes ci/nix/eval modules_version=v4
 ```
 
 | Task | What it checks |
 | -- | -- |
-| `ci/golang-fmt` | Go formatting under `cmd/` and `internal/`, without rewriting files |
-| `ci/golang-lint` | Go source and tests |
-| `ci/golang-test` | Go tests with the race detector, after preparing embedded resources |
-| `ci/golang-vuln` | Known vulnerabilities in the client and its embedded Lima guest agent |
-| `ci/nixos-eval` | Generated guest flake evaluation for the selected client and catalog pair |
+| `ci/golang/fmt` | Go formatting under `cmd/` and `internal/`, without rewriting files |
+| `ci/golang/lint` | Go source and tests |
+| `ci/golang/test` | Go tests with the race detector, after preparing embedded resources |
+| `ci/golang/vuln` | Known vulnerabilities in the client and its embedded Lima guest agent |
+| `ci/nix/eval` | Generated guest flake evaluation for the selected client and catalog pair |
 
 Formatting, linting, and vulnerability checks do not require a published module
 catalog. Tests and native builds prepare the embedded resources before running.
 
-`ci/nixos-eval` runs independently of the Go suite for AMD64 and ARM64, with an
+`ci/nix/eval` runs independently of the Go suite for AMD64 and ARM64, with an
 empty module selection, every catalog selector individually, and supported
 integration cases. The integration test calls the same `Prepare` function used
 for VM generations and evaluates the generated flake's system derivation in the
@@ -118,9 +119,9 @@ a release. The required `modules_version` labels that local bundle; it does not
 publish a tag. Run from the client checkout with the modules checkout beside it:
 
 ```console
-task --yes ci/golang-test modules_source=../modules modules_version=local-20261001
-task --yes ci/nixos-eval modules_source=../modules modules_version=local-20261001
-task --yes ci/build modules_source=../modules modules_version=local-20261001 TARGET_ARCH=arm64
+task --yes ci/golang/test modules_source=../modules modules_version=local-20261001
+task --yes ci/nix/eval modules_source=../modules modules_version=local-20261001
+task --yes release/build modules_source=../modules modules_version=local-20261001 TARGET_ARCH=arm64
 ```
 
 Use `TARGET_ARCH=amd64` for an Intel binary. Run the resulting binary explicitly
@@ -144,7 +145,7 @@ workflow.
 Run on your Mac with the module catalog tag you want to bundle:
 
 ```console
-task --yes ci/build modules_version=v4
+task --yes release/build modules_version=v4
 ```
 
 This task runs natively without Docker. `modules_version` is required; Task does
@@ -157,7 +158,7 @@ target. The outputs are `bin/limanix-arm64` for Apple Silicon and
 To build only one architecture, pass `TARGET_ARCH=arm64` or `TARGET_ARCH=amd64`:
 
 ```console
-task --yes ci/build modules_version=v4 TARGET_ARCH=arm64
+task --yes release/build modules_version=v4 TARGET_ARCH=arm64
 ```
 
 CI builds both architectures in parallel, each on a matching macOS runner. Ten
@@ -195,7 +196,7 @@ sequence.
 Set the embedded client version with `RELEASE_TAG`:
 
 ```console
-task --yes ci/build modules_version=v4 RELEASE_TAG=v1.2.3+1
+task --yes release/build modules_version=v4 RELEASE_TAG=v1.2.3+1
 ```
 
 This builds local files; it does not create a Git tag or publish a release.
@@ -207,6 +208,7 @@ This builds local files; it does not create a Git tag or publish a release.
 | NixOS catalog and Nixpkgs pin | Explicit `modules_version` task argument | `cmd/bundle-modules` downloads the selected modules tag |
 | Linux guest agents | Lima dependency in `go.mod` | `cmd/bundle-guestagent` builds `amd64` and `arm64` agents |
 | macOS network helper | `socket_vmnet` version, hashes, and sizes in `Taskfile.yml` | `cmd/bundle-socketvmnet` downloads and validates both archives |
+| `lmx` guest owner | Release version, URLs and SHA-256 hashes in `internal/nixos/resources/base/lmx.json` | None; the guest fetches the pinned archive while it builds a generation |
 
 Generated archives are ignored by Git. Without `modules_source`, tasks that
 prepare the catalog require the selected modules tag to exist upstream. With it,
@@ -220,6 +222,19 @@ guest configuration; private `_shared/internal/` files are imported only by
 their consumers. Follow
 [Update the NixOS base](https://limanix.dev/categories/nixos/writing-modules.html#update-the-nixos-base)
 to change it.
+
+To update `lmx`, copy the version and the `.sha256` files of an
+[lmx release](https://github.com/limanix/lmx/releases) into `lmx.json`, and the
+release's `contract/v1` examples that `internal/guest/testdata/` holds into that
+directory. `ci/golang/test` checks the pin's shape and decodes the examples, and
+`ci/nix/eval` evaluates the platform that uses the pin; the archive itself is
+downloaded only by a guest. A release with other configuration or help-card
+fields needs the matching change in `resources/base/lmx.nix`, which renders
+`config.json` and `help.json` for the release. A guest's system build runs the
+release on the rendered file and fails before a restart when the two disagree.
+The platform reads and sets the catalog's theme and needs catalog v3 or newer:
+an older catalog fails the evaluation because the option
+`lmx.capabilities.theme` does not exist.
 
 The client owns `internal/nixos/resources/flake.nix.tmpl` and `flake.lock.tmpl`,
 including the `nixos-lima` dependency graph. The catalog supplies the `nixpkgs`

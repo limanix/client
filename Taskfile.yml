@@ -3,13 +3,16 @@ version: '3.53.1'
 
 includes:
   golang:
-    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.4/taskfiles/golang/Taskfile.yml
+    # v0.0.5
+    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/81255f635d839a2b46417720676cd2bebfc10cff/taskfiles/golang/Taskfile.yml
     internal: false
   nix:
-    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.4/taskfiles/nix/Taskfile.yml
+    # v0.0.5
+    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/81255f635d839a2b46417720676cd2bebfc10cff/taskfiles/nix/Taskfile.yml
     internal: true
   markdown:
-    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/v0.0.5/taskfiles/markdown/Taskfile.yml
+    # v0.0.5
+    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/81255f635d839a2b46417720676cd2bebfc10cff/taskfiles/markdown/Taskfile.yml
     internal: true
 
 vars:
@@ -51,7 +54,7 @@ tasks:
             ./cmd/build-docs --root .
           CONTAINER_ENVS: USER=limanix
 
-  ci/markdown-fmt:
+  ci/markdown/fmt:
     desc: Check source Markdown formatting without modifying files
     cmds:
       - task: markdown:fmt
@@ -67,28 +70,28 @@ tasks:
         vars:
           FMT_PATHS: '{{.markdown_paths}}'
 
-  ci/golang-fmt:
+  ci/golang/fmt:
     desc: Run Go fmt check
     cmds:
       - task: golang:gofumpt
         vars:
           FMT_ARGS: '-l cmd internal'
 
-  ci/golang-lint:
+  ci/golang/lint:
     desc: Run Go lint
     cmds:
       - task: golang:golangci
         vars:
           LINT_ARGS: --timeout=5m ./...
 
-  ci/golang-vuln:
+  ci/golang/vuln:
     desc: Run Go vuln check
     cmds:
       - task: golang:govulncheck
         vars:
           VULN_ARGS: './... github.com/lima-vm/lima/v2/cmd/lima-guestagent'
 
-  ci/golang-test:
+  ci/golang/test:
     desc: Run Go tests with the race detector
     requires:
       vars: [modules_version]
@@ -105,7 +108,7 @@ tasks:
           CONTAINER_ENVS: USER=limanix
           CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
 
-  ci/nixos-eval:
+  ci/nix/eval:
     desc: Evaluate the client/catalog pair; EVAL_ARCH and EVAL_MODULES select cases
     requires:
       vars: [modules_version]
@@ -133,7 +136,7 @@ tasks:
               exec ./.cache/nixos-eval.test -test.v -test.run "^$expected$" -test.timeout=30m
             '
 
-  ci/build:
+  release/build:
     desc: Build client binaries
     vars:
       target_archs: '{{.TARGET_ARCH | default "amd64 arm64"}}'

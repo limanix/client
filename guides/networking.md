@@ -70,9 +70,10 @@ limanix list
 ```
 
 Read the VM's `ADDRESS` column. For an HTTP application, open
-`http://<guest-ip>:8080`, replacing `<guest-ip>` with that address. The address
-is discovered from the running guest's shared-network IPv4 interface; it is not
-a configured static address. Check the current value when reconnecting.
+`http://<guest-ip>:8080`, replacing `<guest-ip>` with that address. The guest
+owner `lmx` reports it from the running guest's shared-network IPv4 interface;
+it is not a configured static address. Check the current value when
+reconnecting.
 
 ### Try an HTTP connection
 
@@ -180,8 +181,38 @@ helper and authorization.
 
 ## Check a connection in order
 
+On your **Mac**, check the service's port, replacing `dev-box` and `8080` with
+your VM's name and the port:
+
+```console
+limanix network check dev-box 8080
+```
+
+The command runs these checks in order and prints a hint under a check that
+needs attention:
+
+| Check | What it checks |
+| -- | -- |
+| `vm` | The VM is running, and its last create or update completed. |
+| `address` | The guest has an IPv4 address on the shared network. |
+| `firewall` | The guest firewall opens the port for its protocol. |
+| `listener` | Something listens on the port on an address other than loopback. |
+| `process` | Which process and user hold the socket, when something listens. |
+| `connect` | The Mac connects to the address and port within 3 seconds. |
+
+Add `--udp` for a UDP port; the result has no `connect` check, because UDP has
+no connection to try. `--json` prints the same checks for scripts. A failed
+check makes the command exit with status 1.
+
+When the guest checks pass but `connect` fails, the connection stops on the Mac:
+check a VPN, a firewall, and the Local Network permission of your terminal app
+in System Settings › Privacy & Security.
+
+To check by hand, or when every check passes but your client still fails:
+
 1. Run `limanix list` and check that the VM is running. `ADDRESS = -` means no
-   guest address was reported; it does not identify the cause.
+   guest address was reported; it does not identify the cause. A notice under
+   the row says what to do first.
 1. Run `limanix shell NAME` with your VM's name. Resolve a VM or SSH error
    before debugging the application.
 1. Check that the application is running on the expected port and a reachable

@@ -58,17 +58,7 @@ func (m *Manager) Create(ctx context.Context, path string) (result domain.Instan
 		return result, m.recordFailure(result, err)
 	}
 
-	if err = m.applyGuest(ctx, result); err != nil {
-		return result, m.recordFailure(result, err)
-	}
-
-	result.MarkReady()
-	if err = m.store.Save(result); err != nil {
-		return result, err
-	}
-
-	m.pruneGuest(ctx, result)
-	return result, nil
+	return m.recordReady(result, m.applyGuest(ctx, result))
 }
 
 func newInstance(cfg config.Config) (domain.Instance, error) {

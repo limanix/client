@@ -71,15 +71,24 @@ func (s *Services) Manager() (*vm.Manager, error) {
 	backend.Stdout = s.output
 	backend.Stderr = s.diagnostics
 
+	var (
+		guests = guest.New(backend)
+		warn   = log.New(s.diagnostics, "limanix: warning: ", 0).Printf
+	)
+
+	guests.Stdout = s.output
+	guests.Stderr = s.diagnostics
+	guests.Warn = warn
+
 	manager := vm.New(vm.Dependencies{
 		Store:   store,
 		Backend: backend,
 		Modules: registry,
 		Homes:   &managedhome.Manager{},
-		Guest:   guest.New(backend),
+		Guest:   guests,
 		HostUID: os.Getuid(),
 	})
-	manager.Warn = log.New(s.diagnostics, "limanix: warning: ", 0).Printf
+	manager.Warn = warn
 
 	return manager, nil
 }

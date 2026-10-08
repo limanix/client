@@ -57,12 +57,8 @@ func (m *Manager) Update(ctx context.Context, path string) (result domain.Instan
 		return result, err
 	}
 
-	if err = m.applyUpdate(ctx, result, cfg.Resources.Disk, template); err != nil {
-		return result, m.recordFailure(result, err)
-	}
-
-	result.MarkReady()
-	if err = m.store.Save(result); err != nil {
+	result, err = m.recordReady(result, m.applyUpdate(ctx, result, cfg.Resources.Disk, template))
+	if err != nil {
 		return result, err
 	}
 
@@ -70,7 +66,6 @@ func (m *Manager) Update(ctx context.Context, path string) (result domain.Instan
 		m.Warn("%v", warning)
 	}
 
-	m.pruneGuest(ctx, result)
 	return result, nil
 }
 

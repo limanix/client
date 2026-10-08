@@ -60,6 +60,20 @@ func (s *Store) FetchAll() ([]Entry, error) {
 	return entries, nil
 }
 
+// Fetch reads one VM as FetchAll lists it, except that a missing or unreadable identity is an error.
+func (s *Store) Fetch(name domain.VMName) (Entry, error) {
+	entry, err := s.loadEntry(name)
+	switch {
+	case err != nil && entry.Identity == nil:
+		return Entry{}, err
+	case err != nil:
+		entry.Instance = nil
+		entry.Error = new(err.Error())
+	}
+
+	return entry, nil
+}
+
 // loadEntry preserves independently readable ownership when runtime state is damaged.
 func (s *Store) loadEntry(name domain.VMName) (Entry, error) {
 	entry := Entry{Name: string(name)}

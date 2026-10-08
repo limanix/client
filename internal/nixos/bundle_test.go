@@ -33,7 +33,7 @@ func TestEmbeddedModulesAndPinnedBaseCopied(t *testing.T) {
 		cfg.NixOS.Modules = append(cfg.NixOS.Modules, source.ID)
 	}
 
-	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), sources, 501)
+	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, sources, 501)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestBundleSnapshotsWholeModuleTreeAndKeepsSecretsOutsideFlake(t *testing.T)
 	values := map[domain.EnvName]domain.EnvValue{"TOKEN": "test-secret-absent-from-flake", "LIMANIX_TEST_EMPTY": "", "LIMANIX_TEST_QUOTES": "single ' and double \"", "LIMANIX_TEST_LITERAL": "$(touch injected) `touch injected` $HOME", "LIMANIX_TEST_SPACES": "  a\tb  ", "LIMANIX_TEST_LINES": "line one\nline two\r\nend\n", "LIMANIX_TEST_BACKSLASH": "a\\b\\n\\\nlast\\", "LIMANIX_TEST_UNICODE": "Привет ✓"}
 	cfg.Env = values
 	runtimeDir := filepath.Join(directory, "runtime")
-	flake, err := Prepare(cfg, runtimeDir, []modules.Source{{ID: "third-party:custom", Path: source}}, 501)
+	flake, err := Prepare(cfg, runtimeDir, testGeneration, []modules.Source{{ID: "third-party:custom", Path: source}}, 501)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestBundleSnapshotsWholeModuleTreeAndKeepsSecretsOutsideFlake(t *testing.T)
 			t.Fatal("runtime ENV must be private on host")
 		}
 	}
-	if _, err := Prepare(cfg, runtimeDir, nil, 501); err == nil {
+	if _, err := Prepare(cfg, runtimeDir, testGeneration, nil, 501); err == nil {
 		t.Fatal("existing bundle overwritten")
 	}
 	process := exec.Command("/bin/sh", "-c", `. "$1"; /usr/bin/env -0`, "sh", filepath.Join(runtimeDir, "environment.sh"))
@@ -203,7 +203,7 @@ func TestBundleSnapshotsWholeModuleTreeAndKeepsSecretsOutsideFlake(t *testing.T)
 func TestBundleWithoutSelectedModulesIncludesInterface(t *testing.T) {
 	cfg := config.Default()
 	cfg.NixOS.Modules = nil
-	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), nil, 501)
+	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +287,7 @@ func TestInvalidEnvironmentRejectedBeforeWriting(t *testing.T) {
 		cfg := config.Default()
 		cfg.Env = values
 		directory := filepath.Join(t.TempDir(), "absent")
-		if _, err := Prepare(cfg, directory, nil, 501); err == nil {
+		if _, err := Prepare(cfg, directory, testGeneration, nil, 501); err == nil {
 			t.Fatal("invalid environment accepted")
 		}
 		if _, err := os.Stat(directory); !os.IsNotExist(err) {

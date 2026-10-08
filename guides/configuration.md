@@ -232,9 +232,31 @@ does not copy the Mac's `TOKEN` variable or execute a shell command.
 
 ```{important}
 `[env]` is guest-wide plaintext configuration.
-Values are written to runtime files and copied into guest-readable files under `/etc/limanix`.
+Values are written to runtime files and installed under `/etc/limanix`, readable by root and the development account's group.
 They are kept outside the Nix store, but this is not encrypted secret storage.
 ```
+
+## Choose a theme
+
+`lmx` and the catalog modules with colors, such as tmux, the Zsh prompt, Lazygit
+and AstroNvim, share one [Catppuccin](https://catppuccin.com/palette/) flavor:
+
+```toml
+[theme]
+flavor = "latte"
+```
+
+| Flavor | Background |
+| -- | -- |
+| `latte` | Light |
+| `frappe` | Dark |
+| `macchiato` | Darker |
+| `mocha` | Darkest; the default |
+
+Choose the flavor that matches your Mac terminal's theme: the prompt and several
+tools draw on the terminal's own background. Apply a change with
+`limanix update`: the VM restarts with the new colors. Settings you make in a
+tool itself still take precedence, as the module pages describe.
 
 ## Understand omitted values
 
@@ -254,6 +276,7 @@ remove unwanted defaults:
 | `tcp = []` | Add no TCP openings from this field. Base configuration and modules can declare their own firewall rules. |
 | `modules = []` | Add no optional NixOS modules; retain the guest base. |
 | `[resources]` with only `cpu = 2` | Change CPU count; keep the default architecture, memory, and disk values. |
+| No `[theme]` table | Keep the `mocha` flavor. |
 
 An empty string does not request a default. For example, `source = ""` is an
 error; `APP_ENV = ""` is a literal empty environment value.

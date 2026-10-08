@@ -9,7 +9,7 @@
     };
   };
 
-  outputs = inputs@{ nixpkgs, ... }:
+  outputs = inputs@{ self, nixpkgs, ... }:
     let
       runtime = builtins.fromJSON (builtins.readFile ./runtime.json);
       systems = {
@@ -36,10 +36,13 @@
           ./interface.nix
           ./platform.nix
           ./runtime.nix
-          ./session.nix
+          ./lmx.nix
           ./workspace.nix
         ]
           ++ builtins.map (path: ./. + "/${path}") runtime.modules;
       };
+
+      # This generation's lmx, lmxd and configuration, for an lmxd that runs before the system is built.
+      packages.${systems.${runtime.arch}}.lmx = self.nixosConfigurations.runtime.config.system.build.lmx;
     };
 }

@@ -27,6 +27,11 @@ type NixOS struct {
 	Modules []domain.ModuleID `toml:"modules" json:"modules" doc:"Selected modules: lmx:NAME or lmx:NAME-VERSION from the embedded catalog, or third-party:NAME imported with limanix modules add. Omitting a version selects the module default. Multiple versions and repeated identifiers are accepted; an empty list installs no optional modules."`
 }
 
+// Theme selects the colors of the guest.
+type Theme struct {
+	Flavor string `toml:"flavor" json:"flavor" doc:"Catppuccin flavor of lmx and the catalog modules: latte is light; frappe, macchiato and mocha are dark." choices:"latte,frappe,macchiato,mocha"`
+}
+
 // Ports declares inbound guest firewall rules by transport protocol.
 type Ports struct {
 	TCP []int `toml:"tcp" json:"tcp" doc:"Inbound TCP ports in the guest firewall. Services listen on a guest network interface and are reached at <guest-ip>:<port> from the Mac."`
@@ -54,6 +59,7 @@ type Config struct {
 	Resources     Resources                          `toml:"resources" json:"resources" doc:"Guest architecture and compute resources."`
 	Home          Home                               `toml:"home" json:"home" doc:"Host storage for the guest user's home directory."`
 	NixOS         NixOS                              `toml:"nixos" json:"nixos" doc:"Trusted modules that configure the guest system."`
+	Theme         Theme                              `toml:"theme" json:"theme" doc:"Colors of the guest."`
 	Network       Network                            `toml:"network" json:"network" doc:"Guest network and inbound firewall ports."`
 	Env           map[domain.EnvName]domain.EnvValue `toml:"env" json:"env" doc:"Guest-wide environment for login sessions and system/user services."`
 	Mounts        []Mount                            `toml:"mounts" json:"mounts" doc:"Host directories mounted inside the guest."`
@@ -80,6 +86,9 @@ func Default() Config {
 		},
 		NixOS: NixOS{
 			Modules: []domain.ModuleID{},
+		},
+		Theme: Theme{
+			Flavor: "mocha",
 		},
 		Network: Network{
 			Mode: "shared",

@@ -138,8 +138,9 @@ limanix create --config limanix.toml
 ```
 
 Creation downloads the base image as needed, boots the guest, builds its NixOS
-configuration, and restarts it into that configuration. The first run needs
-network access for the image and Nix dependencies.
+configuration, and restarts it into that configuration. The guest owner `lmx`
+runs the build, and the client waits until it reports the guest ready. The first
+run needs network access for the image and Nix dependencies.
 
 After the command succeeds and prints the VM name and managed home's host path,
 inspect the environment:
@@ -161,11 +162,12 @@ lmx welcome
 ```
 
 The first three commands return `Linux`, `dev`, and `/home/dev` for this
-configuration. `lmx help` shows guest and Mac commands. `lmx info` reports the
-guest identity, selected modules, Linux kernel, guest disk usage, shared mounts
-and failed services. `lmx welcome` repeats the welcome summary shown when you
-enter the shell. These local helpers work without optional modules. Return to
-your Mac with `exit`.
+configuration. `lmx help` shows guest and Mac commands, and `lmx help NAME`
+explains a selected module, such as `lmx help go`. `lmx info` reports the guest
+identity, selected modules, Linux kernel, guest disk usage, shared mounts and
+failed services. `lmx welcome` repeats the welcome summary shown when you enter
+the shell. These local helpers work without optional modules. Return to your Mac
+with `exit`.
 
 ## Add development tools
 

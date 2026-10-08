@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 
 	"github.com/limanix/client/internal/config"
@@ -41,8 +44,11 @@ type fakeBackend struct {
 	shellExit         int
 	onValidate        func()
 	rejectStoppedStop bool
-	failCommand       string
-	diskUsage         string
+	disk              *domain.DiskUsage
+	unfinalized       bool
+
+	// checks answers lmx doctor and lmx net check.
+	checks string
 }
 
 func (f *fakeBackend) called(operation, name string, force bool, args []string) error {
@@ -167,16 +173,38 @@ func (f *fakeBackend) Run(_ context.Context, name string, args []string, _ bool)
 	if err := f.called("run", name, false, args); err != nil {
 		return "", err
 	}
-	if f.failCommand != "" && slices.Contains(args, f.failCommand) {
-		return "", errors.New("guest command failed")
+	return f.answer(strings.Join(args, " "))
+}
+
+// answer replies to guest lmx commands like a guest with the disk usage f.disk.
+func (f *fakeBackend) answer(command string) (string, error) {
+	failed := errors.New("exit status 1")
+	disk, err := json.Marshal(f.disk)
+	if err != nil {
+		return "", err
 	}
-	if args[0] == "stat" {
-		return f.diskUsage, nil
-	}
-	if reflect.DeepEqual(args, []string{"ip", "-j", "address", "show"}) {
-		return `[{"address":"52:55:55:4a:e4:84","addr_info":[{"family":"inet","scope":"global","local":"192.0.2.10"}]}]`, nil
+	switch {
+	case strings.HasPrefix(command, "sudo lmx store reserve"):
+		if f.disk != nil && f.disk.Below(domain.DiskMinimumPercent) {
+			return `{"contract":1,"ok":false,"error":{"code":"disk.low","message":"Disk low.","details":{"after":` + string(disk) + `}}}`, failed
+		}
+		return `{"contract":1,"ok":true,"data":{"freed_bytes":0,"collected":false}}`, nil
+	case strings.HasPrefix(command, "sudo lmx status --wait") && f.unfinalized:
+		return `{"contract":1,"ok":false,"error":{"code":"finalize.failed","message":"Finalizing generation failed."}}`, failed
+	case strings.HasPrefix(command, "sudo lmx doctor"), strings.HasPrefix(command, "sudo lmx net check"):
+		return f.checks, nil
+	case strings.HasPrefix(command, "sudo lmx status"):
+		return `{"contract":1,"ok":true,"data":{"disk":` + string(disk) + `,"interfaces":[{"name":"enp0s1","mac":"52:55:55:4a:e4:84","ipv4":["192.0.2.10"]}]}}`, nil
 	}
 	return "", nil
+}
+
+func (f *fakeBackend) Stream(_ context.Context, name string, args []string, output io.Writer) error {
+	if err := f.called("stream", name, false, args); err != nil {
+		return err
+	}
+	_, err := io.WriteString(output, `{"contract":1,"ok":true,"data":{"generation":"`+args[4]+`","state":"restart_required"}}`+"\n")
+	return err
 }
 
 func (f *fakeBackend) Shell(_ context.Context, name string, args []string) (int, error) {
@@ -522,31 +550,34 @@ func TestSuccessfulUpdateCleanupFailureOnlyWarns(t *testing.T) {
 	}
 }
 
-func (f fixtureData) assertGuestPrunedAfterReadyCheck(t *testing.T) {
+// assertGuestApplied checks that the guest applied the recorded generation and waited for it after the restart.
+func (f fixtureData) assertGuestApplied(t *testing.T, instance domain.Instance) {
 	t.Helper()
-	position := func(argument string) int {
-		return slices.IndexFunc(f.backend.calls, func(call backendCall) bool {
-			return slices.Contains(call.Arguments, argument)
-		})
-	}
-	check, removal, collection := position("limanix-command"), position("--delete-generations"), position("--gc")
-	if check < 0 || removal < check || collection < removal {
-		t.Fatalf("replaced guest generations must be pruned after the development-user check: %v", f.backend.calls)
+	apply := f.firstCall(func(call backendCall) bool {
+		return call.Operation == "stream" && slices.Contains(call.Arguments, instance.Generation)
+	})
+	start := slices.IndexFunc(f.backend.calls[max(apply, 0):], func(call backendCall) bool { return call.Operation == "start" })
+	wait := f.firstCall(func(call backendCall) bool {
+		return slices.Contains(call.Arguments, "--wait") && slices.Contains(call.Arguments, instance.Generation)
+	})
+	if apply < 0 || start < 0 || wait < apply+start {
+		t.Fatalf("the guest must apply generation %s, restart and wait for it: %v", instance.Generation, f.backend.calls)
 	}
 }
 
-func TestReadyVMKeepsOnlyAppliedGuestGeneration(t *testing.T) {
+func TestReadyVMRunsTheRecordedGeneration(t *testing.T) {
 	f := fixture(t)
-	_, path := f.create(t, "sandbox")
-	f.assertGuestPrunedAfterReadyCheck(t)
+	created, path := f.create(t, "sandbox")
+	f.assertGuestApplied(t, created)
 	f.backend.calls = nil
-	if _, err := f.manager.Update(context.Background(), path); err != nil {
+	updated, err := f.manager.Update(context.Background(), path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	f.assertGuestPrunedAfterReadyCheck(t)
+	f.assertGuestApplied(t, updated)
 }
 
-func TestGuestPruneFailureOnlyWarns(t *testing.T) {
+func TestUnfinalizedGenerationIsReadyWithWarning(t *testing.T) {
 	for _, operation := range []string{"create", "update"} {
 		t.Run(operation, func(t *testing.T) {
 			f := fixture(t)
@@ -558,14 +589,15 @@ func TestGuestPruneFailureOnlyWarns(t *testing.T) {
 			}
 			var warnings []string
 			f.manager.Warn = func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
-			f.backend.failCommand = "--gc"
+			f.backend.unfinalized = true
 			apply := f.manager.Create
 			if operation == "update" {
 				apply = f.manager.Update
 			}
 			instance, err := apply(context.Background(), path)
-			if err != nil || instance.Status != domain.Ready || len(warnings) != 1 || !strings.Contains(warnings[0], "sandbox") {
-				t.Fatalf("guest cleanup changed operation outcome: %+v %v %v", instance, err, warnings)
+			if err != nil || instance.Status != domain.Ready || len(warnings) != 1 ||
+				warnings[0] != "VM 'sandbox' is ready, but lmx reported: Finalizing generation failed." {
+				t.Fatalf("an unfinalized generation changed the outcome: %+v %v %q", instance, err, warnings)
 			}
 			loaded, err := f.store.Load(instance.Identity.Name)
 			if err != nil || loaded != instance {
@@ -581,7 +613,7 @@ func (f fixtureData) firstCall(match func(backendCall) bool) int {
 }
 
 func TestUpdateMakesRoomBeforeStoppingRunningVM(t *testing.T) {
-	const nearlyFull = "4096 4000000 2000000 1000000 50000\n"
+	nearlyFull := &domain.DiskUsage{Bytes: 100, FreeBytes: 50, Inodes: 100, FreeInodes: 5}
 	for _, test := range []struct {
 		name   string
 		grow   bool
@@ -604,15 +636,15 @@ func TestUpdateMakesRoomBeforeStoppingRunningVM(t *testing.T) {
 			var warnings []string
 			f.manager.Warn = func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
 			f.backend.calls = nil
-			f.backend.diskUsage = nearlyFull
+			f.backend.disk = nearlyFull
 			updated, err := f.manager.Update(context.Background(), path)
 			if err != nil || updated.Status != domain.Ready {
 				t.Fatalf("a low guest disk must not block the update: %+v %v", updated, err)
 			}
 			stop := f.firstCall(func(call backendCall) bool { return call.Operation == "stop" })
-			collection := f.firstCall(func(call backendCall) bool { return slices.Contains(call.Arguments, "--gc") })
-			if test.grow != (collection > stop) {
-				t.Fatalf("garbage must be collected before stopping unless the disk grows: %v", f.backend.calls)
+			reserve := f.firstCall(func(call backendCall) bool { return slices.Contains(call.Arguments, "reserve") })
+			if before := reserve >= 0 && reserve < stop; before == test.grow {
+				t.Fatalf("room must be made before stopping unless the disk grows: %v", f.backend.calls)
 			}
 			if warned := slices.ContainsFunc(warnings, func(warning string) bool { return strings.Contains(warning, "may fail") }); warned != test.warned {
 				t.Fatalf("unexpected low-disk warnings: %v", warnings)
@@ -624,7 +656,7 @@ func TestUpdateMakesRoomBeforeStoppingRunningVM(t *testing.T) {
 func TestListReportsRunningGuestDisk(t *testing.T) {
 	f := fixture(t)
 	f.create(t, "sandbox")
-	f.backend.diskUsage = "4096 4000000 2000000 1000000 500000\n"
+	f.backend.disk = &domain.DiskUsage{Bytes: 4000000, FreeBytes: 2000000, Inodes: 1000000, FreeInodes: 500000}
 	infos, err := f.manager.FetchAll(context.Background())
 	if err != nil || len(infos) != 1 || infos[0].Disk == nil || infos[0].Disk.FreeInodes != 500000 {
 		t.Fatalf("guest disk usage not listed: %+v %v", infos, err)
@@ -1067,6 +1099,118 @@ func TestShellPreservesArgumentsAndChildExitStatus(t *testing.T) {
 	}
 	if _, err := f.manager.Shell(context.Background(), instance.Identity.Name, nil); err == nil || !strings.Contains(err.Error(), "not running") {
 		t.Fatalf("entered a stopped VM: %v", err)
+	}
+}
+
+func TestDoctorAsksNoGuestOfAStoppedOrBusyVM(t *testing.T) {
+	f := fixture(t)
+	instance, _ := f.create(t, "sandbox")
+	if err := f.manager.Stop(context.Background(), "sandbox"); err != nil {
+		t.Fatal(err)
+	}
+	calls := len(f.backend.calls)
+
+	report, err := f.manager.Doctor(context.Background(), "sandbox")
+	want := []guest.Check{{Check: "vm", Status: guest.CheckFailed, Message: "The VM is stopped.", Hint: "Run limanix start sandbox."}}
+	if err != nil || !reflect.DeepEqual(report.Checks, want) || !report.Failed() {
+		t.Fatalf("doctor: %+v %v", report, err)
+	}
+
+	// An update that holds the VM starts it itself.
+	instance.Status = domain.Updating
+	if err := f.store.Save(instance); err != nil {
+		t.Fatal(err)
+	}
+	lock, err := f.store.InstanceLock(context.Background(), "sandbox")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := lock.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	report, err = f.manager.Doctor(context.Background(), "sandbox")
+	want = []guest.Check{{Check: "vm", Status: guest.CheckWarning, Message: "Another limanix command is updating the VM.", Hint: "Wait for it to finish, then check again."}}
+	if err != nil || !reflect.DeepEqual(report.Checks, want) || report.Failed() {
+		t.Fatalf("doctor during an update: %+v %v", report, err)
+	}
+	if slices.ContainsFunc(f.backend.calls[calls:], func(call backendCall) bool { return call.Operation == "run" }) {
+		t.Fatalf("asked the guest: %+v", f.backend.calls[calls:])
+	}
+	if _, err := f.manager.Doctor(context.Background(), "unknown"); err == nil {
+		t.Fatal("doctor of an unknown VM succeeded")
+	}
+}
+
+func TestDoctorAddsTheGuestChecksAfterTheHosts(t *testing.T) {
+	f := fixture(t)
+	f.create(t, "sandbox")
+	owner := guest.Check{Check: "owner", Status: guest.CheckFailed, Message: "lmxd does not answer.", Hint: "Check systemctl status lmx.socket lmx.service and journalctl -u lmx."}
+	answer, err := json.Marshal(map[string]any{"contract": 1, "ok": true, "data": map[string]any{"checks": []guest.Check{owner}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.backend.checks = string(answer)
+
+	report, err := f.manager.Doctor(context.Background(), "sandbox")
+	want := []guest.Check{
+		{Check: "vm", Status: guest.CheckOK, Message: "Running; the last create or update completed."},
+		{Check: "address", Status: guest.CheckOK, Message: "The guest has 192.0.2.10 on the shared network."},
+		owner,
+	}
+	if err != nil || report.Name != "sandbox" || !reflect.DeepEqual(report.Checks, want) || !report.Failed() {
+		t.Fatalf("doctor: %+v %v", report, err)
+	}
+
+	f.backend.checks = ""
+	report, err = f.manager.Doctor(context.Background(), "sandbox")
+	silent := guest.Check{Check: "guest", Status: guest.CheckFailed, Message: "lmx gave no answer of the host contract", Hint: "Check guest access with limanix shell sandbox -- true."}
+	if err != nil || len(report.Checks) != 3 || report.Checks[2] != silent {
+		t.Fatalf("a guest without an answer: %+v %v", report, err)
+	}
+}
+
+func TestNetworkCheckConnectsToATCPPortFromTheMac(t *testing.T) {
+	f := fixture(t)
+	f.create(t, "sandbox")
+	f.backend.checks = `{"contract":1,"ok":true,"data":{"port":8080,"protocol":"tcp","checks":[{"check":"listener","status":"ok","message":"TCP 8080 listens on 0.0.0.0."}]}}`
+	refused := &net.OpError{Op: "dial", Net: "tcp", Err: os.NewSyscallError("connect", syscall.ECONNREFUSED)}
+	for _, test := range []struct {
+		name     string
+		protocol Protocol
+		refused  error
+		want     guest.Check
+	}{
+		{"connected", TCP, nil, guest.Check{Check: "connect", Status: guest.CheckOK, Message: "Connected to 192.0.2.10:8080 from the Mac."}},
+		{"refused", TCP, refused, guest.Check{
+			Check: "connect", Status: guest.CheckFailed, Message: "Cannot connect to 192.0.2.10:8080 from the Mac: connection refused.",
+			Hint: "The guest checks passed; check a VPN, a firewall, or the Local Network permission of your terminal app.",
+		}},
+		{"udp", UDP, nil, guest.Check{Check: "listener", Status: guest.CheckOK, Message: "TCP 8080 listens on 0.0.0.0."}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var dialed []string
+			f.manager.dial = func(_ context.Context, network, address string) (net.Conn, error) {
+				dialed = append(dialed, network+" "+address)
+				if test.refused != nil {
+					return nil, test.refused
+				}
+				client, server := net.Pipe()
+				return client, server.Close()
+			}
+
+			report, err := f.manager.NetworkCheck(context.Background(), "sandbox", 8080, test.protocol)
+			if err != nil || report.Port != 8080 || report.Protocol != test.protocol || len(report.Checks) == 0 || report.Checks[len(report.Checks)-1] != test.want {
+				t.Fatalf("network check: %+v %v", report, err)
+			}
+			if test.protocol == UDP && (len(dialed) != 0 || !strings.HasSuffix(strings.Join(f.backend.calls[len(f.backend.calls)-1].Arguments, " "), "--udp --json")) {
+				t.Fatalf("UDP check: dialed %q, calls %+v", dialed, f.backend.calls)
+			}
+			if test.protocol == TCP && !reflect.DeepEqual(dialed, []string{"tcp 192.0.2.10:8080"}) {
+				t.Fatalf("dialed %q", dialed)
+			}
+		})
 	}
 }
 

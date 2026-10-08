@@ -20,31 +20,43 @@ selectors and version lines.
 
 ## Shared VM conventions
 
-Every guest supplies these commands, including with `modules = []`:
+Every guest supplies these commands, including with `modules = []`. They come
+from [`lmx`](https://github.com/limanix/lmx), the guest owner:
 
 | Command | Result |
 | -- | -- |
 | `lmx help` | VM identity, selected module selectors and guided guest/Mac commands |
+| `lmx help TOPIC` | What a module gives you, such as `lmx help python`: commands, common tasks and its guide |
 | `lmx info` | Identity, selected selectors, Linux kernel, guest disk usage, shared mounts and failed system services |
-| `lmx welcome` | Welcome summary with VM identity, NixOS version, architecture, resources, selected selectors, mounted guest directories and failed services |
+| `lmx welcome` | Welcome summary: the guest's state with what to do next, VM identity, NixOS version, architecture, uptime, resources, guest disk, network, selected modules, mounted guest directories and a tip |
+| `lmx status` | Applied generations, guest disk usage, interfaces and failed system services; `--short` prints only what needs attention |
+| `lmx doctor` | Findings about the guest configuration, the `lmxd` daemon and the applied generations, with what to do next |
+| `lmx net check PORT` | Why the Mac cannot reach a guest port: firewall rule, listener and process |
+| `lmx logs KIND` | Output of the latest `lmxd` task of a kind, such as `health` or `collect`; use `sudo` to read it |
 | `limanix-session NAME` | Dispatch to the selected provider, or explain which optional provider to select |
 | `pbcopy`, `pbpaste` | Copy to and paste from the Mac clipboard through the terminal; see [Terminal and clipboard](https://limanix.dev/terminal.html) |
 
-The welcome shows the ASCII `LimaNix` wordmark in Catppuccin Mocha blue and
-mauve. Below it are the VM name, NixOS version and architecture; the number of
-CPUs, total memory and free space on the guest disk; the original selected
-module selectors; and mounted `virtiofs` or `9p` guest directories with `rw` or
-`ro` access. Failed system services appear only when there are some, with a
-pointer to `lmx info`; so does a warning when less than 10% of the guest disk's
-space or inodes is free. The last line lists `lmx help`, `lmx info` and `exit`.
-A resource value that cannot be read is left out. Output stays within 80
-columns; long values wrap. It appears automatically once per session for the
-configured development account in an interactive shell with terminal output. Run
-`lmx welcome` to show it again. The Bash fallback prompt shows the account, VM
-hostname and directory with Mocha accents when Starship is disabled. `NO_COLOR`
-or `TERM=dumb` selects plain welcome output and a plain fallback prompt.
-Optional shell and prompt modules keep their own configuration; the base does
-not require Console, tmux or Docker.
+The welcome shows the ASCII `LimaNix` wordmark in the theme's blue and mauve;
+the theme is the Catppuccin flavor from `[theme]`, Mocha by default. The first
+line below it is the guest's state: `ready` with the running generation and when
+it was updated. When something needs attention, that line becomes one line per
+problem, each with the command that helps: `lmxd` does not answer, the health
+check failed, a system service failed, less than 10% of the guest disk's space
+or inodes is free, a built generation waits for a restart, or older generations
+could not be removed. Then come the VM name, NixOS version, architecture and
+uptime; the number of CPUs and total memory; a bar of free guest-disk space; the
+guest's IPv4 addresses and the ports its firewall opens; the selected modules;
+and mounted `virtiofs` or `9p` guest directories with `rw` or `ro` access. When
+nothing needs attention, a tip follows, often `lmx help` for one of the selected
+modules. The last line lists `lmx help`, `lmx status` and `exit`. A value that
+cannot be read is left out. Output stays within 80 columns; long values wrap. It
+appears automatically once per session for the configured development account in
+an interactive shell with terminal output. Run `lmx welcome` to show it again.
+The Bash fallback prompt shows the account, VM hostname and directory with the
+theme's accents when Starship is disabled. `NO_COLOR` or `TERM=dumb` selects
+plain welcome output and a plain fallback prompt. Optional shell and prompt
+modules keep their own configuration; the base does not require Console, tmux or
+Docker.
 
 ## Create the workbench
 
@@ -124,8 +136,9 @@ adds rust-analyzer through the same contract. The editor's bundled plugins and
 parsers come from Nix rather than first-launch downloads. Open the project at
 its guest path for language servers to see its Linux dependencies.
 
-The shell, tmux, editor, Yazi, Lazygit, Posting and Harlequin use Catppuccin
-Mocha defaults. Personal configuration takes precedence as described on each
+The shell, tmux, editor, Yazi, Lazygit, Posting and Harlequin use the Catppuccin
+flavor from `[theme]`, Mocha by default. Personal configuration takes precedence
+as described on each
 [module page](https://limanix.dev/categories/nixos/catalog.html). Set a Nerd
 Font, truecolor and OSC 52 clipboard support in the terminal on your Mac; see
 [Terminal and clipboard](https://limanix.dev/terminal.html) for copy and paste
@@ -162,9 +175,9 @@ create a Kubernetes cluster, authenticate cloud accounts or provision cloud
 resources. Check the selected account, project, region and Kubernetes context
 before running project commands. The individual
 [Docker](https://limanix.dev/categories/nixos/modules/docker/README.html),
-[Minikube](https://limanix.dev/categories/nixos/modules/minikube/README.html)
-and
-[cloud tools](https://limanix.dev/categories/nixos/modules/cloud-tools/README.html)
+[Minikube](https://limanix.dev/categories/nixos/modules/minikube/README.html),
+[AWS CLI](https://limanix.dev/categories/nixos/modules/aws/README.html) and
+[Google Cloud CLI](https://limanix.dev/categories/nixos/modules/gcloud/README.html)
 pages define their setup and corner cases.
 
 ## Keep work across updates

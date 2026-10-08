@@ -19,18 +19,18 @@ jobs:
   check:
     name: ${{ matrix.task }}
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ matrix.task == 'ci/golang-test' && 45 || 20 }}
+    timeout-minutes: ${{ matrix.task == 'ci/golang/test' && 45 || 20 }}
     strategy:
       fail-fast: false
       matrix:
-        task: [ci/golang-fmt, ci/golang-lint, ci/golang-test, ci/golang-vuln]
+        task: [ci/golang/fmt, ci/golang/lint, ci/golang/test, ci/golang/vuln]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.commit-sha || github.sha }}
           persist-credentials: false
       - name: Restore Go compilation and download cache
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache/go
           key: go-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
@@ -38,15 +38,15 @@ jobs:
             go-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-${{ hashFiles('go.sum') }}-
             go-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-
       - name: Restore verified guest-agent fixtures
-        if: matrix.task == 'ci/golang-test'
-        uses: actions/cache@v5
+        if: matrix.task == 'ci/golang/test'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             internal/bundle/resources/*.gz
             internal/bundle/resources/manifest.json
           key: guest-agent-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'Taskfile.yml', 'internal/bundle/generator/**', 'internal/bundle/vmnetgen/**') }}
       - name: Run check
-        timeout-minutes: ${{ matrix.task == 'ci/golang-test' && 40 || 15 }}
+        timeout-minutes: ${{ matrix.task == 'ci/golang/test' && 40 || 15 }}
         uses: mr-chelyshkin/actions/invoke-taskfile@v1
         with:
           command: ${{ matrix.task }} modules_version=${{ inputs.modules-tag }}

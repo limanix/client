@@ -7,6 +7,7 @@ import (
 
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/guest"
 	"github.com/limanix/client/internal/lima"
 	"github.com/limanix/client/internal/modules"
 	"github.com/limanix/client/internal/state"
@@ -29,6 +30,7 @@ type Store interface {
 	Save(domain.Instance) error
 	Load(domain.VMName) (domain.Instance, error)
 	LoadIdentity(domain.VMName) (domain.Identity, error)
+	Fetch(domain.VMName) (state.Entry, error)
 	FetchAll() ([]state.Entry, error)
 
 	// InstanceLock returns a non-nil lock on success and a nil interface on failure.
@@ -48,13 +50,13 @@ type Homes interface {
 	Remove(domain.Identity) error
 }
 
-// Guest applies a prepared generation and opens the development user's session.
+// Guest applies a prepared generation, checks the guest, and opens the development user's session.
 type Guest interface {
-	Apply(context.Context, string, domain.Username) error
-	Prune(context.Context, string) error
+	Apply(context.Context, string, string, domain.Architecture) error
 	Reserve(context.Context, string) error
-	Address(context.Context, lima.Instance) string
-	Disk(context.Context, lima.Instance) *domain.DiskUsage
+	Status(context.Context, lima.Instance) guest.Status
+	Doctor(context.Context, string) ([]guest.Check, error)
+	NetCheck(context.Context, string, uint16, bool) ([]guest.Check, error)
 	Shell(context.Context, string, domain.Username, []string) (int, error)
 }
 

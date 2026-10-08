@@ -32,6 +32,7 @@
 // Lima retains start-on-demand and stop-after-last-user behavior; this package does not replace it with a persistent system service.
 //
 // [Client.Run] opens a management SSH command and preserves cancellation and bounded stderr diagnostics in [CommandError].
-// [Client.Shell] inherits terminal streams and returns the remote exit status. Command arguments are not included
+// A captured run returns standard output even when the command fails, and [Client.Stream] passes it to a writer as it
+// arrives. [Client.Shell] inherits terminal streams and returns the remote exit status. Command arguments are not included
 // in CommandError, although guest-produced stderr may itself contain private data.
 package lima

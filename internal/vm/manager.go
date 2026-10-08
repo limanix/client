@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
 
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/filesystem"
+	"github.com/limanix/client/internal/guest"
 	"github.com/limanix/client/internal/lima"
 )
 
@@ -23,7 +25,10 @@ type Manager struct {
 	generations *generationBuilder
 	hostUID     int
 
-	// Warn receives non-fatal cleanup diagnostics after a successful create or update.
+	// dial opens the connection of a TCP network check from the Mac.
+	dial func(context.Context, string, string) (net.Conn, error)
+
+	// Warn receives the problems of a create or update that do not fail it.
 	Warn func(string, ...any)
 }
 
@@ -49,6 +54,7 @@ func New(deps Dependencies) *Manager {
 		guest:       deps.Guest,
 		hostUID:     deps.HostUID,
 		generations: newGenerationBuilder(deps),
+		dial:        (&net.Dialer{Timeout: connectTimeout}).DialContext,
 		Warn:        log.New(os.Stderr, "limanix: warning: ", 0).Printf,
 	}
 }
@@ -115,12 +121,25 @@ func (m *Manager) applyGuest(ctx context.Context, instance domain.Instance) erro
 		return err
 	}
 
-	return m.guest.Apply(ctx, name, instance.Identity.Username)
+	return m.guest.Apply(ctx, name, instance.Generation, instance.Identity.Arch)
 }
 
-// pruneGuest runs after the ready record, so a failure leaves the applied configuration usable.
-func (m *Manager) pruneGuest(ctx context.Context, instance domain.Instance) {
-	if err := m.guest.Prune(ctx, instance.Identity.LimaName()); err != nil {
-		m.Warn("VM '%s' is ready, but replaced guest generations and unused store paths could not be removed: %v", instance.Identity.Name, err)
+// recordReady saves the VM as ready after a successful apply, or as failed after a failed one. A generation that runs
+// although lmxd could not finalize it yet is ready; the warning follows the record.
+func (m *Manager) recordReady(instance domain.Instance, applied error) (domain.Instance, error) {
+	unfinished, ok := errors.AsType[*guest.FinalizeError](applied)
+	if applied != nil && !ok {
+		return instance, m.recordFailure(instance, applied)
 	}
+
+	instance.MarkReady()
+	if err := m.store.Save(instance); err != nil {
+		return instance, err
+	}
+
+	if ok {
+		m.Warn("VM '%s' is ready, but lmx reported: %s", instance.Identity.Name, unfinished.Message)
+	}
+
+	return instance, nil
 }

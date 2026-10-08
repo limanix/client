@@ -1,7 +1,21 @@
 # Troubleshooting
 
-Start with the command that failed and its original output. Then inspect the
-saved and live state from your **Mac**:
+Start with the command that failed and its original output. Then check the VM
+from your **Mac**, replacing `dev-box` with its name:
+
+```console
+limanix doctor dev-box
+```
+
+`doctor` prints one row per check: `vm` from the saved record and Lima,
+`address` from the guest, then the checks of the guest owner `lmx`: its
+configuration, `lmxd`, the NixOS generations and, when it runs low, the disk. A
+VM that is not running, or that another command is changing, shows only `vm`; a
+guest that gives no answer shows a `guest` row instead of its checks. A hint
+under a row says what to do. The command exits with status 1 when a check
+failed, and `--json` prints the same checks.
+
+Then inspect the saved and live state of every VM:
 
 ```console
 limanix --version
@@ -9,8 +23,8 @@ limanix list
 limanix list --json
 ```
 
-`list` does not repair or restart a VM. Keep the VM name, both status fields,
-and the error text together when investigating a failure.
+`doctor` and `list` do not repair or restart a VM. Keep the VM name, both status
+fields, and the error text together when investigating a failure.
 
 ## Creation fails before the VM starts
 
@@ -47,6 +61,17 @@ Replace `NAME` with the VM's actual name. If access still fails, keep the SSH or
 guest error rather than treating the power state as success. After a failed
 configuration operation, follow the next section.
 
+## `list` shows `-` or a notice
+
+`ADDRESS` and `DISK` come from `lmx status`, which `list` runs in each running
+VM with a 10-second limit. `-` means that the VM is stopped, did not answer in
+time, or has no address on the shared network.
+
+The notice `the guest has no lmx yet; run limanix update` under a VM means that
+an older client created it, before the guest owner `lmx`. Run
+`limanix update --config limanix.toml` with that VM's file: the update installs
+`lmx`, and `list` shows both values again.
+
 ## Create or update failed during provisioning
 
 A failed operation may leave a VM and managed home for recovery, but completed
@@ -57,8 +82,8 @@ changes are not automatically undone.
 | `create`: input validation or preparation | The new VM has not started. |
 | `update`: input validation or preparation | The existing VM has not yet been stopped for this update. If it was running, its applications may still be running. A rejected update can leave the previous operation state unchanged. |
 | `update`: stopping or editing the backend | The VM may already be stopped or have new Lima settings. |
-| NixOS evaluation or build | New environment files have already been installed. The failed build does not trigger Limanix's post-build restart. |
-| Restart or development-user check | The NixOS build may have succeeded, but the complete operation has not been marked ready. |
+| NixOS evaluation or build | `lmxd` may already have installed the new environment files; an evaluation error stops before it starts. The failed build does not trigger the restart, and the guest returns to its own `lmxd`. |
+| Restart, or the wait for `lmxd` | The NixOS build succeeded, but the operation has not been marked ready. A platform check that keeps failing after the boot is reported as `Generation … is booted but unhealthy` with the reason; `limanix doctor NAME` shows the check. |
 
 If the backend exists and both saved records are valid:
 
@@ -81,14 +106,20 @@ missing, follow [The backend is missing](#the-backend-is-missing).
 **A successful `start` is not a successful update.** It starts the saved VM
 without applying your corrected TOML file or resetting an operation error.
 
+A warning `VM '…' is ready, but lmx reported: Finalizing generation … failed`
+means the new configuration runs, but `lmxd` could not yet remove the older
+generations or rewrite their boot entries. It tries again later. Inside the VM,
+`sudo lmx logs finalize` shows why it failed.
+
 ## The guest disk is full
 
 The guest disk can run out of inodes while it still has free space. ext4 sets
 their number from the disk size, about one per 16 KiB, and each file or
 directory needs one; a Nixpkgs source tree alone uses about 90,000. Builds then
-fail with `No space left on device`, and `create` or `update` reports the guest
-disk usage. `limanix list` shows the usage in `DISK`; inside the **VM**,
-`lmx info` shows both limits, and the welcome warns when either falls below 10%.
+fail with `No space left on device`, and `create` or `update` says that the
+guest disk is full, with its usage when `lmx` measured it. `limanix list` shows
+the usage in `DISK`; inside the **VM**, `lmx info` shows both limits, and the
+welcome warns when either falls below 10%.
 
 LimaNix keeps only the applied NixOS generation and collects unreferenced store
 paths after each `create` and `update`, and whenever free bytes or inodes fall
@@ -97,12 +128,13 @@ such as `nix-direnv` shells and `result` links, and data outside the Nix store,
 such as Docker images and volumes under `/var/lib/docker`.
 
 1. Inside the VM, run `lmx info` to see which limit is exhausted, and
-   `journalctl -u limanix-store-guard` for the roots that keep store paths
-   alive.
+   `sudo nix-store --gc --print-roots` for the roots that keep store paths
+   alive. Below 10%, `sudo lmx logs roots` shows the list that `lmxd` logged.
 
 1. Remove guest data you no longer need, for example with `docker system prune`
    or by deleting a project's `.direnv` directory or `result` link. Run
-   `sudo nix-collect-garbage` to collect the paths they kept immediately.
+   `sudo lmx store reserve` to collect the paths they kept while less than 20%
+   is free, or `sudo nix-store --gc` to collect them in any case.
 
 1. Or raise `resources.disk` in the TOML file and run
    `limanix update --config limanix.toml` on your **Mac**. A larger disk also
@@ -131,9 +163,12 @@ result; the command does not rewrite the saved record or roll back the guest.
   issue, and retry `update` if the backend exists.
 - After an interrupted deletion, check whether the command included
   `--remove-home` before retrying it.
-- If cancellation reports `cannot confirm guest rebuild stopped`, guest build
-  work may still be running. Keep the service name from the error for
-  investigation.
+- If cancellation reports `cannot confirm the guest apply stopped`, the guest
+  may still be building. Inside the VM, `systemctl status lmx-transient.service`
+  shows whether the build's `lmxd` still runs;
+  `sudo systemctl stop lmx-transient.service` stops it, and
+  `sudo systemctl start lmx.service` starts the guest's own `lmxd` again. The
+  next `update` does both too.
 
 LimaNix uses operating-system file locks, released when their owning process
 exits. The presence of a `.lock` file does not mean an operation is still
@@ -223,9 +258,17 @@ address all produce an empty result. Check guest access first:
 limanix shell dev-box -- true
 ```
 
-If the shell works, continue with [Networking](networking.md) to check the
-service's listening address and guest firewall ports. A successful shell
-connection does not confirm that a separate application is healthy.
+If the shell works, check the service's port, for example `8080`:
+
+```console
+limanix network check dev-box 8080
+```
+
+It checks the guest firewall, the listener and its process, then connects from
+the Mac. See
+[Check a connection in order](networking.md#check-a-connection-in-order). A
+successful shell connection does not confirm that a separate application is
+healthy.
 
 ## Keep useful diagnostics
 

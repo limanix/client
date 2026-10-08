@@ -1,53 +1,54 @@
-// Package guest provisions NixOS guests and opens development-user sessions.
+// Package guest applies generations through lmx, the guest owner, and opens development-user sessions.
 //
 // [Guest] uses a [Client] management connection supplied by internal/lima. It does not allocate host homes,
 // persist VM status, or construct flake inputs; those responsibilities belong to internal/vm, internal/state,
-// and internal/nixos.
+// and internal/nixos. It reads version 1 of the lmx host contract: a command answers with one JSON envelope, and
+// the answer wins over the exit status. Copies of the pinned release's contract examples in testdata keep the
+// decoders honest.
 //
 // # Applying a generation
 //
-//	read-only /mnt/limanix inputs
+//	lmx store reserve → stop the guest's lmx units
 //	             ↓
-//	install environment files into /etc/limanix
+//	nix build packages.<system>.lmx of the mounted generation → /run/limanix-lmx
 //	             ↓
-//	nixos-rebuild boot → stop → start → verify development-user session
-//
-// [Guest.Apply] installs runtime ENV before rebuilding. A failed rebuild returns without rebooting; environment
-// installation may already have happened. Successful rebuilds restart through the client and check that the regular
-// development user can execute a command.
-// Rebuilds run in a transient guest systemd unit. Cancellation stops that unit before returning; it does not stop
-// the VM or roll back changes already applied. Failure to confirm the stop is reported as an error.
-// When installing environment files or rebuilding fails, Apply reads the usage of the store file system and adds a
-// [DiskError] if inodes or bytes are nearly exhausted or the guest reported ENOSPC. ext4 fixes its inode count when
-// the disk is sized, so a store of small files can fill it while bytes remain free.
-//
-// # Pruning the guest
-//
-//	delete system generations except the booted one
+//	run its lmxd as lmx-transient.service → lmx apply --follow
 //	             ↓
-//	rewrite boot entries for the remaining generation
-//	             ↓
-//	collect store paths that nothing references
+//	stop → start → lmx status --wait converged
 //
-// [Guest.Reserve] runs before an apply and before an update stops a running guest. It collects unreferenced store
-// paths when free bytes or inodes fall below [domain.DiskCollectPercent] and returns a [DiskError] below
-// [domain.DiskMinimumPercent]; Apply continues either way. [Guest.Disk] reads the same usage for listings.
+// Because [Guest.Apply] runs the lmxd of the generation it applies, the base image, a VM created before lmx and a
+// current VM take the same steps. lmxd installs the environment files, makes room in the store and builds the
+// generation for the next boot. Apply prints the build lines on Stdout and Stderr and passes lmx warnings to Warn. A
+// build that fails on a full disk adds a [DiskError] with the usage lmx reported; a package build that runs out of
+// room before lmx runs says that the disk is full.
 //
-// [Guest.Prune] runs after an apply has been recorded as ready. LimaNix boots only the generation it applied; older
-// ones, including the base image's, keep their closures and kernel copies in /boot alive. Collection also removes
-// evaluation-time sources such as pinned Nixpkgs trees. Generations stay when their removal fails, and the store is
-// still collected.
+// A failure before the restart stops the transient lmxd and starts the guest's own lmx.service, if there is one; the
+// VM is not restarted. The apply belongs to lmxd: cancellation runs lmx apply cancel and returns the context's error
+// once lmx confirms the stop; a stop that cannot be confirmed is an error. After the restart, a [FinalizeError]
+// means that the generation runs, but lmxd could not remove the older generations yet and tries again later. Any
+// other end of the wait carries the conditions lmxd reported last.
 //
-// # Sessions and address discovery
+// # Disk and status
+//
+// [Guest.Reserve] runs before an update stops a running guest, and Apply runs it before the generation's sources
+// are fetched. lmxd collects unreferenced store paths below [domain.DiskCollectPercent] free, and Reserve returns a
+// [DiskError] when less than [domain.DiskMinimumPercent] stays free. Every other outcome, including a guest without
+// lmx, is not an error: the apply makes room anyway.
+//
+// [Guest.Status] reads the address on Lima's shared network and the store disk usage with one bounded lmx status
+// call. A guest without lmx gets a notice to run limanix update; any other failure leaves the status empty. The
+// listing layer propagates cancellation of the parent operation. The client must support concurrent status calls.
+//
+// # Checks
+//
+// [Guest.Doctor] and [Guest.NetCheck] run lmx doctor and lmx net check within 30 seconds and return their [Check]
+// records unchanged. lmx exits with status 1 when a check failed, but its answer is still a success.
+//
+// # Sessions
 //
 // [Guest.Shell] changes to the development user's home and preserves literal command arguments and exit status.
 // An empty argument list opens a login shell. The management account and the development account are distinct.
 //
-// [Guest.Address] probes running guests only when a shared-network MAC is known. It matches that MAC in ip -j address
-// output and selects a global IPv4 address. An individual probe timeout, SSH failure, or unavailable address yields
-// an empty string. The listing layer propagates cancellation of the parent operation. The client must support
-// concurrent address probes.
-//
-// Read apply.go for provisioning order, rebuild.go for cancellation, disk.go for full-disk diagnostics, prune.go for
-// generation removal, shell.go for user switching, and address.go for best-effort network discovery.
+// Read apply.go for the steps, follow.go for the build output and cancellation, lmx.go for the contract, status.go,
+// reserve.go, and check.go for the queries, and shell.go for user switching.
 package guest

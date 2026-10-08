@@ -39,6 +39,9 @@ func TestSSHHelper(t *testing.T) {
 	case "failure":
 		_, _ = fmt.Fprintln(os.Stderr, "guest unavailable")
 		os.Exit(17)
+	case "answer":
+		_, _ = fmt.Fprintln(os.Stdout, `{"ok":false}`)
+		os.Exit(1)
 	case "signal":
 		_ = syscall.Kill(os.Getpid(), syscall.SIGTERM)
 	case "ssh-version":
@@ -125,6 +128,18 @@ func TestSSHRunReportsBoundedFailureWithoutArguments(t *testing.T) {
 	_, _ = buffer.Write([]byte("0123456789"))
 	if !bytes.Equal(buffer.data, []byte("23456789")) {
 		t.Fatalf("unexpected long stderr tail: %s", buffer.data)
+	}
+}
+
+func TestSSHRunAndStreamKeepTheAnswerOfAFailedCommand(t *testing.T) {
+	client := helperSSHClient(t, "answer")
+	output, err := client.Run(context.Background(), "limanix-test", []string{"lmx"}, true)
+	if err == nil || output != "{\"ok\":false}\n" {
+		t.Fatalf("captured answer lost: %q %v", output, err)
+	}
+	var streamed bytes.Buffer
+	if err := client.Stream(context.Background(), "limanix-test", []string{"lmx"}, &streamed); err == nil || streamed.String() != "{\"ok\":false}\n" {
+		t.Fatalf("streamed answer lost: %q %v", streamed.String(), err)
 	}
 }
 

@@ -22,20 +22,27 @@ type runtimeDisk struct {
 	MinimumPercent uint64 `json:"minimumPercent"`
 }
 
+type runtimeTheme struct {
+	Flavor string `json:"flavor"`
+}
+
 type runtimeConfig struct {
 	Name            domain.VMName       `json:"name"`
 	Arch            domain.Architecture `json:"arch"`
+	Generation      string              `json:"generation"`
 	User            runtimeUser         `json:"user"`
 	Disk            runtimeDisk         `json:"disk"`
 	Ports           config.Ports        `json:"ports"`
+	Theme           runtimeTheme        `json:"theme"`
 	Modules         []string            `json:"modules"`
 	SelectedModules []domain.ModuleID   `json:"selectedModules"`
 }
 
-func writeRuntime(filename string, cfg config.Config, imports []string, uid int) error {
+func writeRuntime(filename string, cfg config.Config, generation string, imports []string, uid int) error {
 	record := runtimeConfig{
-		Name: cfg.Name,
-		Arch: cfg.Resources.Arch,
+		Name:       cfg.Name,
+		Arch:       cfg.Resources.Arch,
+		Generation: generation,
 		User: runtimeUser{
 			Name: cfg.User.Name,
 			Home: cfg.User.Home,
@@ -48,6 +55,7 @@ func writeRuntime(filename string, cfg config.Config, imports []string, uid int)
 			MinimumPercent: domain.DiskMinimumPercent,
 		},
 		Ports:           cfg.Network.Ports,
+		Theme:           runtimeTheme{Flavor: cfg.Theme.Flavor},
 		Modules:         imports,
 		SelectedModules: append([]domain.ModuleID{}, cfg.NixOS.Modules...),
 	}

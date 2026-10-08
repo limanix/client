@@ -8,15 +8,20 @@ import (
 	"path/filepath"
 
 	"github.com/limanix/client/internal/config"
+	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/filesystem"
 	"github.com/limanix/client/internal/modules"
 )
 
 // Prepare copies module trees once into a generation and writes runtime ENV files beside its flake, keeping their
-// values out of flake sources and Nix store.
-func Prepare(cfg config.Config, runtimeDir string, sources []modules.Source, uid int) (string, error) {
+// values out of flake sources and Nix store. The guest learns the generation ID from runtime.json.
+func Prepare(cfg config.Config, runtimeDir, generation string, sources []modules.Source, uid int) (string, error) {
 	if uid <= 0 {
 		return "", ErrInvalidUID
+	}
+
+	if !domain.ValidIdentifier(generation) {
+		return "", ErrInvalidGeneration
 	}
 
 	serviceEnvironment, shellEnvironment, err := renderEnvironmentFiles(cfg.Env)
@@ -53,7 +58,7 @@ func Prepare(cfg config.Config, runtimeDir string, sources []modules.Source, uid
 		return "", err
 	}
 
-	if err = writeRuntime(filepath.Join(flakeDir, "runtime.json"), cfg, imports, uid); err != nil {
+	if err = writeRuntime(filepath.Join(flakeDir, "runtime.json"), cfg, generation, imports, uid); err != nil {
 		return "", err
 	}
 
