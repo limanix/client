@@ -52,7 +52,7 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
       - name: Build binary
-        uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        uses: mr-chelyshkin/actions/invoke-taskfile@v2
         env:
           RELEASE_TAG: ${{ inputs.release-tag }}
           MODULES_TAG: ${{ inputs.modules-tag }}

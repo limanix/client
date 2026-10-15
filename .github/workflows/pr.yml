@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: mr-chelyshkin/actions/invoke-taskfile@v1
+      - uses: mr-chelyshkin/actions/invoke-taskfile@v2
         with:
           command: ci/markdown/fmt
 
@@ -60,7 +60,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: mr-chelyshkin/actions/invoke-taskfile@v1
+      - uses: mr-chelyshkin/actions/invoke-taskfile@v2
         with:
           command: docs/prepare
 
@@ -72,6 +72,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: mr-chelyshkin/actions/check-job-results@v1
+      - uses: mr-chelyshkin/actions/check-job-results@v2
         with:
           results: ${{ toJSON(needs) }}

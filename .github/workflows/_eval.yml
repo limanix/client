@@ -57,7 +57,7 @@ jobs:
           sudo chown -R 0:0 .cache/nix
       - name: Evaluate generated guest flakes
         timeout-minutes: 40
-        uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        uses: mr-chelyshkin/actions/invoke-taskfile@v2
         with:
           command: >-
             ci/nix/eval modules_version=${{ inputs.modules-tag }}
