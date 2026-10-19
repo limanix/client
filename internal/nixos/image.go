@@ -1,10 +1,10 @@
 package nixos
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/nixos/catalog"
 )
 
 // Image identifies the base disk that Lima downloads and verifies before first boot.
@@ -13,56 +13,30 @@ type Image struct {
 	SHA256   string
 }
 
-// baseFlakeLock reads only the original input references from Nix's lock format.
-type baseFlakeLock struct {
-	Nodes map[string]struct {
-		Original struct {
-			Ref string `json:"ref"`
-		} `json:"original"`
-	} `json:"nodes"`
-}
-
-// BaseImage selects the disk matching the pinned nixos-lima input and guest architecture.
+// BaseImage selects the disk for the guest architecture from resources/image.json, the manifest of the
+// bundled catalog release.
 //
-// Updating this dependency requires changing the nixos-lima input in resources/flake.nix.tmpl, its locked graph in resources/flake.lock.tmpl and both digests here.
-// Review resources/base/platform.nix against the new image's partition layout, bootloader and NixOS compatibility, then verify first boot, update and disk growth.
+// The disk's partition layout and boot loader are the catalog's platform.nix, which every guest imports.
 func BaseImage(architecture domain.Architecture) (Image, error) {
 	arch, err := architecture.LimaArch()
 	if err != nil {
 		return Image{}, err
 	}
 
-	release, err := baseImageRelease()
+	data, err := resources.ReadFile("resources/image.json")
 	if err != nil {
 		return Image{}, err
 	}
 
-	checksums := map[domain.Architecture]string{
-		domain.ARM64: "ebdf8363bcb51542892963790c08ddfbffe45443ab19c5e70275c4f0c0aa6f11",
-		domain.AMD64: "967da3baf4ea410e728c751ca9e0a617299b6809297e4e50e773cae4ce79197d",
-	}
-
-	return Image{
-		Location: fmt.Sprintf("https://github.com/nixos-lima/nixos-lima/releases/download/%s/nixos-lima-%s-%s.qcow2", release, release, arch),
-		SHA256:   checksums[architecture],
-	}, nil
-}
-
-func baseImageRelease() (string, error) {
-	data, err := resources.ReadFile("resources/flake.lock.tmpl")
+	manifest, err := catalog.ParseImage(data, "")
 	if err != nil {
-		return "", err
+		return Image{}, fmt.Errorf("read base image manifest: %w", err)
 	}
 
-	var lock baseFlakeLock
-	if err = json.Unmarshal(data, &lock); err != nil {
-		return "", fmt.Errorf("read base image release: %w", err)
+	disk, found := manifest.Systems[arch+"-linux"]
+	if !found {
+		return Image{}, fmt.Errorf("%w: %s", ErrImagePin, arch)
 	}
 
-	release := lock.Nodes["nixos-lima"].Original.Ref
-	if release == "" {
-		return "", ErrImageRelease
-	}
-
-	return release, nil
+	return Image{Location: disk.URL, SHA256: disk.SHA256}, nil
 }

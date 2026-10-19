@@ -93,7 +93,7 @@ func TestCatalogNixpkgsAllowsRenamedNodesAndUnstable(t *testing.T) {
 	node["original"].(map[string]any)["ref"] = "nixos-unstable"
 	nodes["pinned"] = node
 	delete(nodes, "nixpkgs")
-	nodes["catalog"] = map[string]any{"inputs": map[string]any{"nixpkgs": "pinned"}}
+	nodes["catalog"] = map[string]any{"inputs": map[string]any{"nixpkgs": "pinned", "nixos-lima": "nixos-lima"}}
 	delete(nodes, "root")
 	lock["root"] = "catalog"
 	data, err := json.Marshal(lock)
@@ -200,6 +200,7 @@ func catalogArchiveWithInterface(t *testing.T, lock []byte, interfacePath string
 	files := map[string][]byte{
 		"version":                  []byte("v4\n"),
 		"LICENSE":                  []byte("test license\n"),
+		"platform.nix":             []byte("{ services.lima.enable = true; }\n"),
 		"modules/tool/module.toml": []byte("description = 'Tool'\n"),
 		"modules/tool/default.nix": []byte("{}\n"),
 	}

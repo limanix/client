@@ -18,6 +18,7 @@ var (
 
 type nixpkgsPin struct {
 	url  string
+	name string
 	node json.RawMessage
 }
 
@@ -119,13 +120,17 @@ func parseNixpkgs(data []byte) (nixpkgsPin, error) {
 	if !nixpkgsRevPattern.MatchString(node.Locked.Rev) {
 		return nixpkgsPin{}, fmt.Errorf("nixpkgs locked.rev must contain 40 lowercase hexadecimal characters")
 	}
-	hash, err := base64.StdEncoding.Strict().DecodeString(strings.TrimPrefix(node.Locked.NarHash, "sha256-"))
-	if !strings.HasPrefix(node.Locked.NarHash, "sha256-") || err != nil || len(hash) != 32 ||
-		"sha256-"+base64.StdEncoding.EncodeToString(hash) != node.Locked.NarHash {
+	if !sriHash(node.Locked.NarHash) {
 		return nixpkgsPin{}, fmt.Errorf("nixpkgs locked.narHash must be a SHA-256 SRI hash")
 	}
 
-	return nixpkgsPin{url: "github:NixOS/nixpkgs/" + node.Original.Ref, node: lock.Nodes[name]}, nil
+	return nixpkgsPin{url: "github:NixOS/nixpkgs/" + node.Original.Ref, name: name, node: lock.Nodes[name]}, nil
+}
+
+func sriHash(value string) bool {
+	hash, err := base64.StdEncoding.Strict().DecodeString(strings.TrimPrefix(value, "sha256-"))
+	return strings.HasPrefix(value, "sha256-") && err == nil && len(hash) == 32 &&
+		"sha256-"+base64.StdEncoding.EncodeToString(hash) == value
 }
 
 // Nix attributes are case-sensitive; encoding/json's struct field matching is not.

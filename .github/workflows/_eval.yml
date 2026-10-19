@@ -57,11 +57,13 @@ jobs:
           sudo chown -R 0:0 .cache/nix
       - name: Evaluate generated guest flakes
         timeout-minutes: 40
-        uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        uses: mr-chelyshkin/actions/task-run@v2
         with:
-          command: >-
-            ci/nix/eval modules_version=${{ inputs.modules-tag }}
-            EVAL_ARCH=${{ matrix.arch }} EVAL_MODULES="${{ matrix.cases }}"
+          task: ci/nix/eval
+          args: |
+            modules_version=${{ inputs.modules-tag }}
+            EVAL_ARCH=${{ matrix.arch }}
+            EVAL_MODULES=${{ matrix.cases }}
       - name: Restore Nix cache ownership
         if: always()
         run: |

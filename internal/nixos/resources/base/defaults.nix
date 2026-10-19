@@ -1,7 +1,6 @@
 {
   config,
   lib,
-  modulesPath,
   pkgs,
   ...
 }:
@@ -10,7 +9,6 @@ let
 in
 {
   imports = [
-    (modulesPath + "/profiles/qemu-guest.nix")
     (
       { lib, ... }:
       {
@@ -40,17 +38,8 @@ in
 
   environment.systemPackages = [ pkgs.ghostty.terminfo ];
 
-  services.lima.enable = true;
-  users.mutableUsers = true;
-  services.openssh.enable = true;
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
-
-  # lmxd collects unreferenced paths after each update and whenever free space or inodes fall below
-  # the collect limit. ext4 sizes its inode table with the disk, and a Nixpkgs source tree alone
-  # uses ~90k.
+  # lmxd collects unreferenced paths after each update and whenever free space falls below the
+  # collect limit; hard links share identical store files.
   nix.settings.auto-optimise-store = lib.mkDefault true;
 
   # Builds collect garbage themselves when free bytes fall below the minimum. lmxd checks both
@@ -75,27 +64,6 @@ in
 
   # Doc outputs, such as the Rust standard library HTML, cost many inodes in a headless guest.
   documentation.doc.enable = lib.mkDefault false;
-
-  boot.growPartition = true;
-  boot.loader.grub = {
-    device = "nodev";
-    efiSupport = true;
-    efiInstallAsRemovable = true;
-  };
-  fileSystems."/boot" = {
-    device = lib.mkForce "/dev/vda1";
-    fsType = "vfat";
-  };
-  fileSystems."/" = {
-    device = "/dev/disk/by-label/nixos";
-    autoResize = true;
-    fsType = "ext4";
-    options = [
-      "noatime"
-      "nodiratime"
-      "discard"
-    ];
-  };
 
   system.stateVersion = "26.05";
 }

@@ -36,6 +36,10 @@ func TestPackRetainsCatalogPinAndInterfaceAndMapsSourceDirectory(t *testing.T) {
 	if err != nil || !bytes.Equal(publicInterface, files["interface.nix"]) {
 		t.Fatalf("public interface was not preserved: %v", err)
 	}
+	platform, err := fs.ReadFile(archive, "platform.nix")
+	if err != nil || !bytes.Equal(platform, files["platform.nix"]) {
+		t.Fatalf("platform module was not preserved: %v", err)
+	}
 	module, err := fs.ReadFile(archive, "modules/tool/default.nix")
 	if err != nil || !bytes.Equal(module, files["catalog/tool/default.nix"]) {
 		t.Fatalf("catalog module was not mapped into the embedded module tree: %v", err)
@@ -68,7 +72,7 @@ func TestCheckExistingRequiresCatalogPinAndInterface(t *testing.T) {
 	if err := checkExisting(filename, "v5"); err == nil {
 		t.Fatal("wrong existing catalog version accepted")
 	}
-	for _, missing := range []string{"flake.lock", "interface.nix"} {
+	for _, missing := range []string{"flake.lock", "interface.nix", "platform.nix"} {
 		files := catalogFiles(t)
 		delete(files, missing)
 		if err := os.WriteFile(filename, packFixture(t, files), 0o600); err != nil {
@@ -90,6 +94,7 @@ func catalogFiles(t *testing.T) map[string][]byte {
 		"flake.lock":               lock,
 		"LICENSE":                  []byte("test license\n"),
 		"interface.nix":            []byte("{ options = {}; }\n"),
+		"platform.nix":             []byte("{ services.lima.enable = true; }\n"),
 		"catalog/tool/module.toml": []byte("description = 'Tool'\n"),
 		"catalog/tool/default.nix": []byte("{}\n"),
 	}

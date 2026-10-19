@@ -12,7 +12,7 @@ import (
 	"github.com/limanix/client/internal/nixos/catalog"
 )
 
-// Generate publishes a validated catalog for the requested Git release tag.
+// Generate publishes a validated catalog for the requested Git release tag and that release's base image manifest.
 func Generate(ctx context.Context, root, version string, diagnostics io.Writer) error {
 	if err := catalog.ValidateVersion(version); err != nil {
 		return err
@@ -33,7 +33,7 @@ func Generate(ctx context.Context, root, version string, diagnostics io.Writer) 
 
 	if err = checkExisting(filename, version); err == nil {
 		logger.Printf("%s tag %s is already prepared.", catalog.Repository, version)
-		return nil
+		return prepareImage(ctx, directory, version, logger)
 	}
 
 	logger.Printf("Preparing %s tag %s: %v", catalog.Repository, version, err)
@@ -54,7 +54,7 @@ func Generate(ctx context.Context, root, version string, diagnostics io.Writer) 
 	}
 
 	logger.Printf("Prepared %s tag %s.", catalog.Repository, version)
-	return nil
+	return prepareImage(ctx, directory, version, logger)
 }
 
 func checkExisting(filename, version string) error {

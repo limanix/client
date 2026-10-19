@@ -3,16 +3,16 @@ version: '3.53.1'
 
 includes:
   golang:
-    # v0.0.5
-    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/81255f635d839a2b46417720676cd2bebfc10cff/taskfiles/golang/Taskfile.yml
+    # v0.1.0
+    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/3aa8c569bdc71b41fa50fc33f66e2ef1317813ed/taskfiles/golang/Taskfile.yml
     internal: false
   nix:
-    # v0.0.5
-    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/81255f635d839a2b46417720676cd2bebfc10cff/taskfiles/nix/Taskfile.yml
+    # v0.1.0
+    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/3aa8c569bdc71b41fa50fc33f66e2ef1317813ed/taskfiles/nix/Taskfile.yml
     internal: true
   markdown:
-    # v0.0.5
-    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/81255f635d839a2b46417720676cd2bebfc10cff/taskfiles/markdown/Taskfile.yml
+    # v0.1.0
+    taskfile: https://raw.githubusercontent.com/mr-chelyshkin/tasks/3aa8c569bdc71b41fa50fc33f66e2ef1317813ed/taskfiles/markdown/Taskfile.yml
     internal: true
 
 vars:
@@ -20,6 +20,8 @@ vars:
 
   modules_source: '{{.modules_source | default ""}}'
   modules_source_path: '{{with .modules_source}}{{if isAbs .}}{{clean .}}{{else}}{{joinPath $.ROOT_DIR . | clean}}{{end}}{{end}}'
+  image_source: '{{.image_source | default ""}}'
+  image_source_path: '{{with .image_source}}{{if isAbs .}}{{clean .}}{{else}}{{joinPath $.ROOT_DIR . | clean}}{{end}}{{end}}'
 
   markdown_paths: README.md guides
   macos_version: '26.0'
@@ -47,7 +49,7 @@ tasks:
   docs/prepare:
     desc: Build docs for the LimaNix site
     cmds:
-      - task: golang:_go/tool
+      - task: golang:exec
         vars:
           CMD: >-
             go run -tags=osusergo -ldflags {{.release_flags | trim | shellQuote}}
@@ -59,37 +61,35 @@ tasks:
     cmds:
       - task: markdown:fmt
         vars:
-          FMT_PATHS: '{{.markdown_paths}}'
-          TASK_CONTEXT:
-            ref: 'merge (dict) (dict "CONTAINER_MOUNT_MODE" "ro") (.TASK_CONTEXT | default .)'
+          FMT_ARGS: '{{.markdown_paths}}'
 
   markdown/fix:
     desc: Format source Markdown with the same settings used in CI
     cmds:
       - task: markdown:fmt/fix
         vars:
-          FMT_PATHS: '{{.markdown_paths}}'
+          FMT_ARGS: '{{.markdown_paths}}'
 
   ci/golang/fmt:
     desc: Run Go fmt check
     cmds:
-      - task: golang:gofumpt
+      - task: golang:fmt
         vars:
-          FMT_ARGS: '-l cmd internal'
+          FMT_ARGS: 'cmd internal'
 
   ci/golang/lint:
     desc: Run Go lint
     cmds:
-      - task: golang:golangci
+      - task: golang:lint
         vars:
           LINT_ARGS: --timeout=5m ./...
 
-  ci/golang/vuln:
+  ci/golang/audit:
     desc: Run Go vuln check
     cmds:
-      - task: golang:govulncheck
+      - task: golang:audit
         vars:
-          VULN_ARGS: './... github.com/lima-vm/lima/v2/cmd/lima-guestagent'
+          AUDIT_ARGS: './... github.com/lima-vm/lima/v2/cmd/lima-guestagent'
 
   ci/golang/test:
     desc: Run Go tests with the race detector
@@ -97,16 +97,16 @@ tasks:
       vars: [modules_version]
     vars:
       test_command: |
-        go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}} {{with .modules_source_path}}--source {{. | shellQuote}}{{end}}
+        go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}} {{with .modules_source_path}}--source {{. | shellQuote}}{{end}} {{with .image_source_path}}--image {{. | shellQuote}}{{end}}
         go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
         go run ./cmd/bundle-guestagent --root .
         exec go test -race -count=1 -timeout=5m -tags=osusergo -ldflags {{.build_flags | shellQuote}} ./...
     cmds:
-      - task: golang:_go/tool
+      - task: golang:exec
         vars:
           CMD: timeout --kill-after=15s 1800 sh -eu -c {{.test_command | shellQuote}}
           CONTAINER_ENVS: USER=limanix
-          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
+          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .image_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
 
   ci/nix/eval:
     desc: Evaluate the client/catalog pair; EVAL_ARCH and EVAL_MODULES select cases
@@ -114,15 +114,15 @@ tasks:
       vars: [modules_version]
     vars:
       prepare_command: |
-        go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}} {{with .modules_source_path}}--source {{. | shellQuote}}{{end}}
+        go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}} {{with .modules_source_path}}--source {{. | shellQuote}}{{end}} {{with .image_source_path}}--image {{. | shellQuote}}{{end}}
         exec go test -c -tags=osusergo,nix_eval -o .cache/nixos-eval.test ./internal/nixos
     cmds:
-      - task: golang:_go/tool
+      - task: golang:exec
         vars:
           CMD: timeout --kill-after=15s 900 sh -eu -c {{.prepare_command | shellQuote}}
           CONTAINER_ENVS: CGO_ENABLED=0
-          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
-      - task: nix:_nix/tool
+          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .image_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
+      - task: nix:exec
         vars:
           CONTAINER_ENVS: 'XDG_CACHE_HOME=/workspace/.cache {{with .EVAL_ARCH}}{{printf "LIMANIX_EVAL_ARCH=%s" . | shellQuote}}{{end}} {{with .EVAL_MODULES}}{{printf "LIMANIX_EVAL_MODULES=%s" . | shellQuote}}{{end}}'
           CMD: |
@@ -151,6 +151,7 @@ tasks:
       - >-
         go run ./cmd/bundle-modules --root . --version {{.modules_version | default "" | shellQuote}}
         {{with .modules_source_path}}--source {{. | shellQuote}}{{end}}
+        {{with .image_source_path}}--image {{. | shellQuote}}{{end}}
       - go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
       - go run ./cmd/bundle-guestagent --root .
       - for: { var: target_archs }

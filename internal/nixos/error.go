@@ -12,6 +12,6 @@ var (
 	// ErrBundleExists prevents overwriting an existing generation's flake inputs.
 	ErrBundleExists = errors.New("NixOS bundle already exists")
 
-	// ErrImageRelease reports a lock file without the base image's release reference.
-	ErrImageRelease = errors.New("nixos-lima release is missing from the platform lock template")
+	// ErrImagePin reports a base image pin without a disk for the guest architecture.
+	ErrImagePin = errors.New("base image pin has no disk for this architecture")
 )

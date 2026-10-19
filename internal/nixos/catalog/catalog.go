@@ -3,6 +3,7 @@ package catalog
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -26,7 +27,9 @@ type Catalog struct {
 	files              fs.FS
 	modules            map[string]selection
 	nixpkgs            nixpkgsPin
+	nixosLima          limaPin
 	publicInterface    []byte
+	platform           []byte
 	publicDeclarations []string
 }
 
@@ -89,7 +92,27 @@ func Open(data []byte) (*Catalog, error) {
 		return nil, fmt.Errorf("%w: interface.nix must not be empty", ErrArchive)
 	}
 
+	platformInfo, err := fs.Stat(archive, "platform.nix")
+	if err != nil {
+		return nil, fmt.Errorf("%w: read platform.nix: %w", ErrArchive, err)
+	}
+	if !platformInfo.Mode().IsRegular() {
+		return nil, fmt.Errorf("%w: platform.nix must be a regular file", ErrArchive)
+	}
+	platform, err := fs.ReadFile(archive, "platform.nix")
+	if err != nil {
+		return nil, fmt.Errorf("%w: read platform.nix: %w", ErrArchive, err)
+	}
+	if len(platform) == 0 {
+		return nil, fmt.Errorf("%w: platform.nix must not be empty", ErrArchive)
+	}
+
 	pin, err := readNixpkgs(archive)
+	if err != nil {
+		return nil, err
+	}
+
+	lima, err := readNixosLima(archive)
 	if err != nil {
 		return nil, err
 	}
@@ -109,8 +132,8 @@ func Open(data []byte) (*Catalog, error) {
 	}
 
 	return &Catalog{
-		Version: tag, files: source, modules: metadata, nixpkgs: pin,
-		publicInterface: publicInterface, publicDeclarations: declarations,
+		Version: tag, files: source, modules: metadata, nixpkgs: pin, nixosLima: lima,
+		publicInterface: publicInterface, platform: platform, publicDeclarations: declarations,
 	}, nil
 }
 
@@ -119,9 +142,24 @@ func (catalog *Catalog) Nixpkgs() (url string, node []byte) {
 	return catalog.nixpkgs.url, bytes.Clone(catalog.nixpkgs.node)
 }
 
+// NixosLima returns the declared nixos-lima input and independent copies of the lock nodes of its graph,
+// which follows the catalog's nixpkgs pin.
+func (catalog *Catalog) NixosLima() (Input, map[string]json.RawMessage) {
+	nodes := make(map[string]json.RawMessage, len(catalog.nixosLima.nodes))
+	for name, node := range catalog.nixosLima.nodes {
+		nodes[name] = bytes.Clone(node)
+	}
+	return catalog.nixosLima.input, nodes
+}
+
 // Interface returns an independent copy of the public NixOS option declarations required by every guest.
 func (catalog *Catalog) Interface() []byte {
 	return bytes.Clone(catalog.publicInterface)
+}
+
+// Platform returns an independent copy of the guest platform module that the base disk and every rebuilt guest share.
+func (catalog *Catalog) Platform() []byte {
+	return bytes.Clone(catalog.platform)
 }
 
 // Source returns the complete catalog source tree, rooted at the module directories.

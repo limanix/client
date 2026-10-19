@@ -85,7 +85,13 @@ func TestEmbeddedModulesAndPinnedBaseCopied(t *testing.T) {
 	if string(lock) != string(originalLock) || strings.Contains(string(lock), "runtimeSpec") {
 		t.Fatal("guest flake lock differs from the embedded catalog and platform")
 	}
-	var pinned baseFlakeLock
+	var pinned struct {
+		Nodes map[string]struct {
+			Original struct {
+				Ref string `json:"ref"`
+			} `json:"original"`
+		} `json:"nodes"`
+	}
 	if err := json.Unmarshal(lock, &pinned); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +101,7 @@ func TestEmbeddedModulesAndPinnedBaseCopied(t *testing.T) {
 	}
 	release := pinned.Nodes["nixos-lima"].Original.Ref
 	if release == "" || !strings.Contains(string(declaration), `"github:nixos-lima/nixos-lima/`+release+`"`) {
-		t.Fatal("nixos-lima input differs from the locked image release")
+		t.Fatal("nixos-lima input differs from its locked release")
 	}
 	clear(metadata)
 	fresh, err := SystemModules()
@@ -246,9 +252,13 @@ func assertBundledInterface(t *testing.T, flake string) {
 	if err != nil || string(actual) != string(expected) {
 		t.Fatalf("catalog interface missing or changed: %v", err)
 	}
+	platform, err := os.ReadFile(filepath.Join(flake, "platform.nix"))
+	if err != nil || string(platform) != string(source.Platform()) {
+		t.Fatalf("catalog platform missing or changed: %v", err)
+	}
 	declaration, err := os.ReadFile(filepath.Join(flake, "flake.nix"))
-	if err != nil || !strings.Contains(string(declaration), "./interface.nix") {
-		t.Fatalf("generated flake does not import the catalog interface: %v", err)
+	if err != nil || !strings.Contains(string(declaration), "./interface.nix") || !strings.Contains(string(declaration), "./platform.nix") {
+		t.Fatalf("generated flake does not import the catalog interface and platform: %v", err)
 	}
 }
 

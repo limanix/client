@@ -88,9 +88,9 @@ later.
 
 ## Guest disk management
 
-The platform manages the guest disk for any module selection. Free bytes and
-free inodes are both limits, because ext4 fixes its inode count with the disk
-size.
+The platform manages the guest disk for any module selection. The root is btrfs,
+which has no fixed inode table: free bytes are the limit. On a file system with
+an inode table, free inodes are a second limit.
 
 | Free bytes or inodes | Platform behavior |
 | -- | -- |
@@ -98,12 +98,12 @@ size.
 | Below 10% | Warn in `lmx welcome` and before an update; `lmxd` logs the remaining garbage-collector roots; a failed apply reports the usage |
 
 Low space never blocks an update: a smaller module selection may still fit, and
-raising `resources.disk` adds both bytes and inodes. Collection after each
-apply, file deduplication, disabled Nix channels and omitted documentation
-outputs keep the store small. The client and the guest apply the same policy:
-the client writes both thresholds into the generated configuration. User roots
-such as `nix-direnv` shells and `result` links are reported, not removed,
-because their owners rely on them.
+raising `resources.disk` adds space. Collection after each apply, file
+deduplication, disabled Nix channels and omitted documentation outputs keep the
+store small. The client and the guest apply the same policy: the client writes
+both thresholds into the generated configuration. User roots such as
+`nix-direnv` shells and `result` links are reported, not removed, because their
+owners rely on them.
 
 ## Public guest contract
 
