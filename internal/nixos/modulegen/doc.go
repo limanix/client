@@ -1,15 +1,16 @@
 // Package modulegen prepares an embedded catalog from a limanix/modules tag or a local checkout.
 //
 // Generate reads the GitHub source archive over HTTPS and maps catalog/ source trees to modules/ in the embedded archive.
-// It preserves the complete _shared tree, including private files and its test export, and retains LICENSE, root interface.nix
-// and flake.lock, and records the source repository and selected release tag.
+// It preserves the complete _shared tree, including private files and its test export, and retains LICENSE, root interface.nix,
+// platform.nix and flake.lock, and records the source repository and selected release tag.
 // The catalog package validates the result before
 // one atomic file replacement publishes resources/modules.zip. Runtime imports include only root _shared/*.nix
-// schemas and infrastructure, excluding _shared/test.nix.
+// schemas and infrastructure, excluding _shared/test.nix. The release's image.json, the base disk of each guest
+// system, is published next to it as resources/image.json; a local checkout takes the manifest from a file.
 //
 // The published archive doubles as the build cache. A valid archive from the expected
 // repository with the requested tag, public interface and a supported NixOS pin is reused without a network request.
-// Old archives without interface.nix or flake.lock are rebuilt. Tags are not checksum pins; moving a tag does
+// Old archives without interface.nix, platform.nix or flake.lock are rebuilt. Tags are not checksum pins; moving a tag does
 // not invalidate an existing cache. No Nix evaluation or runtime module installation occurs here.
 // Local checkout builds use [GenerateLocal]. Each invocation validates and packages current source;
 // only identical output bytes are reused.

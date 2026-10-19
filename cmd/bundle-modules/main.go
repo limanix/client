@@ -5,7 +5,8 @@
 //
 // The --version flag selects the exact Git tag; --root selects the repository.
 // Existing valid output for that tag is reused without a download.
-// --source selects a local catalog directory; --version supplies its explicit build label.
+// --source selects a local catalog directory; --version supplies its explicit build label, and --image a release's
+// image.json for the base disk, which a local catalog does not carry.
 // Local source is always checked and repacked; identical output is reused.
 //
 // Upstream: https://github.com/limanix/modules.
@@ -30,6 +31,7 @@ func run(ctx context.Context, args []string, diagnostics io.Writer) int {
 
 		version = flags.String("version", "", "Required Git release tag or local source build label.")
 		source  = flags.String("source", "", "Local catalog repository to package instead of downloading a tag.")
+		image   = flags.String("image", "", "Base image manifest to publish with a local catalog; a tag brings its own.")
 		root    = flags.String("root", ".", "Repository root containing internal/nixos/resources.")
 	)
 	flags.SetOutput(diagnostics)
@@ -45,11 +47,15 @@ func run(ctx context.Context, args []string, diagnostics io.Writer) int {
 		_, _ = fmt.Fprintln(diagnostics, "bundle-modules: --version is required; positional arguments are not accepted")
 		return 2
 	}
+	if *image != "" && *source == "" {
+		_, _ = fmt.Fprintln(diagnostics, "bundle-modules: --image needs --source; a release tag brings its own image.json")
+		return 2
+	}
 
 	if *source == "" {
 		err = modulegen.Generate(ctx, *root, *version, diagnostics)
 	} else {
-		err = modulegen.GenerateLocal(ctx, *root, *source, *version, diagnostics)
+		err = modulegen.GenerateLocal(ctx, *root, *source, *version, *image, diagnostics)
 	}
 	if err != nil {
 		_, _ = fmt.Fprintln(diagnostics, "bundle-modules:", err)

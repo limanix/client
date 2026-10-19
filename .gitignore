@@ -28,3 +28,4 @@
 
 # vendor
 vendor/
+/internal/nixos/resources/image.json

@@ -11,7 +11,7 @@ import (
 	"github.com/limanix/client/internal/nixos/catalog"
 )
 
-// writeFlake combines the catalog's interface and nixpkgs pin with the client's platform inputs.
+// writeFlake combines the catalog's interface, platform and pins with the client's flake template.
 func writeFlake(directory string) error {
 	source, err := systemCatalog()
 	if err != nil {
@@ -27,9 +27,13 @@ func writeFlake(directory string) error {
 	if err = filesystem.WriteFileAtomic(filepath.Join(directory, "flake.lock"), lock, 0o600); err != nil {
 		return err
 	}
-	return filesystem.WriteFileAtomic(filepath.Join(directory, "interface.nix"), source.Interface(), 0o600)
+	if err = filesystem.WriteFileAtomic(filepath.Join(directory, "interface.nix"), source.Interface(), 0o600); err != nil {
+		return err
+	}
+	return filesystem.WriteFileAtomic(filepath.Join(directory, "platform.nix"), source.Platform(), 0o600)
 }
 
+// renderFlake declares the catalog's inputs in the guest flake and locks them with the catalog's nodes.
 func renderFlake(source *catalog.Catalog) ([]byte, []byte, error) {
 	declaration, err := resources.ReadFile("resources/flake.nix.tmpl")
 	if err != nil {
@@ -39,29 +43,30 @@ func renderFlake(source *catalog.Catalog) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse guest flake template: %w", err)
 	}
-	url, node := source.Nixpkgs()
+	nixpkgsURL, nixpkgs := source.Nixpkgs()
+	lima, nodes := source.NixosLima()
 	var rendered bytes.Buffer
-	if err = parsed.Execute(&rendered, struct{ NixpkgsURL string }{url}); err != nil {
+	if err = parsed.Execute(&rendered, struct{ NixpkgsURL, NixosLimaURL string }{nixpkgsURL, lima.URL}); err != nil {
 		return nil, nil, fmt.Errorf("render guest flake: %w", err)
 	}
 
-	data, err := resources.ReadFile("resources/flake.lock.tmpl")
+	for _, name := range []string{"nixpkgs", "root"} {
+		if _, taken := nodes[name]; taken {
+			return nil, nil, fmt.Errorf("render guest flake lock: the nixos-lima graph owns a node named %q", name)
+		}
+	}
+	nodes["nixpkgs"] = nixpkgs
+	root, err := json.Marshal(map[string]map[string]string{"inputs": {"nixpkgs": "nixpkgs", "nixos-lima": lima.Node}})
 	if err != nil {
 		return nil, nil, err
 	}
-	var lock struct {
+	nodes["root"] = root
+	lock := struct {
 		Nodes   map[string]json.RawMessage `json:"nodes"`
 		Root    string                     `json:"root"`
 		Version int                        `json:"version"`
-	}
-	if err = json.Unmarshal(data, &lock); err != nil {
-		return nil, nil, fmt.Errorf("read platform lock template: %w", err)
-	}
-	if lock.Nodes == nil || lock.Nodes["nixpkgs"] != nil {
-		return nil, nil, fmt.Errorf("platform lock template must leave nixpkgs to the module catalog")
-	}
-	lock.Nodes["nixpkgs"] = node
-	data, err = json.MarshalIndent(lock, "", "  ")
+	}{nodes, "root", 7}
+	data, err := json.MarshalIndent(lock, "", "  ")
 	if err != nil {
 		return nil, nil, fmt.Errorf("render guest flake lock: %w", err)
 	}

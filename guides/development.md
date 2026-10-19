@@ -236,12 +236,21 @@ The platform reads and sets the catalog's theme and needs catalog v3 or newer:
 an older catalog fails the evaluation because the option
 `lmx.capabilities.theme` does not exist.
 
-The client owns `internal/nixos/resources/flake.nix.tmpl` and `flake.lock.tmpl`,
-including the `nixos-lima` dependency graph. The catalog supplies the `nixpkgs`
-input when the client prepares a VM generation. Guest rebuilds reject inputs
-that would require a lock update. The bootstrap image, its checksums in
-`internal/nixos/image.go`, and `system.stateVersion` are also maintained in the
-client.
+The client owns `internal/nixos/resources/flake.nix.tmpl` and its base modules
+in `resources/base/`. The catalog supplies the `nixpkgs` and `nixos-lima` inputs
+with their locked graph, its `interface.nix` and its `platform.nix` when the
+client prepares a VM generation. Catalogs before v4 lack `platform.nix` and the
+`nixos-lima` pin, and `bundle-modules` rejects them. Guest rebuilds reject
+inputs that would require a lock update. `system.stateVersion` is maintained in
+`resources/base/defaults.nix`.
+
+The base disk is an asset of the catalog release: `bundle-modules` publishes the
+release's `image.json`, the disk URL and SHA-256 per system, as
+`internal/nixos/resources/image.json`. The disk is the catalog's `platform.nix`
+written to a disk: systemd-boot on the `ESP` partition and a btrfs root labeled
+`nixos`, which every rebuilt guest keeps by importing the same module. A local
+catalog (`modules_source`) has no release: pass a release's manifest with
+`--image` to `bundle-modules`.
 
 ## Maintain the documentation
 

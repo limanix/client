@@ -57,7 +57,7 @@ func TestLocalCatalogIsDeterministicAndContainsOnlyDistributableFiles(t *testing
 	if _, err := fs.ReadFile(archive, "README.md"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("repository docs shipped: %v", err)
 	}
-	for _, name := range []string{"LICENSE", "flake.lock", "interface.nix", "modules/tool/default.nix", "modules/tool/module.toml", "version"} {
+	for _, name := range []string{"LICENSE", "flake.lock", "interface.nix", "platform.nix", "modules/tool/default.nix", "modules/tool/module.toml", "version"} {
 		if _, err := fs.ReadFile(archive, name); err != nil {
 			t.Fatalf("missing %s: %v", name, err)
 		}
@@ -105,7 +105,10 @@ func TestGenerateLocalRefreshesChangedSourceWithSameLabelAndPreservesValidOutput
 		t.Fatal(err)
 	}
 	var diagnostics bytes.Buffer
-	generate := func() error { return GenerateLocal(context.Background(), root, source, "local-20261001", &diagnostics) }
+	manifest := imageFixture(t)
+	generate := func() error {
+		return GenerateLocal(context.Background(), root, source, "local-20261001", manifest, &diagnostics)
+	}
 	if err := generate(); err != nil {
 		t.Fatal(err)
 	}

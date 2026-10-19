@@ -13,6 +13,7 @@
 //	│  ├─ flake.nix + flake.lock + base NixOS modules
 //	│  ├─ lmx.json                pinned lmx release for each guest system
 //	│  ├─ interface.nix           catalog's public NixOS option declarations
+//	│  ├─ platform.nix            catalog's guest platform: the base disk's layout and Lima integration
 //	│  ├─ runtime.json            generation, user, architecture, ports, theme, module imports
 //	│  ├─ modules/lmx/_shared/    public declaration sources, including their private dependencies
 //	│  ├─ modules/lmx/<name>/     complete catalog entries, when a standard module is selected
@@ -20,16 +21,17 @@
 //	├─ environment                systemd-compatible runtime assignments
 //	└─ environment.sh             login-shell exports
 //
-// The catalog supplies the public NixOS interface and the guest's nixpkgs pin. The client owns the flake templates, platform modules and locked
-// nixos-lima dependency graph. Prepare combines these embedded sources into a complete flake and lock file.
-// [BaseImage] derives the first-boot disk URL from the platform lock template. Image digests live in image.go;
-// changing that dependency requires reviewing the partition and boot configuration in resources/base/platform.nix.
+// The catalog supplies the public NixOS interface, the guest platform and the pins of nixpkgs and nixos-lima with their locked
+// graph. The client owns the flake template and its own base modules. Prepare combines these sources into a complete flake and lock file.
+// [BaseImage] reads the first-boot disk and its digest from resources/image.json, the manifest of the bundled catalog release;
+// the disk is the catalog's platform.nix written to a disk, and a rebuilt guest imports the same module to keep its layout and boot loader.
 //
 // Standard modules come from the limanix-modules release selected in Taskfile, not Go declarations.
-// cmd/bundle-modules packages their trees, module.toml metadata, root interface.nix and flake.lock as resources/modules.zip before compilation.
-// The executable reads this archive in memory; no catalog is downloaded or installed at runtime.
+// cmd/bundle-modules packages their trees, module.toml metadata, root interface.nix, platform.nix and flake.lock as resources/modules.zip
+// before compilation, and publishes the release's image.json as resources/image.json.
+// The executable reads these in memory; no catalog or manifest is downloaded at runtime.
 //
-//	Taskfile tag → limanix-modules archive → bundle-modules → embedded modules.zip
+//	Taskfile tag → limanix-modules archive + image.json → bundle-modules → embedded modules.zip + image.json
 //	                                                            ↓ lmx:NAME[-VERSION]
 //	                                                     VM generation snapshot
 //

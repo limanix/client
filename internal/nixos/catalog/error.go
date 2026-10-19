@@ -17,4 +17,7 @@ var (
 
 	// ErrModule reports a name absent from the selected catalog.
 	ErrModule = errors.New("module is absent from the standard catalog")
+
+	// ErrImage rejects a base image manifest that is not a release's image.json.
+	ErrImage = errors.New("invalid base image manifest")
 )

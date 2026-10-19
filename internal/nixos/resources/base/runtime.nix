@@ -66,7 +66,7 @@ in
       createHome = false;
       linger = true;
     };
-    security.sudo.wheelNeedsPassword = true;
+    security.sudo.wheelNeedsPassword = lib.mkForce true;
     security.sudo.extraRules = [
       {
         users = [ "limanix-admin" ] ++ lib.optional runtime.user.sudo config.limanix.user.name;

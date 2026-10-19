@@ -21,6 +21,7 @@ func TestLocalSourceCommandPublishesCurrentCheckoutWithoutDownload(t *testing.T)
 		"LICENSE":                  []byte("fixture license\n"),
 		"flake.lock":               lock,
 		"interface.nix":            []byte("{ options = {}; }\n"),
+		"platform.nix":             []byte("{ services.lima.enable = true; }\n"),
 		"catalog/tool/default.nix": []byte("{}\n"),
 		"catalog/tool/module.toml": []byte("description = 'Tool'\n"),
 	} {
@@ -36,10 +37,25 @@ func TestLocalSourceCommandPublishesCurrentCheckoutWithoutDownload(t *testing.T)
 	if err := os.MkdirAll(directory, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	args := []string{"--source", source, "--version", "local-20261001", "--root", root}
+	manifest := filepath.Join(t.TempDir(), "image.json")
+	if err := os.WriteFile(manifest, []byte(imageManifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	var diagnostics bytes.Buffer
+	if status := run(context.Background(), []string{"--source", source, "--version", "local-20261001", "--root", root}, &diagnostics); status != 1 || !strings.Contains(diagnostics.String(), "--image") {
+		t.Fatalf("local source without a manifest accepted: status=%d, %s", status, diagnostics.String())
+	}
+	diagnostics.Reset()
+	if status := run(context.Background(), []string{"--version", "v4", "--image", manifest, "--root", root}, &diagnostics); status != 2 || !strings.Contains(diagnostics.String(), "--image needs --source") {
+		t.Fatalf("manifest accepted for a release tag: status=%d, %s", status, diagnostics.String())
+	}
+	diagnostics.Reset()
+	args := []string{"--source", source, "--version", "local-20261001", "--image", manifest, "--root", root}
 	if status := run(context.Background(), args, &diagnostics); status != 0 {
 		t.Fatalf("local generation status=%d: %s", status, diagnostics.String())
+	}
+	if published, err := os.ReadFile(filepath.Join(directory, "image.json")); err != nil || string(published) != imageManifest {
+		t.Fatalf("manifest not published: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join(directory, "modules.zip"))
 	if err != nil {
@@ -62,3 +78,18 @@ func TestLocalSourceCommandPublishesCurrentCheckoutWithoutDownload(t *testing.T)
 		t.Fatalf("invalid invocation replaced output: %v", err)
 	}
 }
+
+const imageManifest = `{
+  "version": "v4",
+  "systems": {
+    "aarch64-linux": {
+      "url": "https://github.com/limanix/modules/releases/download/v4/limanix-aarch64.qcow2",
+      "sha256": "10ecc1ab08c31c48f67106d9fdbb483340a52d963a945aa5c7a91905a1f68417"
+    },
+    "x86_64-linux": {
+      "url": "https://github.com/limanix/modules/releases/download/v4/limanix-x86_64.qcow2",
+      "sha256": "1bcc06b3c8f855c80ffd3df0ded38737728b5472494de98921fdb37d55613b24"
+    }
+  }
+}
+`

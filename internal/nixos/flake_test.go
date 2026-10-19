@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,20 +12,7 @@ import (
 	"github.com/limanix/client/internal/nixos/catalog"
 )
 
-func TestCatalogPinControlsGuestFlakeAndPreservesPlatform(t *testing.T) {
-	platform, err := resources.ReadFile("resources/flake.lock.tmpl")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var expected struct {
-		Nodes map[string]json.RawMessage `json:"nodes"`
-	}
-	if err := json.Unmarshal(platform, &expected); err != nil {
-		t.Fatal(err)
-	}
-	if _, exists := expected.Nodes["nixpkgs"]; exists {
-		t.Fatal("client still owns a nixpkgs pin")
-	}
+func TestCatalogPinsControlGuestFlakeAndLock(t *testing.T) {
 	for _, ref := range []string{"nixos-26.05", "nixos-unstable"} {
 		t.Run(ref, func(t *testing.T) {
 			pin := `{"locked":{"type":"github","owner":"NixOS","repo":"nixpkgs","rev":"1111111111111111111111111111111111111111","narHash":"sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="},"original":{"type":"github","owner":"NixOS","repo":"nixpkgs","ref":"` + ref + `"}}`
@@ -33,28 +21,59 @@ func TestCatalogPinControlsGuestFlakeAndPreservesPlatform(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(string(declaration), `nixpkgs.url = "github:NixOS/nixpkgs/`+ref+`";`) {
-				t.Fatalf("catalog ref not used in flake: %s", declaration)
+			for _, want := range []string{
+				`nixpkgs.url = "github:NixOS/nixpkgs/` + ref + `";`,
+				`url = "github:nixos-lima/nixos-lima/v0.2.1";`,
+				"./platform.nix", "./defaults.nix",
+			} {
+				if !strings.Contains(string(declaration), want) {
+					t.Fatalf("flake lacks %q: %s", want, declaration)
+				}
 			}
 			var actual struct {
-				Nodes map[string]json.RawMessage `json:"nodes"`
+				Nodes   map[string]json.RawMessage `json:"nodes"`
+				Root    string                     `json:"root"`
+				Version int                        `json:"version"`
 			}
 			if err := json.Unmarshal(data, &actual); err != nil {
 				t.Fatal(err)
 			}
-			assertSameJSON(t, actual.Nodes["nixpkgs"], []byte(pin))
-			if len(actual.Nodes) != len(expected.Nodes)+1 {
-				t.Fatal("unexpected changes to the platform dependency graph")
+			if actual.Root != "root" || actual.Version != 7 {
+				t.Fatalf("lock header: %+v", actual)
 			}
-			for name, original := range expected.Nodes {
-				assertSameJSON(t, actual.Nodes[name], original)
+			assertSameJSON(t, actual.Nodes["nixpkgs"], []byte(pin))
+			assertSameJSON(t, actual.Nodes["root"], []byte(`{"inputs":{"nixpkgs":"nixpkgs","nixos-lima":"nixos-lima"}}`))
+			_, graph := source.NixosLima()
+			if len(actual.Nodes) != len(graph)+2 {
+				t.Fatalf("lock nodes: got %d, want the nixos-lima graph of %d plus nixpkgs and root", len(actual.Nodes), len(graph))
+			}
+			for name, node := range graph {
+				assertSameJSON(t, actual.Nodes[name], node)
 			}
 		})
 	}
 }
 
+// catalogWithPin builds a catalog whose nixpkgs node is renamed, as Nix does on conflicts, to keep the guest lock independent of node names.
 func catalogWithPin(t *testing.T, pin string) *catalog.Catalog {
 	t.Helper()
+	lock, err := os.ReadFile("catalog/testdata/flake.lock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var nodes struct {
+		Nodes map[string]json.RawMessage `json:"nodes"`
+	}
+	if err := json.Unmarshal(lock, &nodes); err != nil {
+		t.Fatal(err)
+	}
+	delete(nodes.Nodes, "nixpkgs")
+	nodes.Nodes["packages"] = json.RawMessage(pin)
+	nodes.Nodes["root"] = json.RawMessage(`{"inputs":{"nixpkgs":"packages","nixos-lima":"nixos-lima"}}`)
+	lock, err = json.Marshal(map[string]any{"version": 7, "root": "root", "nodes": nodes.Nodes})
+	if err != nil {
+		t.Fatal(err)
+	}
 	var buffer bytes.Buffer
 	archive := zip.NewWriter(&buffer)
 	if err := archive.SetComment(catalog.Repository); err != nil {
@@ -64,9 +83,10 @@ func catalogWithPin(t *testing.T, pin string) *catalog.Catalog {
 		"version":                  "test-pin",
 		"LICENSE":                  "test fixture",
 		"interface.nix":            "{}",
+		"platform.nix":             "{ services.lima.enable = true; }",
 		"modules/test/default.nix": "{}",
 		"modules/test/module.toml": "description = 'Test'",
-		"flake.lock":               `{"version":7,"root":"root","nodes":{"root":{"inputs":{"nixpkgs":"packages"}},"packages":` + pin + `}}`,
+		"flake.lock":               string(lock),
 	}
 	for name, data := range files {
 		file, err := archive.Create(name)

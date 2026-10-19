@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [ci/golang/fmt, ci/golang/lint, ci/golang/test, ci/golang/vuln]
+        task: [ci/golang/fmt, ci/golang/lint, ci/golang/test, ci/golang/audit]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,6 +47,7 @@ jobs:
           key: guest-agent-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'Taskfile.yml', 'internal/bundle/generator/**', 'internal/bundle/vmnetgen/**') }}
       - name: Run check
         timeout-minutes: ${{ matrix.task == 'ci/golang/test' && 40 || 15 }}
-        uses: mr-chelyshkin/actions/invoke-taskfile@v1
+        uses: mr-chelyshkin/actions/task-run@v2
         with:
-          command: ${{ matrix.task }} modules_version=${{ inputs.modules-tag }}
+          task: ${{ matrix.task }}
+          args: modules_version=${{ inputs.modules-tag }}

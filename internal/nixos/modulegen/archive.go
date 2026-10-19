@@ -67,7 +67,7 @@ func pack(ctx context.Context, source io.Reader, version string) (data []byte, f
 
 		if module, ok := strings.CutPrefix(relative, "catalog/"); ok {
 			relative = "modules/" + module
-		} else if relative != "LICENSE" && relative != "flake.lock" && relative != "interface.nix" {
+		} else if relative != "LICENSE" && relative != "flake.lock" && relative != "interface.nix" && relative != "platform.nix" {
 			continue
 		}
 		if header.Typeflag == tar.TypeDir {

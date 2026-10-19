@@ -12,14 +12,15 @@ type DiskError struct {
 	Usage domain.DiskUsage
 }
 
-// Error names both limits: ext4 can run out of inodes while bytes remain free.
+// Error names the free space, and the free inodes on a file system with an inode table.
 func (err *DiskError) Error() string {
 	usage := err.Usage
+	free := fmt.Sprintf("%s of %s free", gibibytes(usage.FreeBytes), gibibytes(usage.Bytes))
+	if usage.Inodes > 0 {
+		free = fmt.Sprintf("%d of %d inodes and %s", usage.FreeInodes, usage.Inodes, free)
+	}
 
-	return fmt.Sprintf(
-		"guest disk is full or nearly full: %d of %d inodes and %s of %s free; raise resources.disk or remove guest data",
-		usage.FreeInodes, usage.Inodes, gibibytes(usage.FreeBytes), gibibytes(usage.Bytes),
-	)
+	return "guest disk is full or nearly full: " + free + "; raise resources.disk or remove guest data"
 }
 
 // FinalizeError reports that the applied generation runs, but lmxd could not finalize it yet: remove the older

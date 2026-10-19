@@ -17,6 +17,7 @@ import (
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/modules"
+	"github.com/limanix/client/internal/nixos/catalog"
 )
 
 // testGeneration is the generation ID that tests pass to Prepare.
@@ -83,6 +84,27 @@ func TestLmxPinNamesAReleaseForEachSystem(t *testing.T) {
 		want := fmt.Sprintf("https://github.com/limanix/lmx/releases/download/v%[1]s/lmx-%[1]s-%[2]s.tar.gz", pin.Version, system)
 		if archive.URL != want || !digest.MatchString(archive.SHA256) {
 			t.Fatalf("%s: got %s %s, want %s and a SHA-256", system, archive.URL, archive.SHA256, want)
+		}
+	}
+}
+
+// TestImagePinNamesADiskForEachSystem guards the bundled manifest: a catalog release carries a disk and its SHA-256 per system.
+func TestImagePinNamesADiskForEachSystem(t *testing.T) {
+	data, err := resources.ReadFile("resources/image.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	image, err := catalog.ParseImage(data, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !regexp.MustCompile(`^v[1-9][0-9]*$`).MatchString(image.Version) {
+		t.Fatalf("manifest version %q is not a catalog release", image.Version)
+	}
+	for _, architecture := range domain.Architectures() {
+		disk, err := BaseImage(architecture)
+		if err != nil || disk.Location == "" || disk.SHA256 == "" {
+			t.Fatalf("%s: %+v, %v", architecture, disk, err)
 		}
 	}
 }
