@@ -22,8 +22,10 @@ vars:
   modules_source_path: '{{with .modules_source}}{{if isAbs .}}{{clean .}}{{else}}{{joinPath $.ROOT_DIR . | clean}}{{end}}{{end}}'
   image_source: '{{.image_source | default ""}}'
   image_source_path: '{{with .image_source}}{{if isAbs .}}{{clean .}}{{else}}{{joinPath $.ROOT_DIR . | clean}}{{end}}{{end}}'
+  lmx_source: '{{.lmx_source | default ""}}'
+  lmx_source_path: '{{with .lmx_source}}{{if isAbs .}}{{clean .}}{{else}}{{joinPath $.ROOT_DIR . | clean}}{{end}}{{end}}'
 
-  markdown_paths: README.md guides
+  markdown_paths: README.md
   macos_version: '26.0'
 
   socket_vmnet:
@@ -46,16 +48,6 @@ vars:
     {{if .RELEASE_TAG}}-X github.com/limanix/client/internal/buildinfo.Version={{.RELEASE_TAG}}{{end}}
 
 tasks:
-  docs/prepare:
-    desc: Build docs for the LimaNix site
-    cmds:
-      - task: golang:exec
-        vars:
-          CMD: >-
-            go run -tags=osusergo -ldflags {{.release_flags | trim | shellQuote}}
-            ./cmd/build-docs --root .
-          CONTAINER_ENVS: USER=limanix
-
   ci/markdown/fmt:
     desc: Check source Markdown formatting without modifying files
     cmds:
@@ -98,6 +90,7 @@ tasks:
     vars:
       test_command: |
         go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}} {{with .modules_source_path}}--source {{. | shellQuote}}{{end}} {{with .image_source_path}}--image {{. | shellQuote}}{{end}}
+        go run ./cmd/bundle-lmx --root . {{with .lmx_source_path}}--source {{. | shellQuote}}{{end}}
         go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
         go run ./cmd/bundle-guestagent --root .
         exec go test -race -count=1 -timeout=5m -tags=osusergo -ldflags {{.build_flags | shellQuote}} ./...
@@ -106,7 +99,7 @@ tasks:
         vars:
           CMD: timeout --kill-after=15s 1800 sh -eu -c {{.test_command | shellQuote}}
           CONTAINER_ENVS: USER=limanix
-          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .image_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
+          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .image_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .lmx_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
 
   ci/nix/eval:
     desc: Evaluate the client/catalog pair; EVAL_ARCH and EVAL_MODULES select cases
@@ -115,13 +108,14 @@ tasks:
     vars:
       prepare_command: |
         go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}} {{with .modules_source_path}}--source {{. | shellQuote}}{{end}} {{with .image_source_path}}--image {{. | shellQuote}}{{end}}
+        go run ./cmd/bundle-lmx --root . {{with .lmx_source_path}}--source {{. | shellQuote}}{{end}}
         exec go test -c -tags=osusergo,nix_eval -o .cache/nixos-eval.test ./internal/nixos
     cmds:
       - task: golang:exec
         vars:
           CMD: timeout --kill-after=15s 900 sh -eu -c {{.prepare_command | shellQuote}}
           CONTAINER_ENVS: CGO_ENABLED=0
-          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .image_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
+          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .image_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .lmx_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
       - task: nix:exec
         vars:
           CONTAINER_ENVS: 'XDG_CACHE_HOME=/workspace/.cache {{with .EVAL_ARCH}}{{printf "LIMANIX_EVAL_ARCH=%s" . | shellQuote}}{{end}} {{with .EVAL_MODULES}}{{printf "LIMANIX_EVAL_MODULES=%s" . | shellQuote}}{{end}}'
@@ -152,6 +146,7 @@ tasks:
         go run ./cmd/bundle-modules --root . --version {{.modules_version | default "" | shellQuote}}
         {{with .modules_source_path}}--source {{. | shellQuote}}{{end}}
         {{with .image_source_path}}--image {{. | shellQuote}}{{end}}
+      - go run ./cmd/bundle-lmx --root . {{with .lmx_source_path}}--source {{. | shellQuote}}{{end}}
       - go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
       - go run ./cmd/bundle-guestagent --root .
       - for: { var: target_archs }

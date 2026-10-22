@@ -64,12 +64,12 @@ func TestCatalogRejectsMissingNonRegularOrEmptyPlatform(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			archive := map[string][]byte{
-				"version":                  []byte("v4\n"),
-				"LICENSE":                  []byte("test license\n"),
-				"flake.lock":               nixpkgsFixture(t),
-				"interface.nix":            []byte("{ options = {}; }\n"),
-				"modules/tool/module.toml": []byte("description = 'Tool'\n"),
-				"modules/tool/default.nix": []byte("{}\n"),
+				"version":                          []byte("v4\n"),
+				"LICENSE":                          []byte("test license\n"),
+				"flake.lock":                       nixpkgsFixture(t),
+				"interface.nix":                    []byte("{ options = {}; }\n"),
+				"modules/modules/tool/module.toml": []byte("description = 'Tool'\n"),
+				"modules/modules/tool/default.nix": []byte("{}\n"),
 			}
 			for path, data := range files {
 				archive[path] = data

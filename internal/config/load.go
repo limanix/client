@@ -75,6 +75,15 @@ func resolveHostPaths(config *Config, parent string) error {
 
 	config.Home.Root = home
 
+	if config.Shell.Dotfiles != "" {
+		dotfiles, err := canonicalHostPath(string(config.Shell.Dotfiles), parent)
+		if err != nil {
+			return wrapField("shell.dotfiles", "host path cannot be resolved", err)
+		}
+
+		config.Shell.Dotfiles = domain.OptionalHostPath(dotfiles)
+	}
+
 	for index := range config.Mounts {
 		mount := &config.Mounts[index]
 

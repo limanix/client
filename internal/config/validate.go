@@ -22,6 +22,8 @@ func Validate(config Config) error {
 		return fieldError("resources.cpu", "must be positive")
 	case path.Clean(config.Home.Root) == "/":
 		return fieldError("home.root", "the host root directory is not allowed")
+	case config.Shell.Preset == PresetMinimal && config.Shell.Prompt != None:
+		return fieldError("shell.prompt", "a prompt needs the terminal preset, which has Zsh; the minimal preset uses Bash")
 	}
 
 	if err := validatePorts(config.Network.Ports.TCP, "tcp"); err != nil {
@@ -103,6 +105,7 @@ func checkedGuestTarget(value domain.GuestPath, field string) (string, error) {
 			"/bin",
 			"/sbin",
 			"/mnt/limanix",
+			DotfilesTarget,
 			"/home/limanix-admin",
 		}
 	)

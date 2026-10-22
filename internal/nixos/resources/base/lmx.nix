@@ -11,11 +11,23 @@ let
   archive = pin.systems.${system} or (throw "lmx ${pin.version} has no release for ${system}");
   inherit (config.lmx.capabilities) theme;
 
+  # A development build of the client bundles the archive beside this file instead of its address.
+  src =
+    if archive ? file then
+      let
+        local = ./. + "/${archive.file}";
+      in
+      assert lib.assertMsg (builtins.hashFile "sha256" local == archive.sha256)
+        "lmx ${pin.version}: ${archive.file} does not match its sha256";
+      local
+    else
+      pkgs.fetchurl { inherit (archive) url sha256; };
+
   # Static lmx and lmxd from the pinned release for the guest's system.
   release = pkgs.stdenvNoCC.mkDerivation {
     pname = "lmx-release";
     inherit (pin) version;
-    src = pkgs.fetchurl { inherit (archive) url sha256; };
+    inherit src;
     dontConfigure = true;
     dontBuild = true;
     dontFixup = true;
@@ -56,7 +68,17 @@ let
       lib.imap0 (index: port: if repeat index port then null else port) sorted
     );
 
-  settings = {
+  # The account's links, after the shell-specific `guard`.
+  linkDotfiles = guard: ''
+    if ${guard}[ "$(${pkgs.coreutils}/bin/id -u)" = "${toString runtime.user.uid}" ]; then
+      ${commands}/bin/lmx dotfiles link --quiet || :
+    fi
+  '';
+
+  # lmx 0.1 rejects unknown fields, so the key appears only with dotfiles.
+  dotfiles = lib.optionalAttrs (runtime.shell.dotfiles != null) { inherit (runtime.shell) dotfiles; };
+
+  settings = dotfiles // {
     schema = 1;
     vm = {
       inherit (runtime) name arch;
@@ -82,9 +104,11 @@ let
       tcp = ports "TCP";
       udp = ports "UDP";
     };
+    # lmx 0.1 rejects unknown fields, so the terminal colors appear only with the system flavor.
     theme = {
       inherit (theme) flavor palette;
-    };
+    }
+    // lib.optionalAttrs (theme.flavor == "system") { inherit (theme) ansi; };
     session = {
       command =
         if config.limanix.session.command == null then null else toString config.limanix.session.command;
@@ -183,6 +207,14 @@ in
       LimitCORE = 0;
     };
   };
+
+  # Every interactive shell of the account links the dotfiles before it reads the account's own
+  # startup files: Zsh from /etc/zshenv, ahead of ~/.zshenv, and Bash from /etc/bashrc, which
+  # /etc/profile reads ahead of ~/.bash_profile.
+  programs.zsh.shellInit = lib.mkIf (runtime.shell.dotfiles != null) (
+    linkDotfiles "[[ -o interactive ]] && "
+  );
+  programs.bash.interactiveShellInit = lib.mkIf (runtime.shell.dotfiles != null) (linkDotfiles "");
 
   environment.interactiveShellInit = ''
     if [ -t 1 ] && [ -z "''${LIMANIX_WELCOME_SHOWN:-}" ] \

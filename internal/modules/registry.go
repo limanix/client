@@ -4,17 +4,18 @@ import (
 	"maps"
 	"path/filepath"
 
+	"github.com/limanix/client/internal/nixos/catalog"
 	"github.com/limanix/client/internal/state"
 )
 
 // Registry keeps copied third-party source trees separate from their original checkout.
 type Registry struct {
 	store  *state.Store
-	system map[string]string
+	system map[string]catalog.Entry
 }
 
 // NewRegistry takes its own copy of the embedded-module metadata supplied by NixOS.
-func NewRegistry(store *state.Store, system map[string]string) *Registry {
+func NewRegistry(store *state.Store, system map[string]catalog.Entry) *Registry {
 	return &Registry{
 		store:  store,
 		system: maps.Clone(system),

@@ -73,7 +73,7 @@ func (g *generationBuilder) prepare(ctx context.Context, instance domain.Instanc
 }
 
 func (g *generationBuilder) prepareBundle(ctx context.Context, cfg config.Config, directory, generation string) (err error) {
-	sources, err := g.modules.Sources(ctx, cfg.NixOS.Modules)
+	sources, err := g.modules.Sources(ctx, cfg.Selection().Modules)
 	if err != nil {
 		return err
 	}

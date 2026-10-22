@@ -37,6 +37,7 @@ func Parse(data []byte) (Config, error) {
 	}
 
 	applyEntryDefaults(reflect.ValueOf(&result).Elem(), supplied)
+	applyShellDefaults(&result.Shell, supplied)
 	if err := Validate(result); err != nil {
 		return Config{}, err
 	}
@@ -48,6 +49,25 @@ func Parse(data []byte) (Config, error) {
 	}
 
 	return result, nil
+}
+
+// applyShellDefaults switches off the prompt, editor and multiplexer of a minimal shell unless the configuration
+// names them.
+func applyShellDefaults(shell *Shell, supplied map[string]any) {
+	if shell.Preset != PresetMinimal {
+		return
+	}
+
+	table, _ := supplied["shell"].(map[string]any)
+	for key, field := range map[string]*string{
+		"prompt":      &shell.Prompt,
+		"editor":      &shell.Editor,
+		"multiplexer": &shell.Multiplexer,
+	} {
+		if _, named := table[key]; !named {
+			*field = None
+		}
+	}
 }
 
 func applyEntryDefaults(model reflect.Value, supplied map[string]any) {

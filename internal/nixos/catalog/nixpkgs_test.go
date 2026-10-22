@@ -198,11 +198,11 @@ func catalogArchive(t *testing.T, lock []byte) []byte {
 func catalogArchiveWithInterface(t *testing.T, lock []byte, interfacePath string, interfaceData []byte) []byte {
 	t.Helper()
 	files := map[string][]byte{
-		"version":                  []byte("v4\n"),
-		"LICENSE":                  []byte("test license\n"),
-		"platform.nix":             []byte("{ services.lima.enable = true; }\n"),
-		"modules/tool/module.toml": []byte("description = 'Tool'\n"),
-		"modules/tool/default.nix": []byte("{}\n"),
+		"version":                          []byte("v4\n"),
+		"LICENSE":                          []byte("test license\n"),
+		"platform.nix":                     []byte("{ services.lima.enable = true; }\n"),
+		"modules/modules/tool/module.toml": []byte("description = 'Tool'\n"),
+		"modules/modules/tool/default.nix": []byte("{}\n"),
 	}
 	if lock != nil {
 		files["flake.lock"] = lock

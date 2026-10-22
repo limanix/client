@@ -18,12 +18,12 @@ func TestLocalSourceCommandPublishesCurrentCheckoutWithoutDownload(t *testing.T)
 		t.Fatal(err)
 	}
 	for name, data := range map[string][]byte{
-		"LICENSE":                  []byte("fixture license\n"),
-		"flake.lock":               lock,
-		"interface.nix":            []byte("{ options = {}; }\n"),
-		"platform.nix":             []byte("{ services.lima.enable = true; }\n"),
-		"catalog/tool/default.nix": []byte("{}\n"),
-		"catalog/tool/module.toml": []byte("description = 'Tool'\n"),
+		"LICENSE":                          []byte("fixture license\n"),
+		"flake.lock":                       lock,
+		"interface.nix":                    []byte("{ options = {}; }\n"),
+		"platform.nix":                     []byte("{ services.lima.enable = true; }\n"),
+		"catalog/modules/tool/default.nix": []byte("{}\n"),
+		"catalog/modules/tool/module.toml": []byte("description = 'Tool'\n"),
 	} {
 		filename := filepath.Join(source, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(filename), 0o700); err != nil {
@@ -62,7 +62,7 @@ func TestLocalSourceCommandPublishesCurrentCheckoutWithoutDownload(t *testing.T)
 		t.Fatal(err)
 	}
 	bundled, err := catalog.Open(data)
-	if err != nil || bundled.Version != "local-20261001" || bundled.Modules()["tool"] != "Tool" {
+	if err != nil || bundled.Version != "local-20261001" || bundled.Modules()["tool"].Description != "Tool" {
 		t.Fatalf("local source not published: %v, %v", bundled, err)
 	}
 	diagnostics.Reset()

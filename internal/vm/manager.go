@@ -68,7 +68,7 @@ func (m *Manager) preflight(ctx context.Context, cfg config.Config) error {
 		return ErrRootUser
 	}
 
-	if err := m.generations.modules.Check(ctx, cfg.NixOS.Modules); err != nil {
+	if err := m.generations.modules.Check(ctx, cfg.Selection().Modules); err != nil {
 		return err
 	}
 
@@ -79,6 +79,12 @@ func (m *Manager) preflight(ctx context.Context, cfg config.Config) error {
 	for _, mount := range cfg.Mounts {
 		if _, err := filesystem.RequireDirectory(mount.Source); err != nil {
 			return err
+		}
+	}
+
+	if cfg.Shell.Dotfiles != "" {
+		if _, err := filesystem.RequireDirectory(string(cfg.Shell.Dotfiles)); err != nil {
+			return fmt.Errorf("shell.dotfiles: %w", err)
 		}
 	}
 

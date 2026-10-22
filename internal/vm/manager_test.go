@@ -363,8 +363,10 @@ func TestCreateReadyKeepsSecretsOutOfStateWithNoOptionalModules(t *testing.T) {
 	if err = json.Unmarshal(runtimeData, &runtime); err != nil {
 		t.Fatal(err)
 	}
+	// Without [nixos] modules, the shell preset's components follow the public declarations.
 	for _, module := range runtime.Modules {
-		if !strings.HasPrefix(module, "modules/lmx/_shared/") || strings.HasPrefix(module, "modules/lmx/_shared/internal/") {
+		shared := strings.HasPrefix(module, "modules/lmx/_shared/") && !strings.HasPrefix(module, "modules/lmx/_shared/internal/")
+		if !shared && !strings.HasPrefix(module, "modules/lmx/shell/") {
 			t.Fatalf("empty selection enabled a non-public module: %s", module)
 		}
 	}
@@ -914,7 +916,9 @@ func TestUpdateAddsBundledAndImportedModulesToExistingVM(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := f.configuration("sandbox")
-	cfg.NixOS.Modules = []domain.ModuleID{"lmx:git", "lmx:rust", "third-party:custom"}
+	cfg.Shell = config.Shell{Preset: config.PresetMinimal, Prompt: config.None, Editor: config.None, Multiplexer: config.None}
+	cfg.Toolchains.Rust = "stable"
+	cfg.NixOS.Modules = []domain.ModuleID{"lmx:docker", "third-party:custom"}
 	updated, err := f.manager.Update(context.Background(), f.writeConfig(t, cfg))
 	if err != nil || updated.Identity != first.Identity || updated.Status != domain.Ready {
 		t.Fatalf("module update %+v: %v", updated, err)
@@ -923,7 +927,7 @@ func TestUpdateAddsBundledAndImportedModulesToExistingVM(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, directory := range []string{"lmx/git", "lmx/rust", "0002"} {
+	for _, directory := range []string{"lmx/shell/cli-tools", "lmx/toolchains/rust", "lmx/modules/docker", "0003"} {
 		assertExists(t, filepath.Join(generation, "flake", "modules", directory, "default.nix"))
 	}
 	data, err := os.ReadFile(keep)

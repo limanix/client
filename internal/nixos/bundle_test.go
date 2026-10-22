@@ -270,17 +270,17 @@ func TestCatalogSnapshotRetainsUnselectedSiblingsAlongsideThirdPartyModules(t *t
 	flake := t.TempDir()
 	imports, err := copyModules(flake, []modules.Source{
 		{ID: "third-party:custom", Path: source},
-		{ID: "lmx:git"},
-		{ID: "lmx:git"},
+		{ID: "lmx:docker"},
+		{ID: "lmx:docker"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := append(publicDeclarationImports(t), "modules/0000/default.nix", "modules/lmx/git/default.nix", "modules/lmx/git/default.nix")
+	want := append(publicDeclarationImports(t), "modules/0000/default.nix", "modules/lmx/modules/docker/default.nix", "modules/lmx/modules/docker/default.nix")
 	if !reflect.DeepEqual(imports, want) {
 		t.Fatalf("selection or shared module identity changed: got %v, want %v", imports, want)
 	}
-	if _, err := os.ReadFile(filepath.Join(flake, "modules", "lmx", "neovim", "default.nix")); err != nil {
+	if _, err := os.ReadFile(filepath.Join(flake, "modules", "lmx", "shell", "neovim", "default.nix")); err != nil {
 		t.Fatalf("unselected sibling source is unavailable to Nix imports: %v", err)
 	}
 	entries, err := os.ReadDir(filepath.Join(flake, "modules"))

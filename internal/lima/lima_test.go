@@ -144,3 +144,34 @@ func TestArchitectureTemplatesUseHardwareArchitecture(t *testing.T) {
 		t.Fatal("invalid architectures selected VZ")
 	}
 }
+
+func TestDotfilesMountWritableOnlyWhenConfigured(t *testing.T) {
+	cfg := config.Default()
+	cfg.Mounts = nil
+	mounts := func() map[string]limatype.Mount {
+		t.Helper()
+		data, err := Render(cfg, "/managed/home", "/managed/runtime", "arm64", 501)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rendered limatype.LimaYAML
+		if err := json.Unmarshal(data, &rendered); err != nil {
+			t.Fatal(err)
+		}
+		result := make(map[string]limatype.Mount, len(rendered.Mounts))
+		for _, mount := range rendered.Mounts {
+			result[*mount.MountPoint] = mount
+		}
+		return result
+	}
+
+	if _, exists := mounts()[config.DotfilesTarget]; exists {
+		t.Fatal("dotfiles mounted without shell.dotfiles")
+	}
+
+	cfg.Shell.Dotfiles = "/Users/dev/dotfiles"
+	mount, exists := mounts()[config.DotfilesTarget]
+	if !exists || mount.Location != "/Users/dev/dotfiles" || !*mount.Writable {
+		t.Fatalf("dotfiles mount: %+v", mount)
+	}
+}

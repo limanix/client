@@ -169,7 +169,7 @@ func writeModules(output io.Writer, entries []modules.Info) error {
 			detail = "error: " + *entry.Error
 		}
 
-		if _, err := fmt.Fprintf(writer, "%s\t%s\n", entry.Name, detail); err != nil {
+		if _, err := fmt.Fprintf(writer, "%s\t%s\t%s\n", entry.Name, entry.Kind, detail); err != nil {
 			return err
 		}
 	}

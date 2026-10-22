@@ -22,12 +22,12 @@
           runtime = throw ''
             LimaNix no longer provides the `runtime` module argument. Use public
             config.limanix.user options and the corresponding NixOS options instead.
-            Migration guide: https://limanix.dev/categories/nixos/writing-modules.html#migrate-custom-modules
+            Migration guide: https://docs.limanix.dev/modules/custom#what-a-module-can-use
           '';
           inputs = throw ''
             LimaNix no longer provides the `inputs` module argument. Root-flake inputs
             are private client data and have no public replacement.
-            Migration guide: https://limanix.dev/categories/nixos/writing-modules.html#migrate-custom-modules
+            Migration guide: https://docs.limanix.dev/modules/custom#what-a-module-can-use
           '';
         };
         modules = [
@@ -38,6 +38,8 @@
           ./defaults.nix
           ./runtime.nix
           ./lmx.nix
+          ./packages.nix
+          ./shell.nix
           ./workspace.nix
         ]
           ++ builtins.map (path: ./. + "/${path}") runtime.modules;

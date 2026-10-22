@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
@@ -36,8 +37,40 @@ func TestRuntimeCarriesTheGeneration(t *testing.T) {
 	if err = json.Unmarshal(data, &runtime); err != nil {
 		t.Fatal(err)
 	}
-	if runtime.Generation != testGeneration || runtime.Theme.Flavor != "mocha" {
+	if runtime.Generation != testGeneration || runtime.Theme.Flavor != "system" {
 		t.Fatalf("generation or theme missing from runtime: %s", data)
+	}
+}
+
+func TestRuntimeCarriesPackages(t *testing.T) {
+	cfg := config.Default()
+	cfg.NixOS.Packages = []domain.PackageName{"jq", "python3Packages.ipython", "jq"}
+	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(flake, "runtime.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var runtime runtimeConfig
+	if err = json.Unmarshal(data, &runtime); err != nil {
+		t.Fatal(err)
+	}
+	want := []domain.PackageName{"gh", "jq", "python3Packages.ipython", "jq"}
+	if !reflect.DeepEqual(runtime.Packages, want) {
+		t.Fatalf("packages changed in runtime: %s", data)
+	}
+
+	cfg.NixOS.Packages = nil
+	cfg.Shell = config.Shell{Preset: config.PresetMinimal, Prompt: config.None, Editor: config.None, Multiplexer: config.None}
+	flake, err = Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = os.ReadFile(filepath.Join(flake, "runtime.json"))
+	if err != nil || !bytes.Contains(data, []byte(`"packages": []`)) {
+		t.Fatalf("empty packages must remain a JSON list: %s, %v", data, err)
 	}
 }
 
@@ -112,8 +145,8 @@ func TestImagePinNamesADiskForEachSystem(t *testing.T) {
 func TestRuntimeMetadataPreservesSelectedModulesWithoutEnvironment(t *testing.T) {
 	cfg := config.Default()
 	cfg.Env["PRIVATE_TOKEN"] = "never-in-workspace-metadata"
-	cfg.NixOS.Modules = []domain.ModuleID{"lmx:git", "lmx:git"}
-	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, []modules.Source{{ID: "lmx:git"}, {ID: "lmx:git"}}, 501)
+	cfg.NixOS.Modules = []domain.ModuleID{"lmx:docker", "lmx:docker"}
+	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, []modules.Source{{ID: "lmx:docker"}, {ID: "lmx:docker"}}, 501)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,22 +158,28 @@ func TestRuntimeMetadataPreservesSelectedModulesWithoutEnvironment(t *testing.T)
 	if err := json.Unmarshal(data, &runtime); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(runtime.SelectedModules, cfg.NixOS.Modules) || strings.Contains(string(data), "never-in-workspace-metadata") {
+	selected := []domain.ModuleID{
+		"lmx:cli-tools", "lmx:zsh", "lmx:lazygit", "lmx:yazi", "lmx:astronvim", "lmx:tmux", "lmx:docker", "lmx:docker",
+	}
+	if !reflect.DeepEqual(runtime.SelectedModules, selected) || strings.Contains(string(data), "never-in-workspace-metadata") {
 		t.Fatalf("workspace metadata changed: %s", data)
 	}
-	for _, name := range []string{"lmx.nix", "lmx.json", "workspace.nix"} {
+	for _, name := range []string{"lmx.nix", "lmx.json", "packages.nix", "packages-check.sh", "shell.nix", "workspace.nix"} {
 		if _, err := os.Stat(filepath.Join(flake, name)); err != nil {
 			t.Fatalf("base file %s missing: %v", name, err)
 		}
 	}
 	cfg.NixOS.Modules = nil
+	cfg.Shell = config.Shell{Preset: config.PresetMinimal, Prompt: config.None, Editor: config.None, Multiplexer: config.None}
 	flake, err = Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
 	if err != nil {
 		t.Fatal(err)
 	}
 	data, err = os.ReadFile(filepath.Join(flake, "runtime.json"))
-	if err != nil || !bytes.Contains(data, []byte(`"selectedModules": []`)) {
-		t.Fatalf("empty modules must remain a JSON list: %s, %v", data, err)
+	if err != nil || !bytes.Contains(data, []byte(`"selectedModules": [
+    "lmx:cli-tools"
+  ]`)) {
+		t.Fatalf("a minimal shell selects only the CLI tools: %s, %v", data, err)
 	}
 }
 
@@ -168,5 +207,75 @@ func TestRuntimeCarriesGuestDiskPolicy(t *testing.T) {
 	if runtime.Disk.Bytes != 16*domain.GiB || runtime.Disk.CollectPercent != domain.DiskCollectPercent ||
 		runtime.Disk.MinimumPercent != domain.DiskMinimumPercent {
 		t.Fatalf("guest disk policy missing from runtime: %s", data)
+	}
+}
+
+func TestRuntimeCarriesShellAndToolchains(t *testing.T) {
+	read := func(cfg config.Config) runtimeConfig {
+		t.Helper()
+		flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(filepath.Join(flake, "runtime.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var runtime runtimeConfig
+		if err = json.Unmarshal(data, &runtime); err != nil {
+			t.Fatal(err)
+		}
+		return runtime
+	}
+
+	runtime := read(config.Default())
+	if runtime.Shell.Prompt == nil || *runtime.Shell.Prompt != "pure" || runtime.Shell.Dotfiles != nil || runtime.Toolchains.Rust != nil {
+		t.Fatalf("defaults: %+v %+v", runtime.Shell, runtime.Toolchains)
+	}
+
+	cfg := config.Default()
+	cfg.Shell = config.Shell{
+		Preset: config.PresetMinimal, Prompt: config.None, Editor: config.None, Multiplexer: config.None,
+		Dotfiles: domain.OptionalHostPath(t.TempDir()),
+	}
+	cfg.Toolchains = config.Toolchains{Rust: "nightly-2026-10-01", Go: "1.27"}
+	runtime = read(cfg)
+	if runtime.Shell.Prompt != nil || runtime.Shell.Dotfiles == nil || *runtime.Shell.Dotfiles != config.DotfilesTarget ||
+		runtime.Toolchains.Rust == nil || *runtime.Toolchains.Rust != "nightly-2026-10-01" {
+		t.Fatalf("minimal with dotfiles and Rust: %+v %+v", runtime.Shell, runtime.Toolchains)
+	}
+	if want := []domain.ModuleID{"lmx:cli-tools", "lmx:go-1.27", "lmx:rust"}; !reflect.DeepEqual(runtime.SelectedModules, want) {
+		t.Fatalf("selected modules: %v", runtime.SelectedModules)
+	}
+}
+
+func TestLocalLMXReplacesThePinnedRelease(t *testing.T) {
+	flake := t.TempDir()
+	if err := copyResource("resources/base", flake); err != nil {
+		t.Fatal(err)
+	}
+	pinned, err := os.ReadFile(filepath.Join(flake, "lmx.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = overlayLMX(fstest.MapFS{"resources/base/lmx.json": {Data: pinned}}, flake); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(filepath.Join(flake, "lmx.json")); err != nil || !bytes.Equal(data, pinned) {
+		t.Fatalf("a build without local lmx changed the pin: %v", err)
+	}
+
+	local := fstest.MapFS{
+		"resources/lmx/lmx.json":                       {Data: []byte(`{"version":"0.2.0","systems":{}}` + "\n")},
+		"resources/lmx/lmx-0.2.0-aarch64-linux.tar.gz": {Data: []byte("archive")},
+	}
+	if err = overlayLMX(local, flake); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(filepath.Join(flake, "lmx.json")); err != nil || !bytes.Contains(data, []byte(`"0.2.0"`)) {
+		t.Fatalf("local lmx.json not used: %s, %v", data, err)
+	}
+	if data, err := os.ReadFile(filepath.Join(flake, "lmx-0.2.0-aarch64-linux.tar.gz")); err != nil || string(data) != "archive" {
+		t.Fatalf("local archive not copied: %v", err)
 	}
 }

@@ -57,7 +57,7 @@ func TestLocalCatalogIsDeterministicAndContainsOnlyDistributableFiles(t *testing
 	if _, err := fs.ReadFile(archive, "README.md"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("repository docs shipped: %v", err)
 	}
-	for _, name := range []string{"LICENSE", "flake.lock", "interface.nix", "platform.nix", "modules/tool/default.nix", "modules/tool/module.toml", "version"} {
+	for _, name := range []string{"LICENSE", "flake.lock", "interface.nix", "platform.nix", "modules/modules/tool/default.nix", "modules/modules/tool/module.toml", "version"} {
 		if _, err := fs.ReadFile(archive, name); err != nil {
 			t.Fatalf("missing %s: %v", name, err)
 		}
@@ -68,7 +68,7 @@ func TestLocalCatalogRejectsSymlinksSpecialFilesAndCanceledWork(t *testing.T) {
 	for _, kind := range []string{"symlink", "fifo", "directory-symlink"} {
 		t.Run(kind, func(t *testing.T) {
 			source := localFixture(t)
-			path := filepath.Join(source, "catalog", "tool", "unsafe")
+			path := filepath.Join(source, "catalog", "modules", "tool", "unsafe")
 			switch kind {
 			case "symlink":
 				if err := os.Symlink("default.nix", path); err != nil {
@@ -127,7 +127,7 @@ func TestGenerateLocalRefreshesChangedSourceWithSameLabelAndPreservesValidOutput
 	if err != nil || !info.ModTime().Equal(timestamp) {
 		t.Fatalf("identical output was rewritten: %v, %v", info, err)
 	}
-	if err := os.WriteFile(filepath.Join(source, "catalog", "tool", "default.nix"), []byte("{...}: { environment.variables.LOCAL = \"updated\"; }\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(source, "catalog", "modules", "tool", "default.nix"), []byte("{...}: { environment.variables.LOCAL = \"updated\"; }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := generate(); err != nil {

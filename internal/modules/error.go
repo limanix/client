@@ -11,6 +11,7 @@ var (
 	ErrAlreadyExists     = errors.New("module already exists")
 	ErrNotInstalled      = errors.New("module is not installed")
 	ErrUnknownSystem     = errors.New("unknown standard module")
+	ErrOtherKind         = errors.New("module is chosen by another table of limanix.toml")
 	ErrUnknownCatalog    = errors.New("unknown module catalog; use limanix modules list")
 	ErrInvalidDirectory  = errors.New("module must be a directory, not a symbolic link")
 	ErrInvalidEntry      = errors.New("module entry point must be a regular default.nix file")

@@ -8,7 +8,7 @@ The original tar.gz archives are embedded with their upstream license.
 Packaging verifies their pinned SHA-256 digests, sizes, Mach-O architecture, macOS deployment target, and system-library dependencies.
 The supported host minimum comes from `macos_version`.
 Runtime installation needs administrator approval.
-For dependency update procedures, see the [embedded resources section of the development guide](../../../guides/development.md#embedded-resources).
+The [embedded resources table](../../../README.md#development) lists the source of truth of each resource.
 
 `go run ./cmd/bundle-guestagent` builds the pinned Lima guest agent for Linux arm64 and amd64.
 It writes deterministic gzip archives and an integrity manifest here.

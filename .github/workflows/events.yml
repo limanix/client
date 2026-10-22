@@ -88,12 +88,3 @@ jobs:
       evaluation-matrix: ${{ toJSON(matrix.evaluation_matrix) }}
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-
-  notify:
-    needs: [clients, release]
-    uses: ./.github/workflows/_notify.yml
-    with:
-      modules-tag: ${{ needs.clients.outputs.modules-tag }}
-      clients: ${{ needs.clients.outputs.tags }}
-    secrets:
-      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

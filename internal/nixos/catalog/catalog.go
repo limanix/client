@@ -20,6 +20,29 @@ const Repository = "github.com/limanix/modules"
 
 var tagPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+-]*$`)
 
+// Kind is the catalog directory that holds a module, and with it how limanix.toml chooses the module.
+type Kind string
+
+const (
+	// KindShell holds the components of the [shell] presets.
+	KindShell Kind = "shell"
+	// KindToolchains holds the languages of the [toolchains] table.
+	KindToolchains Kind = "toolchains"
+	// KindModules holds the modules that [nixos] modules selects by name.
+	KindModules Kind = "modules"
+)
+
+// Kinds lists the catalog's module directories in the order the client presents them.
+var Kinds = []Kind{KindShell, KindToolchains, KindModules}
+
+// Entry describes one selector: the module it belongs to, its line, if any, and its kind.
+type Entry struct {
+	Kind        Kind
+	Module      string
+	Line        string
+	Description string
+}
+
 // Catalog retains validated archive contents and an independent metadata index.
 type Catalog struct {
 	Version string
@@ -172,11 +195,11 @@ func (catalog *Catalog) PublicDeclarations() []string {
 	return slices.Clone(catalog.publicDeclarations)
 }
 
-// Modules returns a copy of the local module names and their descriptions.
-func (catalog *Catalog) Modules() map[string]string {
-	result := make(map[string]string, len(catalog.modules))
+// Modules returns a copy of the local selectors and their entries.
+func (catalog *Catalog) Modules() map[string]Entry {
+	result := make(map[string]Entry, len(catalog.modules))
 	for name, module := range catalog.modules {
-		result[name] = module.description
+		result[name] = module.entry
 	}
 
 	return result
@@ -192,13 +215,14 @@ func (catalog *Catalog) Module(name string) (Module, error) {
 	return Module{FS: catalog.files, EntryPoint: path.Join(selected.directory, selected.entryPoint)}, nil
 }
 
+// readModules indexes modules/<kind>/<name>; below modules/ there are only _shared, the kinds and regular files.
 func readModules(files fs.FS) (map[string]selection, error) {
 	entries, err := fs.ReadDir(files, "modules")
 	if err != nil {
 		return nil, fmt.Errorf("%w: read modules: %w", ErrMetadata, err)
 	}
 
-	result := make(map[string]selection, len(entries))
+	result := make(map[string]selection)
 
 	for _, entry := range entries {
 		name := entry.Name()
@@ -211,24 +235,12 @@ func readModules(files fs.FS) (map[string]selection, error) {
 		if entry.Type().IsRegular() {
 			continue
 		}
-		if name == "capabilities" || name == "internal" || name == "pins" {
-			return nil, fmt.Errorf("%w: module name %q is reserved", ErrMetadata, name)
+		kind := Kind(name)
+		if !slices.Contains(Kinds, kind) || !entry.IsDir() {
+			return nil, fmt.Errorf("%w: expected _shared or a kind directory (shell, toolchains, modules), got %q", ErrMetadata, name)
 		}
-		if _, err = domain.NewModuleName(name); err != nil || !entry.IsDir() {
-			return nil, fmt.Errorf("%w: expected a module directory, got %q", ErrMetadata, name)
-		}
-
-		metadata, err := readMetadata(files, path.Join("modules", name))
-		if err != nil {
-			return nil, fmt.Errorf("module %q: %w", name, err)
-		}
-
-		for selector, selected := range metadata.selections(name) {
-			if _, exists := result[selector]; exists {
-				return nil, fmt.Errorf("%w: duplicate selector %q", ErrMetadata, selector)
-			}
-
-			result[selector] = selected
+		if err = readKind(files, kind, result); err != nil {
+			return nil, err
 		}
 	}
 
@@ -237,6 +249,43 @@ func readModules(files fs.FS) (map[string]selection, error) {
 	}
 
 	return result, nil
+}
+
+// readKind adds the selectors of one kind's modules; selectors are unique across kinds.
+func readKind(files fs.FS, kind Kind, result map[string]selection) error {
+	directory := path.Join("modules", string(kind))
+	entries, err := fs.ReadDir(files, directory)
+	if err != nil {
+		return fmt.Errorf("%w: read %s: %w", ErrMetadata, directory, err)
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.Type().IsRegular() {
+			continue
+		}
+		if name == "capabilities" || name == "internal" || name == "pins" || name == "_shared" {
+			return fmt.Errorf("%w: module name %q is reserved", ErrMetadata, name)
+		}
+		if _, err = domain.NewModuleName(name); err != nil || !entry.IsDir() {
+			return fmt.Errorf("%w: expected a module directory in %s, got %q", ErrMetadata, kind, name)
+		}
+
+		metadata, err := readMetadata(files, path.Join(directory, name))
+		if err != nil {
+			return fmt.Errorf("module %q: %w", name, err)
+		}
+
+		for selector, selected := range metadata.selections(kind, name) {
+			if _, exists := result[selector]; exists {
+				return fmt.Errorf("%w: duplicate selector %q", ErrMetadata, selector)
+			}
+
+			result[selector] = selected
+		}
+	}
+
+	return nil
 }
 
 // Direct Nix files declare public areas; test.nix belongs to the test ABI.

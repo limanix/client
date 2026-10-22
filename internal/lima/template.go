@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/lima-vm/lima/v2/pkg/limatype"
-	"github.com/lima-vm/lima/v2/pkg/ptr"
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/nixos"
@@ -53,7 +52,7 @@ func Render(cfg config.Config, managedHome, runtimeDir string, hostArch domain.A
 			Digest:   digest.NewDigestFromEncoded(digest.SHA256, image.SHA256),
 		},
 	}}
-	document.CPUs = ptr.Of(cfg.Resources.CPU)
+	document.CPUs = new(cfg.Resources.CPU)
 	document.Memory = &memory
 	document.Disk = &disk
 	document.User = managementUser(hostUID)
@@ -78,36 +77,36 @@ func usesVZ(architecture, host domain.Architecture) bool {
 
 func machineTemplate(architecture, host domain.Architecture) limatype.LimaYAML {
 	document := limatype.LimaYAML{
-		VMType:    ptr.Of(limatype.QEMU),
-		MountType: ptr.Of(limatype.NINEP),
+		VMType:    new(limatype.QEMU),
+		MountType: new(limatype.NINEP),
 		Networks: []limatype.Network{
 			{Lima: "shared"},
 		},
 		SSH: limatype.SSH{
-			LoadDotSSHPubKeys: ptr.Of(false),
-			ForwardAgent:      ptr.Of(false),
+			LoadDotSSHPubKeys: new(false),
+			ForwardAgent:      new(false),
 		},
-		PropagateProxyEnv: ptr.Of(false),
+		PropagateProxyEnv: new(false),
 		PortForwards: []limatype.PortForward{
 			{
 				GuestIP:           net.IPv4zero,
-				GuestIPMustBeZero: ptr.Of(false),
+				GuestIPMustBeZero: new(false),
 				GuestPortRange:    [2]int{1, 65535},
 				Proto:             limatype.ProtoAny,
 				Ignore:            true,
 			},
 		},
 		Containerd: limatype.Containerd{
-			System: ptr.Of(false),
-			User:   ptr.Of(false),
+			System: new(false),
+			User:   new(false),
 		},
 	}
 
 	if usesVZ(architecture, host) {
-		document.VMType = ptr.Of(limatype.VZ)
-		document.MountType = ptr.Of(limatype.VIRTIOFS)
+		document.VMType = new(limatype.VZ)
+		document.MountType = new(limatype.VIRTIOFS)
 		document.Networks = []limatype.Network{
-			{VZNAT: ptr.Of(true)},
+			{VZNAT: new(true)},
 		}
 	}
 
@@ -121,10 +120,10 @@ func managementUser(hostUID int) limatype.User {
 	}
 
 	return limatype.User{
-		Name:             ptr.Of("limanix-admin"),
-		Home:             ptr.Of("/home/limanix-admin"),
+		Name:             new("limanix-admin"),
+		Home:             new("/home/limanix-admin"),
 		UID:              &adminUID,
-		PasswordlessSudo: ptr.Of(true),
+		PasswordlessSudo: new(true),
 	}
 }
 
@@ -132,21 +131,30 @@ func templateMounts(cfg config.Config, managedHome, runtimeDir string) []limatyp
 	mounts := []limatype.Mount{
 		{
 			Location:   managedHome,
-			MountPoint: ptr.Of(string(cfg.User.Home)),
-			Writable:   ptr.Of(true),
+			MountPoint: new(string(cfg.User.Home)),
+			Writable:   new(true),
 		},
 		{
 			Location:   runtimeDir,
-			MountPoint: ptr.Of("/mnt/limanix"),
-			Writable:   ptr.Of(false),
+			MountPoint: new("/mnt/limanix"),
+			Writable:   new(false),
 		},
 	}
 
 	for _, mount := range cfg.Mounts {
 		mounts = append(mounts, limatype.Mount{
 			Location:   mount.Source,
-			MountPoint: ptr.Of(string(mount.Target)),
-			Writable:   ptr.Of(mount.Mode == "rw"),
+			MountPoint: new(string(mount.Target)),
+			Writable:   new(mount.Mode == "rw"),
+		})
+	}
+
+	// Writable, so that tools that rewrite their own settings change the files on the Mac.
+	if cfg.Shell.Dotfiles != "" {
+		mounts = append(mounts, limatype.Mount{
+			Location:   string(cfg.Shell.Dotfiles),
+			MountPoint: new(config.DotfilesTarget),
+			Writable:   new(true),
 		})
 	}
 
