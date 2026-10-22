@@ -360,7 +360,9 @@ func TestImportPreparesUnderSourceReadLockAndWaitsToCommit(t *testing.T) {
 			t.Error(err)
 		}
 		if !finished {
-			<-result
+			if err := <-result; err != nil {
+				t.Log(err)
+			}
 		}
 	}()
 	go func() { result <- registry.Add(ctx, domain.ModuleName("second"), source) }()

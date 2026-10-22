@@ -1,6 +1,6 @@
 module github.com/limanix/client
 
-go 1.27.2
+go 1.27.3
 
 tool github.com/lima-vm/lima/v2/cmd/lima-guestagent
 
