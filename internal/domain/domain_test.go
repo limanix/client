@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -18,6 +19,7 @@ func TestIdentityBoundaries(t *testing.T) {
 		{"ModuleName", []string{"my-tools", "my-tools2-extra", "git", "rust2", strings.Repeat("a", 63)}, []string{"", "2tools", "a--b", "tool-26", "tool-1alpha", "../tools", strings.Repeat("a", 64)}, func(v string) error { _, err := NewModuleName(v); return err }},
 		{"ModuleID", []string{"lmx:git", "work:git", "third-party:my-tools", "lmx:go-1.24", "lmx:my-tools-3.13"}, []string{"git", "./tools.nix", ":git", "Lmx:git", "third-party:../tools", "third-party:", "third-party:third-party:git", "lmx:go-1..24", "lmx:go-1.24rc1", "lmx:tool-1alpha", "tool-26:git", "lmx:go-../escape"}, func(v string) error { _, err := NewModuleID(v); return err }},
 		{"EnvName", []string{"TOKEN", "_TOKEN", "token2"}, []string{"", "1TOKEN", "TOKEN-NAME", "TOKEN\nNAME"}, func(v string) error { _, err := NewEnvName(v); return err }},
+		{"PackageName", []string{"jq", "python312", "python3Packages.ipython", "_1password-cli", "gnome-keyring", "foo'"}, []string{"", ".jq", "jq.", "a..b", "a b", "2fa", "jq\n", "nur:codex", "unstable:"}, func(v string) error { _, err := NewPackageName(v); return err }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -42,6 +44,21 @@ func TestIdentityBoundaries(t *testing.T) {
 		if err != nil || versioned.Selector() != selector {
 			t.Fatalf("versioned reference: %v, %v", versioned, err)
 		}
+	}
+}
+
+func TestOnlyTheUnstablePackageSourceIsSupported(t *testing.T) {
+	for _, value := range []string{"nur:codex", "nixpkgs:jq", "Unstable:jq"} {
+		if _, err := NewPackageName(value); !errors.Is(err, ErrUnsupportedPackageSource) {
+			t.Errorf("%q: got %v, expected the unsupported source error", value, err)
+		}
+	}
+	name, err := NewPackageName("unstable:python3Packages.ipython")
+	if err != nil || !name.Unstable() || name.Attribute() != "python3Packages.ipython" {
+		t.Fatalf("unstable package: %q %v", name, err)
+	}
+	if plain := PackageName("jq"); plain.Unstable() || plain.Attribute() != "jq" {
+		t.Fatalf("plain package: %q", plain)
 	}
 }
 

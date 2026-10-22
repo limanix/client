@@ -15,6 +15,9 @@
 # NixOS catalog downloaded by bundle-modules
 /internal/nixos/resources/modules.zip
 
+# Local lmx archives prepared by bundle-lmx
+/internal/nixos/resources/lmx/
+
 # OS files
 .DS_Store
 

@@ -173,6 +173,18 @@ func validateString(value reflect.Value) error {
 	case domain.ModuleID:
 		_, err := domain.NewModuleID(text)
 		return err
+	case domain.PackageName:
+		_, err := domain.NewPackageName(text)
+		return err
+	case domain.ToolchainLine:
+		_, err := domain.NewToolchainLine(text)
+		return err
+	case domain.RustToolchain:
+		_, err := domain.NewRustToolchain(text)
+		return err
+	case domain.OptionalHostPath:
+		_, err := domain.NewOptionalHostPath(text)
+		return err
 	case domain.EnvName:
 		_, err := domain.NewEnvName(text)
 		return err

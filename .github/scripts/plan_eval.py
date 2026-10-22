@@ -13,7 +13,20 @@ from pathlib import Path
 SHARD_SIZE = 4
 VERSION_CASES_PER_SHARD = 2
 PR_CASE_LIMIT = 8
-SHARD_PROTOCOL = "// limanix-eval-shard-protocol: 1"
+# Protocol 2 names cases after the kinds of the catalog; 1 after its flat module directories.
+SHARD_PROTOCOLS = (
+    "// limanix-eval-shard-protocol: 1",
+    "// limanix-eval-shard-protocol: 2",
+)
+SHARD_PROTOCOL = SHARD_PROTOCOLS[-1]
+KINDS = ("shell", "toolchains", "modules")
+SHELL_CASES = [
+    "shell-terminal",
+    "shell-terminal-starship",
+    "shell-terminal-bare",
+    "shell-minimal-tools",
+]
+WORKBENCH_MODULES = {"docker", "gcloud", "claude", "posting"}
 EVALUATOR = "internal/nixos/generated_eval_test.go"
 ARCHITECTURES = [("amd64", "ubuntu-24.04"), ("arm64", "ubuntu-24.04-arm")]
 
@@ -43,21 +56,36 @@ def catalog_cases(root: Path, tag: str) -> list[str]:
     if not re.fullmatch(r"v[1-9][0-9]*", tag):
         raise ValueError("A published catalog tag is required")
     revision = f"refs/tags/{tag}"
-    selectors = []
+    paths = [path for _, path in tree(root, revision, "catalog/")]
+    # Catalog v5 keeps each module below its kind: catalog/<kind>/<name>/.
+    kinded = any(
+        len(parts) >= 4 and parts[1] in KINDS
+        for parts in (path.split("/") for path in paths)
+    )
+    modules = []
     directories = set()
     metadata_names = set()
-    for _, path in tree(root, revision, "catalog/"):
+    for path in paths:
         parts = path.split("/")
-        if len(parts) < 3 or parts[1] == "_shared":
+        if parts[1] == "_shared":
             continue
-        name = parts[1]
+        if kinded:
+            if len(parts) < 4:
+                continue
+            if parts[1] not in KINDS:
+                raise ValueError(f"Invalid catalog kind: {parts[1]}")
+            kind, name, rest = parts[1], parts[2], parts[3:]
+        else:
+            if len(parts) < 3:
+                continue
+            kind, name, rest = None, parts[1], parts[2:]
         if not re.fullmatch(r"[a-z][a-z0-9]*(-[a-z0-9]+)*", name) or len(name) > 63:
             raise ValueError(f"Invalid catalog directory: {name}")
-        directories.add(name)
-        if len(parts) != 3 or parts[2] != "module.toml":
+        directories.add((kind, name))
+        if rest != ["module.toml"]:
             continue
         metadata = tomllib.loads(git(root, "show", f"{revision}:{path}").decode())
-        metadata_names.add(name)
+        metadata_names.add((kind, name))
         versions = metadata.get("versions", [])
         if not isinstance(versions, list) or any(
             not isinstance(version, str)
@@ -66,20 +94,47 @@ def catalog_cases(root: Path, tag: str) -> list[str]:
             for version in versions
         ):
             raise ValueError(f"Invalid versions in {path}")
-        selectors.append(name)
-        selectors.extend(f"{name}-{version}" for version in versions)
+        modules.append((kind, name, versions))
     if directories != metadata_names:
         raise ValueError(
             "Catalog directories require module.toml: "
-            + ", ".join(sorted(directories - metadata_names))
+            + ", ".join(sorted(name for _, name in directories - metadata_names))
         )
-    if not selectors or len(selectors) != len(set(selectors)):
+    names = [name for _, name, _ in modules]
+    if not names or len(names) != len(set(names)):
         raise ValueError("Catalog selectors must be nonempty and unique")
+    cases = kinded_cases(modules) if kinded else flat_cases(modules)
+    if len(cases) != len(set(cases)):
+        raise ValueError("Catalog selectors overlap reserved evaluator cases")
+    return cases
+
+
+def flat_cases(modules: list[tuple[None, str, list[str]]]) -> list[str]:
+    selectors = []
+    for _, name, versions in modules:
+        selectors.append(name)
+        selectors.extend(f"{name}-{version}" for version in versions)
     cases = ["empty", "third-party-capability", *sorted(selectors)]
     if {"console", "astronvim-6", "go"} <= set(selectors):
         cases.append("console-version")
-    if len(cases) != len(set(cases)):
-        raise ValueError("Catalog selectors overlap reserved evaluator cases")
+    return cases
+
+
+def kinded_cases(modules: list[tuple[str, str, list[str]]]) -> list[str]:
+    # Mirrors evaluationCases in internal/nixos/evaluation_cases_test.go.
+    selectors = []
+    for kind, name, versions in modules:
+        if kind == "modules":
+            selectors.append(name)
+            selectors.extend(f"{name}-{version}" for version in versions)
+        elif kind == "toolchains":
+            # The client names a line when the toolchain has lines.
+            selectors.extend(
+                [f"{name}-{version}" for version in versions] if versions else [name]
+            )
+    cases = ["empty", "third-party-capability", *SHELL_CASES, *sorted(selectors)]
+    if WORKBENCH_MODULES <= {name for kind, name, _ in modules if kind == "modules"}:
+        cases.append("workbench")
     return cases
 
 
@@ -90,7 +145,8 @@ def supports_sharding(root: Path, commit: str) -> bool:
     if not tree(root, commit, EVALUATOR):
         # The evaluator task reports a missing test explicitly.
         return False
-    return SHARD_PROTOCOL in git(root, "show", f"{commit}:{EVALUATOR}").decode()
+    source = git(root, "show", f"{commit}:{EVALUATOR}").decode()
+    return any(protocol in source for protocol in SHARD_PROTOCOLS)
 
 
 def version_case(case: str) -> bool:
@@ -98,8 +154,8 @@ def version_case(case: str) -> bool:
 
 
 def version_bearing_case(case: str) -> bool:
-    # The integration case also selects an older editor line.
-    return version_case(case) or case == "console-version"
+    # The integration cases also select versioned lines.
+    return version_case(case) or case in ("console-version", "workbench")
 
 
 def select_cases(cases: list[str], profile: str) -> list[str]:
@@ -110,7 +166,10 @@ def select_cases(cases: list[str], profile: str) -> list[str]:
     selected = ["empty", "third-party-capability"]
     if not set(selected) <= set(cases):
         raise ValueError("PR coverage requires empty and third-party cases")
-    critical = ["cozy", "console", "console-version", "docker", "minikube", "astronvim"]
+    if "shell-terminal" in cases:
+        critical = ["shell-terminal", "workbench", "docker", "rust"]
+    else:
+        critical = ["cozy", "console", "console-version", "docker", "minikube", "astronvim"]
     selected.extend(case for case in critical if case in cases)
     fallback = ["go", *sorted(case for case in cases if not version_case(case))]
     for case in fallback:

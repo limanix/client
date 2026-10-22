@@ -80,13 +80,13 @@ func catalogWithPin(t *testing.T, pin string) *catalog.Catalog {
 		t.Fatal(err)
 	}
 	files := map[string]string{
-		"version":                  "test-pin",
-		"LICENSE":                  "test fixture",
-		"interface.nix":            "{}",
-		"platform.nix":             "{ services.lima.enable = true; }",
-		"modules/test/default.nix": "{}",
-		"modules/test/module.toml": "description = 'Test'",
-		"flake.lock":               string(lock),
+		"version":                          "test-pin",
+		"LICENSE":                          "test fixture",
+		"interface.nix":                    "{}",
+		"platform.nix":                     "{ services.lima.enable = true; }",
+		"modules/modules/test/default.nix": "{}",
+		"modules/modules/test/module.toml": "description = 'Test'",
+		"flake.lock":                       string(lock),
 	}
 	for name, data := range files {
 		file, err := archive.Create(name)

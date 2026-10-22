@@ -48,34 +48,10 @@ jobs:
       modules-tag: ${{ inputs.modules-tag }}
       commit-sha: ${{ inputs.commit-sha }}
 
-  docs:
-    name: Prepare docs
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.commit-sha }}
-          persist-credentials: false
-      - name: Prepare doc sources
-        uses: mr-chelyshkin/actions/task-run@v2
-        with:
-          task: docs/prepare
-          args: RELEASE_TAG=${{ inputs.release-tag }}
-      - name: Package docs
-        run: tar -czf build/docs.tar.gz -C build/docs .
-      - name: Upload docs
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: client-docs-${{ inputs.release-tag }}
-          path: build/docs.tar.gz
-          if-no-files-found: error
-          overwrite: true
-
   publish:
     name: Create GitHub release
     if: ${{ always() && !cancelled() }}
-    needs: [build, docs, check, contract]
+    needs: [build, check, contract]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -89,14 +65,9 @@ jobs:
           pattern: ${{ needs.build.outputs.artifact-name }}-*
           merge-multiple: true
           path: bin
-      - name: Download docs archive
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: client-docs-${{ inputs.release-tag }}
-          path: build
       - name: Create release token
         id: release-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
@@ -121,4 +92,3 @@ jobs:
           make_latest: legacy
           files: |
             bin/*
-            build/docs.tar.gz

@@ -1,5 +1,4 @@
-# LimaNix client
-
+[![Release](https://img.shields.io/github/v/release/limanix/client)](https://github.com/limanix/client/releases)
 [![License: Apache-2.0](https://img.shields.io/github/license/limanix/client?label=license)](LICENSE)
 
 <p align="center">
@@ -8,65 +7,75 @@
        width="100%">
 </p>
 
-LimaNix creates and manages Linux development environments on macOS. Describe
-your VM in `limanix.toml`, select NixOS modules, and run Linux tools and
-services while keeping your project files on your Mac.
+<p align="center">
+  <a href="https://docs.limanix.dev"><b>Docs</b></a>
+  &nbsp;|&nbsp;
+  <a href="https://docs.limanix.dev/install"><b>Install</b></a>
+  &nbsp;|&nbsp;
+  <a href="https://docs.limanix.dev/quick-start"><b>Quick start</b></a>
+  &nbsp;|&nbsp;
+  <a href="https://docs.limanix.dev/reference/cli"><b>CLI reference</b></a>
+  &nbsp;|&nbsp;
+  <a href="https://docs.limanix.dev/architecture"><b>How it works</b></a>
+  &nbsp;|&nbsp;
+  <a href="https://github.com/limanix/client/releases"><b>Releases</b></a>
+</p>
 
-The client manages VM lifecycle, configuration and shell access through Lima.
-Each binary bundles one [module catalog](https://github.com/limanix/modules)
-release, which provides guest software, application configuration and
-integrations. You do not need to install Lima or Nix separately on your Mac.
+<hr>
 
-[Documentation](https://limanix.dev/categories/client/index.html) |
-[Getting started](guides/getting-started.md) |
-[Releases](https://github.com/limanix/client/releases)
+`limanix`, the Mac side of [LimaNix](https://limanix.dev): it creates, updates
+and opens NixOS development VMs from one `limanix.toml`. Lima is built in, and
+each release bundles one [catalog](https://github.com/limanix/modules) release
+and pins one [`lmx`](https://github.com/limanix/lmx) release, so there is
+nothing else to install. It needs macOS 26 or newer and `ssh` in `PATH`.
 
-## Get started
-
-LimaNix requires macOS 26 or newer and `ssh` in your `PATH`. Follow
-[Install the client](guides/getting-started.md#install-the-client) using
-`limanix-arm64` for Apple Silicon or `limanix-amd64` for Intel.
-
-Save the [minimal example](guides/examples/minimal.toml) as `limanix.toml`. On
-Intel, change `resources.arch` to `"amd64"`. Run on your Mac:
-
-```console
-limanix create --config limanix.toml
-limanix shell dev-box
+```text
+┌──────────────┐  reads  ┌───────────────────────┐    SSH    ┌──────────────┐
+│ limanix.toml │ ──────> │     limanix (Mac)     │ ────────> │  VM (NixOS)  │
+│  your file   │         │ Lima + catalog inside │   mounts  │  lmx, tools  │
+└──────────────┘         └───────────────────────┘           └──────────────┘
 ```
 
-`limanix shell` opens a shell in the new NixOS VM. Exit the guest shell to
-return to your Mac. Follow [Getting started](guides/getting-started.md) to add
-tools, share your project and apply configuration changes. For the integrated
-development workbench, use the
-[Cozy example](guides/workspace.md#create-the-workbench).
-
-## Documentation
-
-| Guide | Contents |
+| Command | What it does |
 | -- | -- |
-| [Getting started](guides/getting-started.md) | Installation and your first environment. |
-| [Project workspace](guides/workspace.md) | Cozy workbench, project windows and integrated tools. |
-| [Configuration](guides/configuration.md) | Resources, users, mounts, environment and defaults. |
-| [Modules](guides/modules.md) | Catalog selectors, imported modules and applying changes. |
-| [Networking](guides/networking.md) | Service ports, guest architecture and connection checks. |
-| [Virtual machines](guides/virtual-machines.md) | Shell access, updates, lifecycle and storage. |
-| [Architecture](guides/architecture.md) | Responsibilities, configuration delivery and recovery. |
-| [Troubleshooting](guides/troubleshooting.md) | Failed commands, guest access and saved state. |
-| [Reference](guides/reference.md) | CLI commands, configuration fields and defaults. |
+| `limanix first-config` | Writes a `limanix.toml` to start from |
+| `limanix create --config limanix.toml` | Creates the VM and builds its system |
+| `limanix shell example-box` | Opens a shell in the VM; `--session` keeps a named one |
+| `limanix update --config limanix.toml` | Applies a changed file and restarts the VM |
+| `limanix list`, `doctor`, `network check` | Shows the VMs and checks a VM or one of its ports |
+| `limanix stop`, `start`, `delete` | Stops, starts or deletes a VM; its home stays on the Mac |
 
-The guides and generated references are published at
-[limanix.dev](https://limanix.dev/categories/client/index.html). The
-[docs repository](https://github.com/limanix/docs) assembles them with the
-module documentation.
+## Development
+
+You need [Task](https://taskfile.dev) 3.53.1 or newer and Docker; native builds
+also need Go and the Xcode Command Line Tools. Checks run in the containers CI
+uses.
+
+| Task | Does |
+| -- | -- |
+| `task ci/golang/test modules_version=v5` | Go tests with the race detector |
+| `task ci/golang/lint`, `ci/golang/fmt`, `ci/golang/audit` | Lint, formatting and known vulnerabilities |
+| `task ci/nix/eval modules_version=v5` | Evaluates the generated NixOS flake for every catalog selector |
+| `task release/build modules_version=v5` | Builds ad-hoc signed `bin/limanix-arm64` and `bin/limanix-amd64` natively |
+
+`modules_source=../modules` bundles a local catalog checkout, and
+`lmx_source=../lmx` the archives that `task release/build` left in
+`../lmx/dist`, instead of the published releases.
+
+| Embedded resource | Pinned in | Prepared by |
+| -- | -- | -- |
+| Module catalog and base disk | `modules_version`, or `modules_source` | `cmd/bundle-modules` |
+| Lima guest agents | Lima in `go.mod` | `cmd/bundle-guestagent` |
+| `socket_vmnet` | `Taskfile.yml` | `cmd/bundle-socketvmnet` |
+| `lmx` | `internal/nixos/resources/base/lmx.json`; the VM downloads it, or `lmx_source` embeds local archives | `cmd/bundle-lmx` |
+
+A tag `v<version>` on `main` releases the client with the newest catalog, and
+every catalog release publishes the client releases that support it again with
+that catalog.
 
 ## Contributing
 
 Follow the
-[contribution guide](https://github.com/limanix/.github/blob/main/CONTRIBUTING.md)
-when changing the client. See [Development](guides/development.md) and
-[Taskfile.yml](Taskfile.yml) for prerequisites, local checks, native builds and
-documentation tasks. Use [Issues](https://github.com/limanix/client/issues) for
-questions, bug reports and feature requests.
-
-Licensed under [Apache 2.0](LICENSE).
+[contribution guide](https://github.com/limanix/.github/blob/main/CONTRIBUTING.md).
+Use [Issues](https://github.com/limanix/client/issues) for questions, bug
+reports and feature requests. Licensed under [Apache 2.0](LICENSE).

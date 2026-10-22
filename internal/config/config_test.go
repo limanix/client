@@ -41,7 +41,7 @@ func TestPartialTablesAndExplicitEmptyCollections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.Theme.Flavor != "latte" || Default().Theme.Flavor != "mocha" {
+	if parsed.Theme.Flavor != "latte" || Default().Theme.Flavor != "system" {
 		t.Fatalf("theme flavor: %#v", parsed.Theme)
 	}
 	if parsed.Resources.Arch != domain.AMD64 || parsed.Resources.CPU != 2 || parsed.Resources.Mem != Default().Resources.Mem {
@@ -57,6 +57,20 @@ func TestPartialTablesAndExplicitEmptyCollections(t *testing.T) {
 	restored, err := Parse(rendered)
 	if err != nil || !reflect.DeepEqual(restored, parsed) {
 		t.Fatalf("empty collection round trip: %#v, %v", restored, err)
+	}
+}
+
+func TestPackagesParse(t *testing.T) {
+	parsed, err := Parse([]byte("[nixos]\npackages = ['jq', 'python3Packages.ipython', 'jq']"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if expected := []domain.PackageName{"jq", "python3Packages.ipython", "jq"}; !reflect.DeepEqual(parsed.NixOS.Packages, expected) {
+		t.Fatalf("packages: %#v", parsed.NixOS.Packages)
+	}
+	omitted, err := Parse(nil)
+	if err != nil || omitted.NixOS.Packages == nil || len(omitted.NixOS.Packages) != 0 {
+		t.Fatalf("omitted packages must be an empty list: %#v, %v", omitted.NixOS.Packages, err)
 	}
 }
 
@@ -82,6 +96,8 @@ func TestStrictFieldAndTypeDiagnostics(t *testing.T) {
 		{"[network.ports]\ntcp = '8080'", "network.ports.tcp"},
 		{"[nixos]\nmodules = 'git'", "nixos.modules"},
 		{"[nixos]\nmodules = [1]", "nixos.modules[0]"},
+		{"[nixos]\npackages = 'jq'", "nixos.packages"},
+		{"[nixos]\npackages = [1]", "nixos.packages[0]"},
 		{"mounts = {}", "mounts"},
 		{"mounts = ['/workspace']", "mounts[0]"},
 		{"env = []", "env"},
@@ -124,6 +140,9 @@ func TestSemanticBoundaries(t *testing.T) {
 		{"[nixos]\nmodules=['./rust.nix']", "nixos.modules[0]"},
 		{"[nixos]\nmodules=['third-party:../rust']", "nixos.modules[0]"},
 		{"[nixos]\nmodules=['git']", "nixos.modules[0]"},
+		{"[nixos]\npackages=['jq', '']", "nixos.packages[1]"},
+		{"[nixos]\npackages=['a..b']", "nixos.packages[0]"},
+		{"[nixos]\npackages=['nur:codex']", "nixos.packages[0]"},
 		{"[[mounts]]\nsource=''\ntarget='/workspace'", "mounts[0].source"},
 		{"[[mounts]]\nsource='./project'\ntarget='./workspace'", "mounts[0].target"},
 		{"[[mounts]]\nsource='./project'\ntarget='/workspace/../etc'", "mounts[0].target"},

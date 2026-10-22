@@ -22,9 +22,9 @@ type metadata struct {
 
 // selection binds a public local identifier to files under one physical module directory.
 type selection struct {
-	directory   string
-	entryPoint  string
-	description string
+	directory  string
+	entryPoint string
+	entry      Entry
 }
 
 func readMetadata(files fs.FS, directory string) (metadata, error) {
@@ -100,18 +100,28 @@ func (metadata metadata) validate() error {
 	return nil
 }
 
-func (metadata metadata) selections(name string) map[string]selection {
-	base := selection{directory: name, entryPoint: "default.nix", description: metadata.Description}
+func (metadata metadata) selections(kind Kind, name string) map[string]selection {
+	directory := path.Join(string(kind), name)
+	base := selection{
+		directory:  directory,
+		entryPoint: "default.nix",
+		entry:      Entry{Kind: kind, Module: name, Description: metadata.Description},
+	}
 	if metadata.Default != nil {
-		base.description += " (default: " + *metadata.Default + ")"
+		base.entry.Description += " (default: " + *metadata.Default + ")"
 	}
 
 	result := map[string]selection{name: base}
 	for _, version := range metadata.Versions {
 		result[name+"-"+version] = selection{
-			directory:   name,
-			entryPoint:  versionEntry(version),
-			description: metadata.Description + " (version: " + version + ")",
+			directory:  directory,
+			entryPoint: versionEntry(version),
+			entry: Entry{
+				Kind:        kind,
+				Module:      name,
+				Line:        version,
+				Description: metadata.Description + " (version: " + version + ")",
+			},
 		}
 	}
 

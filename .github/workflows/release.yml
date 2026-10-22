@@ -27,12 +27,3 @@ jobs:
       evaluation-matrix: ${{ needs.modules.outputs.matrix }}
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-
-  notify:
-    needs: [modules, release]
-    uses: ./.github/workflows/_notify.yml
-    with:
-      modules-tag: ${{ needs.modules.outputs.modules-tag }}
-      clients: '[{"tag": "${{ github.ref_name }}"}]'
-    secrets:
-      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

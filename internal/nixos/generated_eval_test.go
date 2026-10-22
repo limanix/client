@@ -4,11 +4,9 @@ package nixos
 
 import (
 	"bytes"
-	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -17,7 +15,7 @@ import (
 	"github.com/limanix/client/internal/modules"
 )
 
-// limanix-eval-shard-protocol: 1
+// limanix-eval-shard-protocol: 2
 //
 // TestGeneratedFlakeEvaluation evaluates Prepare's complete output, including the
 // client platform, runtime mapping and embedded catalog; it does not build or boot a VM.
@@ -32,33 +30,7 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	type selection struct {
-		name       string
-		modules    []domain.ModuleID
-		thirdParty bool
-	}
-	selections := []selection{
-		{name: "empty"},
-		{name: "third-party-capability", modules: []domain.ModuleID{"third-party:capability"}, thirdParty: true},
-	}
-	for _, selector := range slices.Sorted(maps.Keys(catalog)) {
-		selections = append(selections, selection{
-			name:    selector,
-			modules: []domain.ModuleID{domain.ModuleID("lmx:" + selector)},
-		})
-	}
-	integration := []string{"console", "astronvim-6", "go"}
-	if !slices.ContainsFunc(integration, func(selector string) bool {
-		_, available := catalog[selector]
-		return !available
-	}) {
-		ids := make([]domain.ModuleID, 0, len(integration))
-		for _, selector := range integration {
-			ids = append(ids, domain.ModuleID("lmx:"+selector))
-		}
-		selections = append(selections, selection{name: "console-version", modules: ids})
-	}
-
+	selections := evaluationCases(catalog)
 	selectionNames := make([]string, 0, len(selections))
 	for _, selection := range selections {
 		selectionNames = append(selectionNames, selection.name)
@@ -93,16 +65,22 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 				cfg.User.Name = "eval-user"
 				cfg.User.Home = "/home/eval-user"
 				cfg.Network.Ports.TCP = []int{8080}
-				cfg.NixOS.Modules = selection.modules
+				if selection.configure != nil {
+					selection.configure(&cfg)
+				}
 				if selection.thirdParty {
 					cfg.Theme.Flavor = "latte"
+					cfg.Shell.Dotfiles = domain.OptionalHostPath(t.TempDir())
+					cfg.NixOS.Modules = []domain.ModuleID{"third-party:capability"}
+					cfg.NixOS.Packages = []domain.PackageName{"tree", "tree", "python3Packages.ipython", "terraform", "unstable:cowsay"}
 				}
-				sources := make([]modules.Source, 0, len(selection.modules))
-				for _, id := range selection.modules {
-					source := modules.Source{ID: id}
-					if selection.thirdParty {
+				choices := cfg.Selection().Modules
+				sources := make([]modules.Source, 0, len(choices))
+				for _, choice := range choices {
+					source := modules.Source{ID: choice.ID}
+					if choice.ID.IsThirdParty() {
 						source.Path = t.TempDir()
-						declaration := `{ config, lib, pkgs, ... }: {
+						declaration := `{ config, lib, pkgs, pinned, unstableSource, ... }: {
   lmx.capabilities.languageSupport.languages.python.parsers = [ "python" ];
   # A port that the configuration declares too, and a range: the configuration of lmx lists each once.
   networking.firewall.allowedTCPPorts = [ 8080 ];
@@ -157,7 +135,9 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
           settings = builtins.fromJSON text;
           tools = builtins.removeAttrs settings.tools [ "sudo" ];
         in
-        builtins.attrNames settings == [ "disk" "generation" "health" "modules" "network" "schema" "session" "theme" "tools" "user" "vm" ]
+        builtins.attrNames settings == [ "disk" "dotfiles" "generation" "health" "modules" "network" "schema" "session" "theme" "tools" "user" "vm" ]
+        && settings.dotfiles == "/mnt/dotfiles"
+        && settings.modules == [ "lmx:cli-tools" "third-party:capability" ]
         && builtins.attrNames settings.tools == [ "bash" "grep" "ionice" "ip" "journalctl" "nice" "nix_env" "nix_store" "nixos_rebuild" "sudo" "systemctl" "systemd_run" ]
         && settings.generation == "0123456789ab"
         && settings.user == { name = "eval-user"; home = "/home/eval-user"; uid = 501; gid = 100; }
@@ -172,16 +152,20 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
       message = "lmx must receive the platform configuration of its generation.";
     }
     {
-      assertion = builtins.fromJSON config.environment.etc."lmx/help.json".text == {
-        schema = 1;
-        topics.project = {
+      assertion =
+        let
+          help = builtins.fromJSON config.environment.etc."lmx/help.json".text;
+        in
+        help.schema == 1
+        # The minimal shell brings the CLI tools and their card.
+        && builtins.attrNames help.topics == [ "cli-tools" "project" ]
+        && help.topics.project == {
           title = "project";
           summary = "Tools of the project.";
           commands = [ "hello" ];
           tips = [ { label = "Greet"; text = "hello"; } ];
           guide = null;
         };
-      };
       message = "lmx must receive the help cards of the evaluated modules.";
     }
     {
@@ -195,6 +179,31 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
       assertion = !config.nix.channel.enable
         && builtins.elem "r /nix/var/nix/profiles/per-user/root/channels-*-link" config.systemd.tmpfiles.rules;
       message = "The base image's channel must not remain a garbage-collector root.";
+    }
+    {
+      assertion =
+        builtins.all (package: lib.count (entry: entry == package) config.environment.systemPackages == 1)
+          [ pkgs.tree pkgs.python3Packages.ipython pkgs.terraform ]
+        && builtins.all (name: builtins.elem name config.nixpkgs.config.allowUnfreePackages)
+          [ "tree" "ipython" "terraform" "cowsay" ]
+        && builtins.any (check: lib.hasPrefix "limanix-packages-check" check.name) config.system.checks;
+      message = "Listed packages must be installed once, allowed by name and checked for command conflicts.";
+    }
+    {
+      assertion =
+        config.lmx.pins.${unstableSource.rev} == unstableSource.sha256
+        && builtins.elem pinned.${unstableSource.rev}.cowsay config.environment.systemPackages
+        && !(builtins.elem pkgs.cowsay config.environment.systemPackages);
+      message = "An unstable: package must come from the catalog's nixos-unstable revision.";
+    }
+    {
+      assertion =
+        lib.hasInfix "lmx dotfiles link --quiet" config.programs.bash.interactiveShellInit
+        && lib.hasInfix "lmx dotfiles link --quiet" config.programs.zsh.shellInit
+        && lib.hasInfix "[[ -o interactive ]]" config.programs.zsh.shellInit
+        && !(lib.hasInfix "lmx dotfiles" config.environment.interactiveShellInit)
+        && config.users.users.eval-user.shell == pkgs.bashInteractive;
+      message = "Interactive shells must link the dotfiles before they read the account's startup files.";
     }
   ];
 }`
@@ -246,6 +255,30 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 					output, err := lmxCommand.Output()
 					if err != nil || !strings.HasSuffix(strings.TrimSpace(string(output)), ".drv") {
 						t.Fatalf("evaluate the lmx package: %v\n%s\n%s", err, output, diagnostics.String())
+					}
+
+					// A name that is not a package fails the evaluation, before anything builds.
+					unknown := cfg
+					unknown.NixOS.Modules = nil
+					unknown.NixOS.Packages = []domain.PackageName{"limanix-no-such-package"}
+					missing, err := Prepare(unknown, filepath.Join(t.TempDir(), "generation"), testGeneration, nil, 501)
+					if err != nil {
+						t.Fatal(err)
+					}
+					missingCommand := exec.CommandContext(
+						t.Context(), nix,
+						"eval", "--raw",
+						"--extra-experimental-features", "nix-command flakes",
+						"--no-update-lock-file", "--no-write-lock-file",
+						"--option", "allow-import-from-derivation", "false",
+						"path:.#nixosConfigurations.runtime.config.system.build.toplevel.drvPath",
+					)
+					missingCommand.Dir = missing
+					diagnostics.Reset()
+					missingCommand.Stderr = &diagnostics
+					expected := `nixos.packages: "limanix-no-such-package" is not a package in nixpkgs`
+					if _, err := missingCommand.Output(); err == nil || !strings.Contains(diagnostics.String(), expected) {
+						t.Fatalf("an unknown package must fail the evaluation with %q: %v\n%s", expected, err, diagnostics.String())
 					}
 				}
 			})

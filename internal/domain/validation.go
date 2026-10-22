@@ -8,12 +8,19 @@ import (
 )
 
 var (
-	vmNamePattern        = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
-	usernamePattern      = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
-	moduleNamePattern    = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$`)
-	moduleVersionPattern = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)*$`)
-	envNamePattern       = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	vmNamePattern         = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+	usernamePattern       = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
+	moduleNamePattern     = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$`)
+	moduleVersionPattern  = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)*$`)
+	envNamePattern        = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	packageSegmentPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_'-]*$`)
+	rustToolchainPattern  = regexp.MustCompile(
+		`^(?:(?:stable|beta|nightly)(?:-[0-9]{4}-[0-9]{2}-[0-9]{2})?|[0-9]+\.[0-9]+(?:\.[0-9]+)?)$`,
+	)
 )
+
+// UnstablePackages is the package source prefix of the catalog's nixos-unstable revision.
+const UnstablePackages = "unstable:"
 
 // ValidateText checks string boundaries without disclosing its content in errors.
 func ValidateText(value string, allowEmpty bool) error {
@@ -157,6 +164,75 @@ func (id ModuleID) Namespace() string {
 // IsThirdParty reports whether the module comes from the imported registry.
 func (id ModuleID) IsThirdParty() bool {
 	return id.Namespace() == "third-party"
+}
+
+// NewPackageName validates the syntax of a nixpkgs attribute path and its optional source; the guest's evaluation
+// checks that it exists.
+func NewPackageName(value string) (PackageName, error) {
+	if err := ValidateText(value, false); err != nil {
+		return "", err
+	}
+
+	attribute := value
+	if source, rest, qualified := strings.Cut(value, ":"); qualified {
+		if source+":" != UnstablePackages {
+			return "", ErrUnsupportedPackageSource
+		}
+		attribute = rest
+	}
+
+	for _, segment := range strings.Split(attribute, ".") {
+		if !packageSegmentPattern.MatchString(segment) {
+			return "", ErrInvalidPackageName
+		}
+	}
+
+	return PackageName(value), nil
+}
+
+// Unstable reports whether the package comes from the catalog's nixos-unstable revision.
+func (name PackageName) Unstable() bool {
+	return strings.HasPrefix(string(name), UnstablePackages)
+}
+
+// Attribute returns the attribute path without the package source.
+func (name PackageName) Attribute() string {
+	return strings.TrimPrefix(string(name), UnstablePackages)
+}
+
+// NewToolchainLine validates a toolchain line syntactically; the catalog decides whether the line exists.
+func NewToolchainLine(value string) (ToolchainLine, error) {
+	if err := ValidateText(value, true); err != nil {
+		return "", err
+	}
+
+	if value != "" && ValidateModuleVersion(value) != nil {
+		return "", ErrInvalidToolchainLine
+	}
+
+	return ToolchainLine(value), nil
+}
+
+// NewRustToolchain validates a rustup toolchain name without a host triple.
+func NewRustToolchain(value string) (RustToolchain, error) {
+	if err := ValidateText(value, true); err != nil {
+		return "", err
+	}
+
+	if value != "" && !rustToolchainPattern.MatchString(value) {
+		return "", ErrInvalidRustToolchain
+	}
+
+	return RustToolchain(value), nil
+}
+
+// NewOptionalHostPath validates the text of a host path that may be empty.
+func NewOptionalHostPath(value string) (OptionalHostPath, error) {
+	if err := ValidateText(value, true); err != nil {
+		return "", err
+	}
+
+	return OptionalHostPath(value), nil
 }
 
 // NewEnvName validates an environment variable name.

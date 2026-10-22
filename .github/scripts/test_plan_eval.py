@@ -329,5 +329,84 @@ class PairPlannerTests(unittest.TestCase):
         self.assertEqual(jobs[0]["arch"], "")
 
 
+    def kinded(self, modules):
+        shutil.rmtree(self.modules / "catalog", ignore_errors=True)
+        for (kind, name), versions in modules.items():
+            target = self.modules / "catalog" / kind / name / "module.toml"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(
+                'description = "fixture"\nversions = ' + json.dumps(versions) + "\n"
+            )
+        shared = self.modules / "catalog" / "_shared" / "pins.nix"
+        shared.parent.mkdir(parents=True, exist_ok=True)
+        shared.write_text("{ }\n")
+        self.command(self.modules, "add", "-A", "--", "catalog")
+        self.command(self.modules, "commit", "--quiet", "-m", "catalog")
+        self.command(self.modules, "tag", "-f", "v9")
+
+    def test_kinds_name_shell_toolchain_and_module_cases(self):
+        self.kinded(
+            {
+                ("shell", "zsh"): [],
+                ("shell", "astronvim"): ["6"],
+                ("toolchains", "go"): ["1.26", "1.27"],
+                ("toolchains", "rust"): [],
+                ("modules", "docker"): ["28", "29"],
+                ("modules", "gcloud"): [],
+                ("modules", "claude"): [],
+                ("modules", "posting"): [],
+            }
+        )
+        cases = plan_eval.catalog_cases(self.modules, "v9")
+        self.assertEqual(
+            cases,
+            [
+                "empty",
+                "third-party-capability",
+                *plan_eval.SHELL_CASES,
+                "claude",
+                "docker",
+                "docker-28",
+                "docker-29",
+                "gcloud",
+                "go-1.26",
+                "go-1.27",
+                "posting",
+                "rust",
+                "workbench",
+            ],
+        )
+        selected = plan_eval.select_cases(cases, "pr")
+        self.assertEqual(
+            selected[:6],
+            [
+                "empty",
+                "third-party-capability",
+                "shell-terminal",
+                "workbench",
+                "docker",
+                "rust",
+            ],
+        )
+        self.assertEqual(len(selected), plan_eval.PR_CASE_LIMIT)
+        jobs = plan_eval.matrix(cases, True)["include"]
+        for job in jobs:
+            self.assertLessEqual(
+                sum(map(plan_eval.version_bearing_case, job["cases"].split())),
+                plan_eval.VERSION_CASES_PER_SHARD,
+            )
+        self.assertTrue(plan_eval.supports_sharding(self.client, self.current))
+
+    def test_kinds_reject_duplicates_and_unknown_directories(self):
+        self.kinded({("shell", "tool"): [], ("modules", "tool"): []})
+        with self.assertRaisesRegex(ValueError, "unique"):
+            plan_eval.catalog_cases(self.modules, "v9")
+        self.kinded({("modules", "docker"): [], ("tools", "extra"): []})
+        with self.assertRaisesRegex(ValueError, "Invalid catalog kind"):
+            plan_eval.catalog_cases(self.modules, "v9")
+        self.kinded({("modules", "empty"): []})
+        with self.assertRaisesRegex(ValueError, "reserved evaluator cases"):
+            plan_eval.catalog_cases(self.modules, "v9")
+
 if __name__ == "__main__":
     unittest.main()

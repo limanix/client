@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -349,7 +350,15 @@ func TestListJSONEmptyArraysAndDamagedRows(t *testing.T) {
 	if healthy < 0 || old < 0 || strings.Index(lines[healthy], "Running") != strings.Index(lines[old], "Running") {
 		t.Fatalf("rows below a note lost their alignment: %q", output)
 	}
-	registry.entries = []modules.Info{{Name: "lmx:git", Source: "lmx", Description: "Git version control."}, {Name: "third-party:broken", Source: "third-party", Error: &failure}}
+	registry.entries = []modules.Info{
+		{Name: "lmx:docker", Source: "lmx", Kind: "modules", Description: "Docker Engine."},
+		{Name: "third-party:broken", Source: "third-party", Kind: "modules", Error: &failure},
+		{Name: "lmx:go-1.27", Source: "lmx", Kind: "toolchains", Description: "Go (version: 1.27)"},
+	}
+	status, output, _ = runCLI([]string{"modules", "list"}, fakeDependencies(manager, registry))
+	if status != 0 || !regexp.MustCompile(`(?m)^lmx:go-1\.27 +toolchains +Go \(version: 1\.27\)$`).MatchString(output) {
+		t.Fatalf("module rows lost their kind: %q", output)
+	}
 	status, output, diagnostics = runCLI([]string{"modules", "list", "--json"}, fakeDependencies(manager, registry))
 	if status != 0 || diagnostics != "" {
 		t.Fatal("module list failed")
@@ -358,7 +367,7 @@ func TestListJSONEmptyArraysAndDamagedRows(t *testing.T) {
 	if err := json.Unmarshal([]byte(output), &rows); err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 2 || rows[0]["name"] != "lmx:git" || rows[1]["error"] != failure {
+	if len(rows) != 3 || rows[0]["name"] != "lmx:docker" || rows[0]["kind"] != "modules" || rows[1]["error"] != failure {
 		t.Fatalf("module JSON contract changed: %s", output)
 	}
 }

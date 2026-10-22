@@ -3,6 +3,14 @@ package domain
 import "errors"
 
 var (
+	ErrInvalidPackageName       = errors.New("expected a nixpkgs attribute path, such as jq or python3Packages.ipython")
+	ErrUnsupportedPackageSource = errors.New("the only package source is unstable:, such as unstable:codex")
+	ErrInvalidToolchainLine     = errors.New("expected a version line, such as 1.27, or an empty string")
+	ErrInvalidRustToolchain     = errors.New(
+		"expected stable, beta, nightly, a dated channel such as nightly-2026-10-01, a Rust version such as 1.90.0, " +
+			"or an empty string",
+	)
+
 	ErrInvalidUTF8          = errors.New("expected UTF-8 text")
 	ErrNULCharacter         = errors.New("must not contain NUL characters")
 	ErrEmptyValue           = errors.New("must not be empty")

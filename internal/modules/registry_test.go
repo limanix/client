@@ -3,6 +3,7 @@ package modules
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -10,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/filesystem"
+	"github.com/limanix/client/internal/nixos/catalog"
 	"github.com/limanix/client/internal/state"
 	"golang.org/x/sys/unix"
 )
@@ -28,7 +31,20 @@ func registryFixture(t *testing.T, root string) *Registry {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewRegistry(store, map[string]string{"git": "Git", "rust": "Rust", "neovim": "Neovim"})
+	return NewRegistry(store, map[string]catalog.Entry{
+		"docker": {Kind: catalog.KindModules, Module: "docker", Description: "Docker"},
+		"rust":   {Kind: catalog.KindToolchains, Module: "rust", Description: "Rust"},
+		"neovim": {Kind: catalog.KindShell, Module: "neovim", Description: "Neovim"},
+	})
+}
+
+// selected lists ids as [nixos] modules chooses them.
+func selected(ids ...domain.ModuleID) []config.Choice {
+	choices := make([]config.Choice, len(ids))
+	for index, id := range ids {
+		choices[index] = config.Choice{ID: id, Field: fmt.Sprintf("nixos.modules[%d]", index)}
+	}
+	return choices
 }
 
 func sourceFixture(t *testing.T, root string) string {
@@ -51,24 +67,23 @@ func TestVersionSelectionDoesNotCreateState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	registry := NewRegistry(store, map[string]string{
-		"go":        "Go (default: 1.27)",
-		"go-1.24":   "Go 1.24",
-		"go-1.27":   "Go 1.27",
-		"nodejs-26": "Node.js 26",
-		"docker-28": "Docker 28",
+	registry := NewRegistry(store, map[string]catalog.Entry{
+		"docker":    {Kind: catalog.KindModules, Module: "docker", Description: "Docker (default: 28)"},
+		"docker-27": {Kind: catalog.KindModules, Module: "docker", Line: "27", Description: "Docker 27"},
+		"docker-28": {Kind: catalog.KindModules, Module: "docker", Line: "28", Description: "Docker 28"},
+		"postgres":  {Kind: catalog.KindModules, Module: "postgres", Description: "PostgreSQL"},
 	})
-	for _, ids := range [][]domain.ModuleID{
-		{"lmx:go", "lmx:go-1.24", "lmx:go-1.27"},
-		{"lmx:go-1.24", "lmx:go-1.24"},
-		{"lmx:nodejs-26", "lmx:docker-28"},
+	for _, choices := range [][]config.Choice{
+		selected("lmx:docker", "lmx:docker-27", "lmx:docker-28"),
+		selected("lmx:docker-27", "lmx:docker-27"),
+		selected("lmx:postgres", "lmx:docker-28"),
 	} {
-		if err := registry.Check(context.Background(), ids); err != nil {
+		if err := registry.Check(context.Background(), choices); err != nil {
 			t.Fatal(err)
 		}
 	}
-	for _, id := range []domain.ModuleID{"lmx:go-1.99", "lmx:nodejs-99", "lmx:docker-29"} {
-		err = registry.Check(context.Background(), []domain.ModuleID{id})
+	for _, id := range []domain.ModuleID{"lmx:docker-99", "lmx:postgres-17", "lmx:unknown"} {
+		err = registry.Check(context.Background(), selected(id))
 		if !errors.Is(err, ErrUnknownSystem) || !strings.Contains(err.Error(), string(id)) {
 			t.Fatalf("wrong unknown-selector diagnostic: %v", err)
 		}
@@ -90,7 +105,7 @@ func TestImportSourcesAndRemoveAreIndependentOfOriginal(t *testing.T) {
 	if err := os.RemoveAll(source); err != nil {
 		t.Fatal(err)
 	}
-	set, err := registry.Sources(ctx, []domain.ModuleID{"lmx:git", "third-party:custom"})
+	set, err := registry.Sources(ctx, selected("lmx:docker", "third-party:custom"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +173,7 @@ func TestSourcesKeepReadLockUntilCopyCompletes(t *testing.T) {
 	if err := registry.Add(ctx, domain.ModuleName("custom"), source); err != nil {
 		t.Fatal(err)
 	}
-	set, err := registry.Sources(ctx, []domain.ModuleID{"third-party:custom"})
+	set, err := registry.Sources(ctx, selected("third-party:custom"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +186,7 @@ func TestSourcesKeepReadLockUntilCopyCompletes(t *testing.T) {
 	if _, err := registry.Available(ctx); err != nil {
 		t.Fatal("listing blocked a source reader:", err)
 	}
-	other, err := registry.Sources(ctx, []domain.ModuleID{"third-party:custom"})
+	other, err := registry.Sources(ctx, selected("third-party:custom"))
 	if err != nil {
 		t.Fatal("source reader blocked another reader:", err)
 	}
@@ -198,7 +213,7 @@ func TestSourcesValidateIdentifiersAndReleaseLockOnFailure(t *testing.T) {
 	registry := registryFixture(t, t.TempDir())
 	ctx := context.Background()
 	for _, value := range []domain.ModuleID{"lmx:unknown", "sys:git", "git", "work:git", "third-party:missing", "../escape", "third-party:../escape"} {
-		if _, err := registry.Sources(ctx, []domain.ModuleID{value}); err == nil {
+		if _, err := registry.Sources(ctx, selected(value)); err == nil {
 			t.Fatalf("accepted source %q", value)
 		}
 		lock, err := registry.store.RegistryLock(ctx, false, 0)
@@ -332,7 +347,7 @@ func TestImportPreparesUnderSourceReadLockAndWaitsToCommit(t *testing.T) {
 		cancel()
 		t.Fatal(err)
 	}
-	set, err := registry.Sources(ctx, []domain.ModuleID{"third-party:custom"})
+	set, err := registry.Sources(ctx, selected("third-party:custom"))
 	if err != nil {
 		cancel()
 		t.Fatal(err)
@@ -345,7 +360,9 @@ func TestImportPreparesUnderSourceReadLockAndWaitsToCommit(t *testing.T) {
 			t.Error(err)
 		}
 		if !finished {
-			<-result
+			if err := <-result; err != nil {
+				t.Log(err)
+			}
 		}
 	}()
 	go func() { result <- registry.Add(ctx, domain.ModuleName("second"), source) }()
@@ -398,5 +415,48 @@ func TestImportPreparesUnderSourceReadLockAndWaitsToCommit(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(directory, "second", "nested", "extra.nix")); err != nil {
 		t.Fatal("committed import is incomplete:", err)
+	}
+}
+
+func TestNixOSModulesChooseOnlyModulesOfKindModules(t *testing.T) {
+	store, err := state.NewStore(filepath.Join(t.TempDir(), "state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry := NewRegistry(store, map[string]catalog.Entry{
+		"go":      {Kind: catalog.KindToolchains, Module: "go", Description: "Go (default: 1.10)"},
+		"go-1.9":  {Kind: catalog.KindToolchains, Module: "go", Line: "1.9"},
+		"go-1.10": {Kind: catalog.KindToolchains, Module: "go", Line: "1.10"},
+		"rust":    {Kind: catalog.KindToolchains, Module: "rust"},
+		"tmux":    {Kind: catalog.KindShell, Module: "tmux"},
+		"zsh":     {Kind: catalog.KindShell, Module: "zsh"},
+	})
+	ctx := context.Background()
+	for id, want := range map[domain.ModuleID]string{
+		"lmx:go":     `nixos.modules[0]: lmx:go is a toolchain; choose its version in [toolchains], such as go = "1.10"`,
+		"lmx:go-1.9": `nixos.modules[0]: lmx:go-1.9 is a toolchain; choose its version in [toolchains], such as go = "1.9"`,
+		"lmx:rust":   `nixos.modules[0]: lmx:rust is a toolchain; choose its version in [toolchains], such as rust = "stable"`,
+		"lmx:tmux":   `nixos.modules[0]: lmx:tmux is part of the shell; choose it in [shell]: multiplexer = "tmux"`,
+		"lmx:zsh":    `nixos.modules[0]: lmx:zsh is part of the shell; choose it in [shell]: preset = "terminal"`,
+	} {
+		if err := registry.Check(ctx, selected(id)); !errors.Is(err, ErrOtherKind) || err.Error() != want {
+			t.Fatalf("%s: got %v, want %s", id, err, want)
+		}
+	}
+
+	tables := []config.Choice{
+		{ID: "lmx:go-1.9", Field: "toolchains.go"},
+		{ID: "lmx:rust", Field: "toolchains.rust"},
+		{ID: "lmx:tmux", Field: "shell.multiplexer"},
+		{ID: "lmx:zsh", Field: "shell.preset"},
+	}
+	if err := registry.Check(ctx, tables); err != nil {
+		t.Fatalf("the tables that choose them were refused: %v", err)
+	}
+
+	err = registry.Check(ctx, []config.Choice{{ID: "lmx:go-1.8", Field: "toolchains.go"}})
+	want := `toolchains.go: the bundled catalog has no go line "1.8"; choose one of 1.9, 1.10`
+	if !errors.Is(err, ErrUnknownSystem) || err == nil || err.Error() != want {
+		t.Fatalf("unknown line: got %v, want %s", err, want)
 	}
 }

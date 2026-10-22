@@ -40,8 +40,8 @@ func TestPackRetainsCatalogPinAndInterfaceAndMapsSourceDirectory(t *testing.T) {
 	if err != nil || !bytes.Equal(platform, files["platform.nix"]) {
 		t.Fatalf("platform module was not preserved: %v", err)
 	}
-	module, err := fs.ReadFile(archive, "modules/tool/default.nix")
-	if err != nil || !bytes.Equal(module, files["catalog/tool/default.nix"]) {
+	module, err := fs.ReadFile(archive, "modules/modules/tool/default.nix")
+	if err != nil || !bytes.Equal(module, files["catalog/modules/tool/default.nix"]) {
 		t.Fatalf("catalog module was not mapped into the embedded module tree: %v", err)
 	}
 	for _, name := range []string{"languageSupport.nix", "internal/selection.nix"} {
@@ -50,7 +50,7 @@ func TestPackRetainsCatalogPinAndInterfaceAndMapsSourceDirectory(t *testing.T) {
 			t.Fatalf("shared declaration %s was not preserved in the embedded module tree: %v", name, err)
 		}
 	}
-	for _, name := range []string{"flake.nix", "README.md", "guides/index.md", "catalog/tool/default.nix", "modules/ignored/default.nix"} {
+	for _, name := range []string{"flake.nix", "README.md", "guides/index.md", "catalog/modules/tool/default.nix", "modules/ignored/default.nix"} {
 		if _, err := fs.Stat(archive, name); !errors.Is(err, fs.ErrNotExist) {
 			t.Fatalf("unexpected archive entry %s: %v", name, err)
 		}
@@ -91,12 +91,12 @@ func catalogFiles(t *testing.T) map[string][]byte {
 		t.Fatal(err)
 	}
 	return map[string][]byte{
-		"flake.lock":               lock,
-		"LICENSE":                  []byte("test license\n"),
-		"interface.nix":            []byte("{ options = {}; }\n"),
-		"platform.nix":             []byte("{ services.lima.enable = true; }\n"),
-		"catalog/tool/module.toml": []byte("description = 'Tool'\n"),
-		"catalog/tool/default.nix": []byte("{}\n"),
+		"flake.lock":                       lock,
+		"LICENSE":                          []byte("test license\n"),
+		"interface.nix":                    []byte("{ options = {}; }\n"),
+		"platform.nix":                     []byte("{ services.lima.enable = true; }\n"),
+		"catalog/modules/tool/module.toml": []byte("description = 'Tool'\n"),
+		"catalog/modules/tool/default.nix": []byte("{}\n"),
 	}
 }
 

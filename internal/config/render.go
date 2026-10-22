@@ -72,6 +72,13 @@ func renderModel(output *strings.Builder, model reflect.Value, prefix string) er
 		}
 
 		writeComments(output, item.Tag.Get("doc"))
+
+		// An empty optional value shows an example, commented out so that the file keeps the default.
+		if example, ok := item.Tag.Lookup("example"); ok && value.Kind() == reflect.String && value.String() == "" {
+			output.WriteString("# " + item.Tag.Get("toml") + " = " + quoteTOMLString(example) + "\n")
+			continue
+		}
+
 		output.WriteString(item.Tag.Get("toml") + " = " + encoded + "\n")
 	}
 

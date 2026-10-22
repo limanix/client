@@ -6,32 +6,44 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/nixos/catalog"
 	"github.com/limanix/client/internal/state"
 )
 
-// Info is a catalog row, including an error for a damaged imported module.
+// Info is a catalog row, including an error for a damaged imported module. Kind says how limanix.toml chooses a
+// bundled module: modules in [nixos] modules, toolchains in [toolchains], shell components in [shell].
 type Info struct {
 	Name        string  `json:"name"`
 	Source      string  `json:"source"`
+	Kind        string  `json:"kind"`
 	Description string  `json:"description"`
 	Error       *string `json:"error"`
 }
 
 // Available returns bundled modules and independently reports invalid catalog entries.
 func (r *Registry) Available(ctx context.Context) (entries []Info, failure error) {
-	for name, description := range r.system {
+	for name, entry := range r.system {
 		entries = append(entries, Info{
 			Name:        "lmx:" + name,
 			Source:      "lmx",
-			Description: description,
+			Kind:        string(entry.Kind),
+			Description: entry.Description,
 		})
 	}
 
+	// Modules that [nixos] modules selects come first, then the toolchains, then the shell components.
+	order := func(kind string) int {
+		return len(catalog.Kinds) - 1 - slices.Index(catalog.Kinds, catalog.Kind(kind))
+	}
 	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Kind != entries[j].Kind {
+			return order(entries[i].Kind) < order(entries[j].Kind)
+		}
 		return entries[i].Name < entries[j].Name
 	})
 
@@ -64,6 +76,7 @@ func (r *Registry) importedInfo(name string) Info {
 	entry := Info{
 		Name:        "third-party:" + name,
 		Source:      "third-party",
+		Kind:        string(catalog.KindModules),
 		Description: "Locally imported NixOS module",
 	}
 

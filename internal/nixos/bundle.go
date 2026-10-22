@@ -49,6 +49,9 @@ func Prepare(cfg config.Config, runtimeDir, generation string, sources []modules
 	if err = copyResource("resources/base", flakeDir); err != nil {
 		return "", err
 	}
+	if err = overlayLMX(resources, flakeDir); err != nil {
+		return "", err
+	}
 	if err = writeFlake(flakeDir); err != nil {
 		return "", err
 	}
@@ -67,6 +70,23 @@ func Prepare(cfg config.Config, runtimeDir, generation string, sources []modules
 	}
 
 	return flakeDir, nil
+}
+
+// overlayLMX copies the local lmx archives and their lmx.json that a development build embeds over the pinned
+// release; see cmd/bundle-lmx.
+func overlayLMX(files fs.FS, flakeDir string) error {
+	if _, err := fs.Stat(files, "resources/lmx/lmx.json"); errors.Is(err, fs.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	local, err := fs.Sub(files, "resources/lmx")
+	if err != nil {
+		return err
+	}
+
+	return copyFiles(local, flakeDir)
 }
 
 func requireNewBundle(directory string) error {

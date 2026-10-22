@@ -26,19 +26,55 @@ type runtimeTheme struct {
 	Flavor string `json:"flavor"`
 }
 
+// runtimeShell carries the shell settings that modules read; null where the chosen shell has no such setting.
+type runtimeShell struct {
+	// Prompt of Zsh, null without the terminal preset.
+	Prompt *string `json:"prompt"`
+	// Dotfiles is the guest mount of shell.dotfiles, null without it.
+	Dotfiles *string `json:"dotfiles"`
+}
+
+// runtimeToolchains carries the toolchain settings that are not a catalog line.
+type runtimeToolchains struct {
+	// Rust is the default rustup toolchain, null without Rust.
+	Rust *string `json:"rust"`
+}
+
 type runtimeConfig struct {
-	Name            domain.VMName       `json:"name"`
-	Arch            domain.Architecture `json:"arch"`
-	Generation      string              `json:"generation"`
-	User            runtimeUser         `json:"user"`
-	Disk            runtimeDisk         `json:"disk"`
-	Ports           config.Ports        `json:"ports"`
-	Theme           runtimeTheme        `json:"theme"`
-	Modules         []string            `json:"modules"`
-	SelectedModules []domain.ModuleID   `json:"selectedModules"`
+	Name            domain.VMName        `json:"name"`
+	Arch            domain.Architecture  `json:"arch"`
+	Generation      string               `json:"generation"`
+	User            runtimeUser          `json:"user"`
+	Disk            runtimeDisk          `json:"disk"`
+	Ports           config.Ports         `json:"ports"`
+	Theme           runtimeTheme         `json:"theme"`
+	Shell           runtimeShell         `json:"shell"`
+	Toolchains      runtimeToolchains    `json:"toolchains"`
+	Modules         []string             `json:"modules"`
+	SelectedModules []domain.ModuleID    `json:"selectedModules"`
+	Packages        []domain.PackageName `json:"packages"`
 }
 
 func writeRuntime(filename string, cfg config.Config, generation string, imports []string, uid int) error {
+	selection := cfg.Selection()
+	selected := make([]domain.ModuleID, len(selection.Modules))
+	for index, choice := range selection.Modules {
+		selected[index] = choice.ID
+	}
+
+	var shell runtimeShell
+	if cfg.Shell.Preset == config.PresetTerminal {
+		shell.Prompt = &cfg.Shell.Prompt
+	}
+	if cfg.Shell.Dotfiles != "" {
+		shell.Dotfiles = new(config.DotfilesTarget)
+	}
+
+	var toolchains runtimeToolchains
+	if cfg.Toolchains.Rust != "" {
+		toolchains.Rust = new(string(cfg.Toolchains.Rust))
+	}
+
 	record := runtimeConfig{
 		Name:       cfg.Name,
 		Arch:       cfg.Resources.Arch,
@@ -56,8 +92,11 @@ func writeRuntime(filename string, cfg config.Config, generation string, imports
 		},
 		Ports:           cfg.Network.Ports,
 		Theme:           runtimeTheme{Flavor: cfg.Theme.Flavor},
+		Shell:           shell,
+		Toolchains:      toolchains,
 		Modules:         imports,
-		SelectedModules: append([]domain.ModuleID{}, cfg.NixOS.Modules...),
+		SelectedModules: selected,
+		Packages:        append([]domain.PackageName{}, selection.Packages...),
 	}
 
 	data, err := json.MarshalIndent(record, "", "  ")

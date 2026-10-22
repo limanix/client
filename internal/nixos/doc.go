@@ -11,12 +11,12 @@
 //	<generation>/
 //	├─ flake/
 //	│  ├─ flake.nix + flake.lock + base NixOS modules
-//	│  ├─ lmx.json                pinned lmx release for each guest system
+//	│  ├─ lmx.json                pinned lmx release for each guest system, or the local archives of cmd/bundle-lmx
 //	│  ├─ interface.nix           catalog's public NixOS option declarations
 //	│  ├─ platform.nix            catalog's guest platform: the base disk's layout and Lima integration
-//	│  ├─ runtime.json            generation, user, architecture, ports, theme, module imports
+//	│  ├─ runtime.json            generation, user, architecture, ports, theme, shell, toolchains, module imports, packages
 //	│  ├─ modules/lmx/_shared/    public declaration sources, including their private dependencies
-//	│  ├─ modules/lmx/<name>/     complete catalog entries, when a standard module is selected
+//	│  ├─ modules/lmx/<kind>/<name>/  complete catalog entries, when the configuration chooses a standard module
 //	│  └─ modules/<index>/        selected third-party module trees
 //	├─ environment                systemd-compatible runtime assignments
 //	└─ environment.sh             login-shell exports
@@ -34,6 +34,10 @@
 //	Taskfile tag → limanix-modules archive + image.json → bundle-modules → embedded modules.zip + image.json
 //	                                                            ↓ lmx:NAME[-VERSION]
 //	                                                     VM generation snapshot
+//
+// The catalog keeps each module below its kind: shell components that [config.Config.Selection] chooses from [shell],
+// toolchains from [toolchains], and modules that [nixos] modules selects by name. The module registry accepts only the
+// last kind in [nixos] modules.
 //
 // Standard modules share one catalog snapshot; sibling Nix imports retain their paths. Root _shared/*.nix schemas and infrastructure
 // enter runtime.json before selected entry points, including with no standard modules selected; _shared/test.nix is excluded.
@@ -56,13 +60,16 @@
 // Every generation includes lmx, the guest owner: its commands, its daemon, /etc/lmx/config.json and the help cards
 // of the evaluated modules in /etc/lmx/help.json, rendered from the same declaration. The flake also exports them
 // with those files as packages.<system>.lmx. The configuration's
-// theme flavor sets lmx.capabilities.theme, which lmx and the catalog modules read. The Bash fallback prompt
+// theme flavor sets lmx.capabilities.theme, which lmx and the catalog modules read; its shell prompt sets lmx.zsh.prompt and
+// its Rust toolchain lmx.rust.toolchain, through resources/base/shell.nix. shell.dotfiles mounts at /mnt/dotfiles, adds the dotfiles key to config.json only
+// then, since lmx 0.1 rejects it, and links the dotfiles in every interactive shell. The Bash fallback prompt
 // uses the theme's colors only when no Starship provider is enabled; dumb terminals and NO_COLOR use plain text. Guest
 // help, identity, and terminal compatibility remain available with an empty optional module selection.
 //
 // Read bundle.go for ordering, modules.go and resources.go for copying, runtime.go for the private flake JSON contract,
-// environment.go for ENV encoding, resources/base/lmx.nix for lmx and its configuration, and
+// environment.go for ENV encoding, resources/base/lmx.nix for lmx and its configuration,
+// resources/base/packages.nix for nixos.packages and the check of their commands, and
 // resources/base/workspace.nix for the fallback prompt.
 //
-// [catalog contract]: https://limanix.dev/categories/nixos/catalog-contract.html
+// [catalog contract]: https://github.com/limanix/modules/blob/main/catalog/README.md
 package nixos

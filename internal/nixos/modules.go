@@ -12,8 +12,8 @@ import (
 	"github.com/limanix/client/internal/nixos/catalog"
 )
 
-// SystemModules reads the embedded catalog and returns a copy of its names and descriptions.
-func SystemModules() (map[string]string, error) {
+// SystemModules reads the embedded catalog and returns a copy of its selectors and their entries.
+func SystemModules() (map[string]catalog.Entry, error) {
 	catalog, err := systemCatalog()
 	if err != nil {
 		return nil, err
