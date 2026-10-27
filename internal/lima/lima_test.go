@@ -3,6 +3,7 @@ package lima
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +21,7 @@ func TestTemplateBoundaries(t *testing.T) {
 	cfg.Mounts = []config.Mount{{Source: "/nested", Target: "/workspace/data", Mode: "rw"}, {Source: "/project", Target: "/workspace", Mode: "rw"}, {Source: "/keys", Target: "/mnt/keys", Mode: "ro"}}
 	cfg.Env = map[domain.EnvName]domain.EnvValue{"API_TOKEN": "test-secret-absent-from-template"}
 	for _, hostUID := range []int{501, 1000} {
-		data, err := Render(cfg, "/managed/home", "/managed/runtime", "arm64", hostUID)
+		data, err := Render(cfg, "/managed/home", "/managed/runtime", "arm64", hostUID, 42022)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -39,6 +40,9 @@ func TestTemplateBoundaries(t *testing.T) {
 		}
 		if *rendered.PropagateProxyEnv || *rendered.SSH.ForwardAgent || !rendered.PortForwards[0].Ignore || *rendered.PortForwards[0].GuestIPMustBeZero {
 			t.Fatal("unexpected automatic exposure")
+		}
+		if rendered.SSH.LocalPort == nil || *rendered.SSH.LocalPort != 42022 {
+			t.Fatalf("the SSH port must stay fixed: %s", data)
 		}
 		if len(rendered.Mounts) != 5 {
 			t.Fatalf("unexpected implicit mounts: %v", rendered.Mounts)
@@ -73,7 +77,7 @@ func TestNativeValidation(t *testing.T) {
 	}
 	cfg := config.Default()
 	cfg.Mounts = nil
-	data, err := Render(cfg, home, runtime, "arm64", 501)
+	data, err := Render(cfg, home, runtime, "arm64", 501, 42022)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +112,7 @@ func TestArchitectureTemplatesUseHardwareArchitecture(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := config.Default()
 			cfg.Resources.Arch = test.guest
-			data, err := Render(cfg, "/home", "/runtime", test.host, 501)
+			data, err := Render(cfg, "/home", "/runtime", test.host, 501, 42022)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -136,7 +140,7 @@ func TestArchitectureTemplatesUseHardwareArchitecture(t *testing.T) {
 		})
 	}
 	for _, host := range []domain.Architecture{"", "aarch64", "unknown"} {
-		if _, err := Render(config.Default(), "/home", "/runtime", host, 501); err == nil {
+		if _, err := Render(config.Default(), "/home", "/runtime", host, 501, 42022); err == nil {
 			t.Fatalf("invalid host architecture accepted: %q", host)
 		}
 	}
@@ -150,7 +154,7 @@ func TestDotfilesMountWritableOnlyWhenConfigured(t *testing.T) {
 	cfg.Mounts = nil
 	mounts := func() map[string]limatype.Mount {
 		t.Helper()
-		data, err := Render(cfg, "/managed/home", "/managed/runtime", "arm64", 501)
+		data, err := Render(cfg, "/managed/home", "/managed/runtime", "arm64", 501, 42022)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -173,5 +177,13 @@ func TestDotfilesMountWritableOnlyWhenConfigured(t *testing.T) {
 	mount, exists := mounts()[config.DotfilesTarget]
 	if !exists || mount.Location != "/Users/dev/dotfiles" || !*mount.Writable {
 		t.Fatalf("dotfiles mount: %+v", mount)
+	}
+}
+
+func TestTemplateRejectsInvalidSSHPorts(t *testing.T) {
+	for _, port := range []int{-1, 0, 65536} {
+		if _, err := Render(config.Default(), "/home", "/runtime", "arm64", 501, port); !errors.Is(err, ErrSSHPort) {
+			t.Fatalf("accepted SSH port %d: %v", port, err)
+		}
 	}
 }

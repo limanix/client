@@ -24,9 +24,13 @@ type Manager struct {
 
 	generations *generationBuilder
 	hostUID     int
+	sshConfig   string
 
 	// dial opens the connection of a TCP network check from the Mac.
 	dial func(context.Context, string, string) (net.Conn, error)
+
+	// listen checks that a port on the Mac is free for the SSH port of a VM.
+	listen func(string, string) (net.Listener, error)
 
 	// Warn receives the problems of a create or update that do not fail it.
 	Warn func(string, ...any)
@@ -53,8 +57,10 @@ func New(deps Dependencies) *Manager {
 		homes:       deps.Homes,
 		guest:       deps.Guest,
 		hostUID:     deps.HostUID,
+		sshConfig:   deps.SSHConfig,
 		generations: newGenerationBuilder(deps),
 		dial:        (&net.Dialer{Timeout: connectTimeout}).DialContext,
+		listen:      net.Listen,
 		Warn:        log.New(os.Stderr, "limanix: warning: ", 0).Printf,
 	}
 }

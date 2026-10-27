@@ -14,9 +14,13 @@ import (
 )
 
 // Render uses Lima's schema types, emitting JSON (a YAML subset) without secret ENV values.
-func Render(cfg config.Config, managedHome, runtimeDir string, hostArch domain.Architecture, hostUID int) ([]byte, error) {
+func Render(cfg config.Config, managedHome, runtimeDir string, hostArch domain.Architecture, hostUID, sshPort int) ([]byte, error) {
 	if _, err := domain.NewArchitecture(string(hostArch)); err != nil {
 		return nil, err
+	}
+
+	if sshPort <= 0 || sshPort > 65535 {
+		return nil, ErrSSHPort
 	}
 
 	arch, err := cfg.Resources.Arch.LimaArch()
@@ -57,6 +61,7 @@ func Render(cfg config.Config, managedHome, runtimeDir string, hostArch domain.A
 	document.Disk = &disk
 	document.User = managementUser(hostUID)
 	document.Mounts = templateMounts(cfg, managedHome, runtimeDir)
+	document.SSH.LocalPort = &sshPort
 
 	encoded, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {

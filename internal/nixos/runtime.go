@@ -9,10 +9,11 @@ import (
 )
 
 type runtimeUser struct {
-	Name domain.Username  `json:"name"`
-	Home domain.GuestPath `json:"home"`
-	Sudo bool             `json:"sudo"`
-	UID  int              `json:"uid"`
+	Name           domain.Username  `json:"name"`
+	Home           domain.GuestPath `json:"home"`
+	Sudo           bool             `json:"sudo"`
+	UID            int              `json:"uid"`
+	AuthorizedKeys []string         `json:"authorizedKeys"`
 }
 
 // runtimeDisk carries the configured size as a plain byte count for Nix arithmetic.
@@ -55,7 +56,7 @@ type runtimeConfig struct {
 	Packages        []domain.PackageName `json:"packages"`
 }
 
-func writeRuntime(filename string, cfg config.Config, generation string, imports []string, uid int) error {
+func writeRuntime(filename string, cfg config.Config, generation string, imports []string, uid int, authorizedKeys []string) error {
 	selection := cfg.Selection()
 	selected := make([]domain.ModuleID, len(selection.Modules))
 	for index, choice := range selection.Modules {
@@ -80,10 +81,11 @@ func writeRuntime(filename string, cfg config.Config, generation string, imports
 		Arch:       cfg.Resources.Arch,
 		Generation: generation,
 		User: runtimeUser{
-			Name: cfg.User.Name,
-			Home: cfg.User.Home,
-			Sudo: cfg.User.Sudo,
-			UID:  uid,
+			Name:           cfg.User.Name,
+			Home:           cfg.User.Home,
+			Sudo:           cfg.User.Sudo,
+			UID:            uid,
+			AuthorizedKeys: append([]string{}, authorizedKeys...),
 		},
 		Disk: runtimeDisk{
 			Bytes:          int64(cfg.Resources.Disk),

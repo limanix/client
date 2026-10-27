@@ -46,4 +46,5 @@ type Instance struct {
 	Status   Status
 	Disk     *int64
 	Networks []Network
+	SSHPort  int
 }

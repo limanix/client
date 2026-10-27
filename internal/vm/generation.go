@@ -36,7 +36,7 @@ func newGenerationBuilder(deps Dependencies) *generationBuilder {
 	}
 }
 
-func (g *generationBuilder) prepare(ctx context.Context, instance domain.Instance, cfg config.Config) (string, error) {
+func (g *generationBuilder) prepare(ctx context.Context, instance domain.Instance, cfg config.Config, sshPort int) (string, error) {
 	hostArch, err := lima.HostArchitecture()
 	if err != nil {
 		return "", err
@@ -51,11 +51,16 @@ func (g *generationBuilder) prepare(ctx context.Context, instance domain.Instanc
 		return "", err
 	}
 
-	if err = g.prepareBundle(ctx, cfg, directory, instance.Generation); err != nil {
+	key, err := g.backend.UserKey(ctx)
+	if err != nil {
 		return "", err
 	}
 
-	document, err := lima.Render(cfg, instance.Identity.Home, directory, hostArch, g.hostUID)
+	if err = g.prepareBundle(ctx, cfg, directory, instance.Generation, key.Public); err != nil {
+		return "", err
+	}
+
+	document, err := lima.Render(cfg, instance.Identity.Home, directory, hostArch, g.hostUID, sshPort)
 	if err != nil {
 		return "", err
 	}
@@ -72,7 +77,7 @@ func (g *generationBuilder) prepare(ctx context.Context, instance domain.Instanc
 	return template, ctx.Err()
 }
 
-func (g *generationBuilder) prepareBundle(ctx context.Context, cfg config.Config, directory, generation string) (err error) {
+func (g *generationBuilder) prepareBundle(ctx context.Context, cfg config.Config, directory, generation, authorizedKey string) (err error) {
 	sources, err := g.modules.Sources(ctx, cfg.Selection().Modules)
 	if err != nil {
 		return err
@@ -82,7 +87,7 @@ func (g *generationBuilder) prepareBundle(ctx context.Context, cfg config.Config
 		err = errors.Join(err, sources.Close())
 	}()
 
-	if _, err = nixos.Prepare(cfg, directory, generation, sources.Sources, g.hostUID); err != nil {
+	if _, err = nixos.Prepare(cfg, directory, generation, sources.Sources, g.hostUID, []string{authorizedKey}); err != nil {
 		return err
 	}
 

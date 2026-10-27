@@ -36,6 +36,8 @@ type backendCall struct {
 	Arguments []string
 }
 
+const testUserKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOwnTestKeyOfLimaForTheDevelopmentAccount lima"
+
 type fakeBackend struct {
 	callsMu           sync.Mutex
 	instances         map[string]lima.Instance
@@ -90,6 +92,22 @@ func (f *fakeBackend) Validate(_ context.Context, template string) error {
 	return nil
 }
 
+func templatePort(path string) int {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	var template struct {
+		SSH struct {
+			LocalPort int `json:"localPort"`
+		} `json:"ssh"`
+	}
+	if json.Unmarshal(data, &template) != nil {
+		return 0
+	}
+	return template.SSH.LocalPort
+}
+
 func templateDisk(path string) (*int64, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -120,6 +138,7 @@ func (f *fakeBackend) Create(_ context.Context, name, template string) error {
 	f.instances[name] = lima.Instance{
 		Name: name, Status: lima.Stopped, Disk: disk,
 		Networks: []lima.Network{{MACAddress: "52:55:55:4a:e4:84", Shared: true}},
+		SSHPort:  templatePort(template),
 	}
 	return nil
 }
@@ -165,8 +184,13 @@ func (f *fakeBackend) Edit(_ context.Context, name, template string) error {
 	}
 	instance := f.instances[name]
 	instance.Disk = disk
+	instance.SSHPort = templatePort(template)
 	f.instances[name] = instance
 	return nil
+}
+
+func (f *fakeBackend) UserKey(context.Context) (lima.UserKey, error) {
+	return lima.UserKey{Public: testUserKey, PrivateFile: "/lima/_config/user"}, nil
 }
 
 func (f *fakeBackend) Run(_ context.Context, name string, args []string, _ bool) (string, error) {

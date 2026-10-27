@@ -23,6 +23,7 @@ type Backend interface {
 	Stop(context.Context, string) error
 	Delete(context.Context, string, bool) error
 	Edit(context.Context, string, string) error
+	UserKey(context.Context) (lima.UserKey, error)
 }
 
 // Store owns persisted VM records, operation locks and input-generation paths.
@@ -68,6 +69,9 @@ type Dependencies struct {
 	Homes   Homes
 	Guest   Guest
 	HostUID int
+
+	// SSHConfig is the file of SSH settings for editors on the Mac; empty writes none.
+	SSHConfig string
 }
 
 func missingDependency(dependency any) bool {

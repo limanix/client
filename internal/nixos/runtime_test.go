@@ -25,7 +25,7 @@ import (
 const testGeneration = "0123456789ab"
 
 func TestRuntimeCarriesTheGeneration(t *testing.T) {
-	flake, err := Prepare(config.Default(), filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
+	flake, err := Prepare(config.Default(), filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,10 +42,35 @@ func TestRuntimeCarriesTheGeneration(t *testing.T) {
 	}
 }
 
+func TestRuntimeCarriesAuthorizedKeys(t *testing.T) {
+	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOwnTestKeyOfLimaForTheDevelopmentAccount lima"
+	for _, test := range []struct {
+		keys []string
+		want string
+	}{
+		{[]string{key}, `"authorizedKeys": [` + "\n" + `      "` + key + `"`},
+		{nil, `"authorizedKeys": []`},
+	} {
+		flake, err := Prepare(config.Default(), filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501, test.keys)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(filepath.Join(flake, "runtime.json"))
+		if err != nil || !bytes.Contains(data, []byte(test.want)) {
+			t.Fatalf("runtime.json lacks %s: %s, %v", test.want, data, err)
+		}
+	}
+	for _, key := range []string{"", key + "\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5 other"} {
+		if _, err := Prepare(config.Default(), filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501, []string{key}); !errors.Is(err, ErrInvalidAuthorizedKey) {
+			t.Fatalf("accepted authorized key %q: %v", key, err)
+		}
+	}
+}
+
 func TestRuntimeCarriesPackages(t *testing.T) {
 	cfg := config.Default()
 	cfg.NixOS.Packages = []domain.PackageName{"jq", "python3Packages.ipython", "jq"}
-	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
+	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +89,7 @@ func TestRuntimeCarriesPackages(t *testing.T) {
 
 	cfg.NixOS.Packages = nil
 	cfg.Shell = config.Shell{Preset: config.PresetMinimal, Prompt: config.None, Editor: config.None, Multiplexer: config.None}
-	flake, err = Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
+	flake, err = Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +102,7 @@ func TestRuntimeCarriesPackages(t *testing.T) {
 func TestPrepareRejectsAnInvalidGeneration(t *testing.T) {
 	for _, generation := range []string{"", "0123456789AB", "0123456789abc", "../escape0000"} {
 		directory := filepath.Join(t.TempDir(), "runtime")
-		_, err := Prepare(config.Default(), directory, generation, nil, 501)
+		_, err := Prepare(config.Default(), directory, generation, nil, 501, nil)
 		if !errors.Is(err, ErrInvalidGeneration) {
 			t.Fatalf("generation %q: got %v", generation, err)
 		}
@@ -146,7 +171,7 @@ func TestRuntimeMetadataPreservesSelectedModulesWithoutEnvironment(t *testing.T)
 	cfg := config.Default()
 	cfg.Env["PRIVATE_TOKEN"] = "never-in-workspace-metadata"
 	cfg.NixOS.Modules = []domain.ModuleID{"lmx:docker", "lmx:docker"}
-	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, []modules.Source{{ID: "lmx:docker"}, {ID: "lmx:docker"}}, 501)
+	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, []modules.Source{{ID: "lmx:docker"}, {ID: "lmx:docker"}}, 501, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +196,7 @@ func TestRuntimeMetadataPreservesSelectedModulesWithoutEnvironment(t *testing.T)
 	}
 	cfg.NixOS.Modules = nil
 	cfg.Shell = config.Shell{Preset: config.PresetMinimal, Prompt: config.None, Editor: config.None, Multiplexer: config.None}
-	flake, err = Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
+	flake, err = Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +211,7 @@ func TestRuntimeMetadataPreservesSelectedModulesWithoutEnvironment(t *testing.T)
 func TestRuntimeCarriesGuestDiskPolicy(t *testing.T) {
 	cfg := config.Default()
 	cfg.Resources.Disk = domain.ByteSize(16 * domain.GiB)
-	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
+	flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +238,7 @@ func TestRuntimeCarriesGuestDiskPolicy(t *testing.T) {
 func TestRuntimeCarriesShellAndToolchains(t *testing.T) {
 	read := func(cfg config.Config) runtimeConfig {
 		t.Helper()
-		flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501)
+		flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "runtime"), testGeneration, nil, 501, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
