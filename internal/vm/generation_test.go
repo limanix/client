@@ -17,7 +17,7 @@ func TestGenerationOperationsRejectRedirectedParentAndPreserveOtherContents(t *t
 		run  func(fixtureData, domain.Instance, string) error
 	}{
 		{"prepare", func(f fixtureData, instance domain.Instance, _ string) error {
-			_, err := f.manager.generations.prepare(context.Background(), instance, f.configuration("sandbox"))
+			_, err := f.manager.generations.prepare(context.Background(), instance, f.configuration("sandbox"), sshPortFirst)
 			return err
 		}},
 		{"discard", func(f fixtureData, instance domain.Instance, _ string) error {

@@ -21,6 +21,8 @@ var (
 	ErrInvalidSSHMetadata       = errors.New("invalid Lima SSH metadata")
 	ErrEmptyCommand             = errors.New("a guest command is required")
 	ErrManagedMounts            = errors.New("a positive host UID and managed mount paths are required")
+	ErrSSHPort                  = errors.New("expected an SSH port between 1 and 65535")
+	ErrMissingUserKey           = errors.New("lima's SSH key is unavailable")
 	ErrMacOSRequired            = errors.New("limanix VM operations require macOS")
 	ErrMissingSSH               = errors.New("make the system SSH client available in PATH")
 	ErrMissingVZ                = errors.New("this Limanix build does not include the native macOS VZ driver")

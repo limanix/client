@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
@@ -14,10 +15,17 @@ import (
 )
 
 // Prepare copies module trees once into a generation and writes runtime ENV files beside its flake, keeping their
-// values out of flake sources and Nix store. The guest learns the generation ID from runtime.json.
-func Prepare(cfg config.Config, runtimeDir, generation string, sources []modules.Source, uid int) (string, error) {
+// values out of flake sources and Nix store. The guest learns the generation ID from runtime.json. The development
+// account accepts the authorized keys over SSH.
+func Prepare(cfg config.Config, runtimeDir, generation string, sources []modules.Source, uid int, authorizedKeys []string) (string, error) {
 	if uid <= 0 {
 		return "", ErrInvalidUID
+	}
+
+	for _, key := range authorizedKeys {
+		if key == "" || strings.ContainsAny(key, "\r\n") {
+			return "", ErrInvalidAuthorizedKey
+		}
 	}
 
 	if !domain.ValidIdentifier(generation) {
@@ -61,7 +69,7 @@ func Prepare(cfg config.Config, runtimeDir, generation string, sources []modules
 		return "", err
 	}
 
-	if err = writeRuntime(filepath.Join(flakeDir, "runtime.json"), cfg, generation, imports, uid); err != nil {
+	if err = writeRuntime(filepath.Join(flakeDir, "runtime.json"), cfg, generation, imports, uid, authorizedKeys); err != nil {
 		return "", err
 	}
 

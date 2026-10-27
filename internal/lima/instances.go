@@ -110,6 +110,10 @@ func instanceMetadata(upstream *limatype.Instance) (Instance, error) {
 	if upstream.Config != nil {
 		disk := upstream.Disk
 		inst.Disk = &disk
+
+		if upstream.Config.SSH.LocalPort != nil {
+			inst.SSHPort = *upstream.Config.SSH.LocalPort
+		}
 	}
 
 	for _, network := range upstream.Networks {

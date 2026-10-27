@@ -81,12 +81,13 @@ func (s *Services) Manager() (*vm.Manager, error) {
 	guests.Warn = warn
 
 	manager := vm.New(vm.Dependencies{
-		Store:   store,
-		Backend: backend,
-		Modules: registry,
-		Homes:   &managedhome.Manager{},
-		Guest:   guests,
-		HostUID: os.Getuid(),
+		Store:     store,
+		Backend:   backend,
+		Modules:   registry,
+		Homes:     &managedhome.Manager{},
+		Guest:     guests,
+		HostUID:   os.Getuid(),
+		SSHConfig: filepath.Join(store.Root(), "ssh", "config"),
 	})
 	manager.Warn = warn
 

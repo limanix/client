@@ -57,6 +57,9 @@ func TestShellAndToolchainDiagnostics(t *testing.T) {
 		"[toolchains]\nrust = 'latest'\n":                           "toolchains.rust: expected stable, beta, nightly",
 		"[toolchains]\nrust = 'stable-aarch64-unknown-linux-gnu'\n": "toolchains.rust: expected stable",
 		"[toolchains]\nzig = '0.15'\n":                              "toolchains.zig: unknown field",
+		"[toolchains]\nmaven = '3'\n":                               "toolchains.maven: needs a JDK",
+		"[toolchains]\ngradle = '9'\nmaven = '3'\n":                 "toolchains.maven: needs a JDK",
+		"[toolchains]\ngradle = '9'\n":                              "toolchains.gradle: needs a JDK",
 	} {
 		_, err := Parse([]byte(document))
 		if err == nil || !strings.HasPrefix(err.Error(), want) {
@@ -64,8 +67,8 @@ func TestShellAndToolchainDiagnostics(t *testing.T) {
 		}
 	}
 
-	parsed, err := Parse([]byte("[toolchains]\ngo = '1.27'\nrust = 'nightly-2026-10-01'\npython = '3.12'\nnodejs = '24'\n"))
-	want := Toolchains{Go: "1.27", Rust: "nightly-2026-10-01", Python: "3.12", Nodejs: "24"}
+	parsed, err := Parse([]byte("[toolchains]\ngo = '1.27'\nrust = 'nightly-2026-10-01'\npython = '3.12'\nnodejs = '24'\njava = '17'\nmaven = '3'\ngradle = '8'\ngcc = '14'\nclang = '21'\n"))
+	want := Toolchains{Go: "1.27", Rust: "nightly-2026-10-01", Python: "3.12", Nodejs: "24", Java: "17", Maven: "3", Gradle: "8", Gcc: "14", Clang: "21"}
 	if err != nil || parsed.Toolchains != want {
 		t.Fatalf("toolchains: %#v, %v", parsed.Toolchains, err)
 	}
@@ -96,7 +99,7 @@ func TestUnstablePackages(t *testing.T) {
 
 func TestSelectionOfTheShellAndToolchains(t *testing.T) {
 	cfg := Default()
-	cfg.Toolchains = Toolchains{Go: "1.27", Rust: "stable", Python: "3.14", Nodejs: "26"}
+	cfg.Toolchains = Toolchains{Go: "1.27", Rust: "stable", Python: "3.14", Nodejs: "26", Java: "21", Maven: "3", Gradle: "9", Gcc: "15", Clang: "22"}
 	cfg.NixOS.Modules = []domain.ModuleID{"lmx:docker", "third-party:custom"}
 	cfg.NixOS.Packages = []domain.PackageName{"kubectl"}
 
@@ -112,6 +115,11 @@ func TestSelectionOfTheShellAndToolchains(t *testing.T) {
 		{ID: "lmx:rust", Field: "toolchains.rust"},
 		{ID: "lmx:python-3.14", Field: "toolchains.python"},
 		{ID: "lmx:nodejs-26", Field: "toolchains.nodejs"},
+		{ID: "lmx:java-21", Field: "toolchains.java"},
+		{ID: "lmx:maven-3", Field: "toolchains.maven"},
+		{ID: "lmx:gradle-9", Field: "toolchains.gradle"},
+		{ID: "lmx:gcc-15", Field: "toolchains.gcc"},
+		{ID: "lmx:clang-22", Field: "toolchains.clang"},
 		{ID: "lmx:docker", Field: "nixos.modules[0]"},
 		{ID: "third-party:custom", Field: "nixos.modules[1]"},
 	}

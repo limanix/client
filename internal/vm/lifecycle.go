@@ -10,7 +10,13 @@ import (
 
 // Start starts the backend independently of the mutable runtime record.
 func (m *Manager) Start(ctx context.Context, name domain.VMName) error {
-	return m.lifecycle(ctx, name, m.backend.Start)
+	if err := m.lifecycle(ctx, name, m.backend.Start); err != nil {
+		return err
+	}
+
+	m.refreshSSHConfig(ctx)
+
+	return nil
 }
 
 // Stop preserves the guest disk and host home.

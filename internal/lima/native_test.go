@@ -42,6 +42,19 @@ func TestFetchAllFiltersBeforeInspection(t *testing.T) {
 	}
 }
 
+func TestNativeMetadataReadsTheSSHPort(t *testing.T) {
+	port := 42022
+	upstream := &limatype.Instance{Name: "limanix-owned", Status: limatype.StatusRunning, SSHLocalPort: 60123, Config: &limatype.LimaYAML{SSH: limatype.SSH{LocalPort: &port}}}
+	inst, err := instanceMetadata(upstream)
+	if err != nil || inst.SSHPort != 42022 {
+		t.Fatalf("the configured SSH port must win over the current one: %#v %v", inst, err)
+	}
+	upstream.Config.SSH.LocalPort = nil
+	if inst, err = instanceMetadata(upstream); err != nil || inst.SSHPort != 0 {
+		t.Fatalf("a VM without a fixed SSH port must report none: %#v %v", inst, err)
+	}
+}
+
 func TestNativeMetadataStatusesAndDamagedInstances(t *testing.T) {
 	for _, status := range []Status{Unknown, Uninitialized, Installing, Broken, Stopped, Running} {
 		upstream := &limatype.Instance{Name: "limanix-owned", Status: string(status), Errors: []error{errors.New("damaged YAML")}}
@@ -261,7 +274,7 @@ func editFixture(t *testing.T) (*Client, *limatype.Instance, string, []byte) {
 	cfg := config.Default()
 	cfg.Mounts = nil
 	cfg.Resources.CPU = 2
-	data, err := Render(cfg, home, runtimeDir, "arm64", 501)
+	data, err := Render(cfg, home, runtimeDir, "arm64", 501, 42022)
 	if err != nil {
 		t.Fatal(err)
 	}

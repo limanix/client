@@ -15,6 +15,7 @@ var (
 	ErrIdentityChange = errors.New("an update cannot change architecture, username, or managed-home paths; create a new VM for these changes")
 	ErrDiskUnknown    = errors.New("lima did not report the disk size; update was not started")
 	ErrDiskShrink     = errors.New("shrinking the guest disk is not supported")
+	ErrNoSSHPort      = errors.New("no free SSH port between 42022 and 49151 on the Mac")
 )
 
 // InstanceError associates a lifecycle cause with the user's VM name.

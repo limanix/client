@@ -15,6 +15,9 @@ import (
 	"github.com/limanix/client/internal/modules"
 )
 
+// testAuthorizedKey is the key of the development account in the evaluated configurations.
+const testAuthorizedKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEvaluationKeyOfTheDevelopmentAccount lima"
+
 // limanix-eval-shard-protocol: 2
 //
 // TestGeneratedFlakeEvaluation evaluates Prepare's complete output, including the
@@ -176,6 +179,14 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
       message = "lmxd must run from boot, answer on its socket and accept the configuration of its generation.";
     }
     {
+      assertion = config.programs.nix-ld.enable
+        && builtins.any (library: (library.pname or "") == "libxext") config.programs.nix-ld.libraries
+        && config.users.users.eval-user.openssh.authorizedKeys.keys == [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEvaluationKeyOfTheDevelopmentAccount lima" ]
+        && builtins.elem "d /etc/ssh/authorized_keys.d 0755 root root -" config.systemd.tmpfiles.rules
+        && builtins.any (package: (package.pname or "") == "gnutar" && package.meta.priority < 0) config.environment.systemPackages;
+      message = "Editors on the Mac must reach the development account over SSH and run their servers in every guest.";
+    }
+    {
       assertion = !config.nix.channel.enable
         && builtins.elem "r /nix/var/nix/profiles/per-user/root/channels-*-link" config.systemd.tmpfiles.rules;
       message = "The base image's channel must not remain a garbage-collector root.";
@@ -214,7 +225,7 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 					sources = append(sources, source)
 				}
 
-				flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "generation"), testGeneration, sources, 501)
+				flake, err := Prepare(cfg, filepath.Join(t.TempDir(), "generation"), testGeneration, sources, 501, []string{testAuthorizedKey})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -261,7 +272,7 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 					unknown := cfg
 					unknown.NixOS.Modules = nil
 					unknown.NixOS.Packages = []domain.PackageName{"limanix-no-such-package"}
-					missing, err := Prepare(unknown, filepath.Join(t.TempDir(), "generation"), testGeneration, nil, 501)
+					missing, err := Prepare(unknown, filepath.Join(t.TempDir(), "generation"), testGeneration, nil, 501, []string{testAuthorizedKey})
 					if err != nil {
 						t.Fatal(err)
 					}
