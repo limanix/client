@@ -41,6 +41,11 @@ var toolchains = []struct {
 	{"rust", "rust", false},
 	{"python", "python", true},
 	{"nodejs", "nodejs", true},
+	{"java", "java", true},
+	{"maven", "maven", true},
+	{"gradle", "gradle", true},
+	{"gcc", "gcc", true},
+	{"clang", "clang", true},
 }
 
 // Selection resolves the shell and the toolchains to catalog selectors without consulting the catalog; the module
@@ -101,6 +106,16 @@ func (toolchains Toolchains) value(key string) string {
 		return string(toolchains.Python)
 	case "nodejs":
 		return string(toolchains.Nodejs)
+	case "java":
+		return string(toolchains.Java)
+	case "maven":
+		return string(toolchains.Maven)
+	case "gradle":
+		return string(toolchains.Gradle)
+	case "gcc":
+		return string(toolchains.Gcc)
+	case "clang":
+		return string(toolchains.Clang)
 	}
 
 	return ""

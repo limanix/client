@@ -37,6 +37,11 @@ type Toolchains struct {
 	Rust   domain.RustToolchain `toml:"rust" json:"rust" doc:"Default toolchain of rustup, which installs it at the first start after a change: stable, beta, nightly, a dated channel such as nightly-2026-10-01, or a Rust version such as 1.90.0. Empty installs no Rust." example:"stable"`
 	Python domain.ToolchainLine `toml:"python" json:"python" doc:"Python line, with virtualenv and Pyright. Empty installs no Python." example:"3.14"`
 	Nodejs domain.ToolchainLine `toml:"nodejs" json:"nodejs" doc:"Node.js line, with npm, npx and the TypeScript language server. Empty installs no Node.js." example:"26"`
+	Java   domain.ToolchainLine `toml:"java" json:"java" doc:"OpenJDK line, with the jdtls language server; JAVA_HOME points to it. Empty installs no Java." example:"21"`
+	Maven  domain.ToolchainLine `toml:"maven" json:"maven" doc:"Apache Maven line, which runs on the java line and needs it. Empty installs no Maven." example:"3"`
+	Gradle domain.ToolchainLine `toml:"gradle" json:"gradle" doc:"Gradle line, which runs on the java line and needs it; the build stops when the Gradle line does not support that Java. Empty installs no Gradle." example:"9"`
+	Gcc    domain.ToolchainLine `toml:"gcc" json:"gcc" doc:"GCC line for C and C++, with GDB, clangd, make, CMake, Ninja, Meson and pkg-config; the compilers find the headers and libraries of [nixos] packages. Empty installs no GCC." example:"15"`
+	Clang  domain.ToolchainLine `toml:"clang" json:"clang" doc:"Clang line, with clangd, clang-format, clang-tidy and LLDB, next to GCC, which it brings; cc and c++ stay GCC. Empty installs no Clang." example:"22"`
 }
 
 // NixOS selects trusted modules included in the generated guest configuration.

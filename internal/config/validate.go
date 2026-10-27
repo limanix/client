@@ -24,6 +24,10 @@ func Validate(config Config) error {
 		return fieldError("home.root", "the host root directory is not allowed")
 	case config.Shell.Preset == PresetMinimal && config.Shell.Prompt != None:
 		return fieldError("shell.prompt", "a prompt needs the terminal preset, which has Zsh; the minimal preset uses Bash")
+	case config.Toolchains.Maven != "" && config.Toolchains.Java == "":
+		return fieldError("toolchains.maven", `needs a JDK: add java to [toolchains], such as java = "21"`)
+	case config.Toolchains.Gradle != "" && config.Toolchains.Java == "":
+		return fieldError("toolchains.gradle", `needs a JDK: add java to [toolchains], such as java = "21"`)
 	}
 
 	if err := validatePorts(config.Network.Ports.TCP, "tcp"); err != nil {
