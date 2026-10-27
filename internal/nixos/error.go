@@ -6,6 +6,9 @@ var (
 	// ErrInvalidUID rejects a root or invalid host UID for the development user.
 	ErrInvalidUID = errors.New("guest UID must be positive")
 
+	// ErrInvalidAuthorizedKey rejects an empty SSH key or one that spans lines.
+	ErrInvalidAuthorizedKey = errors.New("an authorized SSH key must be one nonempty line")
+
 	// ErrInvalidGeneration rejects a generation ID that the guest could not report back.
 	ErrInvalidGeneration = errors.New("generation ID must be 12 lowercase hexadecimal characters")
 

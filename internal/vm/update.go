@@ -50,9 +50,14 @@ func (m *Manager) Update(ctx context.Context, path string) (result domain.Instan
 		return result, err
 	}
 
+	port, err := m.sshPort(ctx, actual)
+	if err != nil {
+		return result, err
+	}
+
 	result.BeginUpdate(generation)
 
-	template, err := m.prepareUpdate(ctx, result, cfg)
+	template, err := m.prepareUpdate(ctx, result, cfg, port)
 	if err != nil {
 		return result, err
 	}
@@ -66,17 +71,19 @@ func (m *Manager) Update(ctx context.Context, path string) (result domain.Instan
 		m.Warn("%v", warning)
 	}
 
+	m.refreshSSHConfig(ctx)
+
 	return result, nil
 }
 
-func (m *Manager) prepareUpdate(ctx context.Context, instance domain.Instance, cfg config.Config) (template string, failure error) {
+func (m *Manager) prepareUpdate(ctx context.Context, instance domain.Instance, cfg config.Config, sshPort int) (template string, failure error) {
 	defer func() {
 		if failure != nil {
 			failure = errors.Join(failure, m.discardUncommitted(instance))
 		}
 	}()
 
-	template, err := m.generations.prepare(ctx, instance, cfg)
+	template, err := m.generations.prepare(ctx, instance, cfg, sshPort)
 	if err != nil {
 		return "", err
 	}

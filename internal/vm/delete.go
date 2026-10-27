@@ -40,6 +40,8 @@ func (m *Manager) Delete(ctx context.Context, name domain.VMName, force, removeH
 		return identity.Home, err
 	}
 
+	m.refreshSSHConfig(ctx)
+
 	return identity.Home, nil
 }
 

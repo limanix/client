@@ -11,6 +11,7 @@ import (
 
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/lima"
 )
 
 // Create prepares a generation and home before invoking Lima.
@@ -49,7 +50,12 @@ func (m *Manager) Create(ctx context.Context, path string) (result domain.Instan
 		return result, err
 	}
 
-	template, err := m.prepareCreation(ctx, result, cfg)
+	port, err := m.sshPort(ctx, lima.Instance{})
+	if err != nil {
+		return result, err
+	}
+
+	template, err := m.prepareCreation(ctx, result, cfg, port)
 	if err != nil {
 		return result, err
 	}
@@ -58,7 +64,12 @@ func (m *Manager) Create(ctx context.Context, path string) (result domain.Instan
 		return result, m.recordFailure(result, err)
 	}
 
-	return m.recordReady(result, m.applyGuest(ctx, result))
+	result, err = m.recordReady(result, m.applyGuest(ctx, result))
+	if err == nil {
+		m.refreshSSHConfig(ctx)
+	}
+
+	return result, err
 }
 
 func newInstance(cfg config.Config) (domain.Instance, error) {
@@ -94,8 +105,8 @@ func newInstance(cfg config.Config) (domain.Instance, error) {
 	}, nil
 }
 
-func (m *Manager) prepareCreation(ctx context.Context, instance domain.Instance, cfg config.Config) (string, error) {
-	template, err := m.generations.prepare(ctx, instance, cfg)
+func (m *Manager) prepareCreation(ctx context.Context, instance domain.Instance, cfg config.Config, sshPort int) (string, error) {
+	template, err := m.generations.prepare(ctx, instance, cfg, sshPort)
 	if err != nil {
 		return "", errors.Join(err, m.store.Remove(instance.Identity.Name))
 	}

@@ -65,6 +65,7 @@ in
       shell = config.limanix.user.shell;
       createHome = false;
       linger = true;
+      openssh.authorizedKeys.keys = runtime.user.authorizedKeys;
     };
     security.sudo.wheelNeedsPassword = lib.mkForce true;
     security.sudo.extraRules = [
