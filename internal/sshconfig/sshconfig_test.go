@@ -1,6 +1,7 @@
 package sshconfig
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,11 +41,17 @@ func TestOpenSSHReadsTheFile(t *testing.T) {
 	if err != nil {
 		t.Skip("ssh is not installed")
 	}
+	if output, err := exec.Command(ssh, "-G", "-F", os.DevNull, "localhost").CombinedOutput(); err != nil {
+		t.Skipf("ssh cannot run here: %s", strings.TrimSpace(string(output)))
+	}
 	path := filepath.Join(t.TempDir(), "config")
 	if err := Write(path, hosts); err != nil {
 		t.Fatal(err)
 	}
 	output, err := exec.Command(ssh, "-G", "-F", path, "personal.limanix").Output()
+	if exit, ok := errors.AsType[*exec.ExitError](err); ok {
+		t.Fatalf("ssh -G rejected the file: %v: %s", err, exit.Stderr)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
