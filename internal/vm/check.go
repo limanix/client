@@ -27,6 +27,44 @@ const (
 	UDP Protocol = "udp"
 )
 
+// CheckID names a check that limanix doctor or limanix network check runs on the Mac.
+type CheckID string
+
+const (
+	CheckVM      CheckID = "vm"
+	CheckAddress CheckID = "address"
+	CheckGuest   CheckID = "guest"
+	CheckConnect CheckID = "connect"
+)
+
+// DoctorChecks are the checks of limanix doctor on the Mac, in order. The guest's own checks follow address, and guest
+// takes their place when the guest gives no answer.
+func DoctorChecks() []CheckID {
+	return []CheckID{CheckVM, CheckAddress, CheckGuest}
+}
+
+// NetworkChecks are the checks of limanix network check on the Mac, in order. The guest's firewall, listener and
+// process checks follow address, guest takes their place when the guest gives no answer, and connect comes last.
+func NetworkChecks() []CheckID {
+	return []CheckID{CheckVM, CheckAddress, CheckGuest, CheckConnect}
+}
+
+// What says what the check checks.
+func (id CheckID) What() string {
+	switch id {
+	case CheckVM:
+		return "The saved record and Lima: the VM runs, and its last create or update completed."
+	case CheckAddress:
+		return "The guest has an IPv4 address on the shared network."
+	case CheckGuest:
+		return "Takes the place of the guest checks when the guest gives no answer."
+	case CheckConnect:
+		return "The Mac connects to the address and port within 3 seconds. Only for a TCP port."
+	default:
+		return ""
+	}
+}
+
 // Report lists the checks of a VM in order: the host's, the guest's, then for TCP the connection from the Mac. Port
 // and Protocol belong to a network check.
 type Report struct {
@@ -47,7 +85,7 @@ func (report Report) Failed() bool {
 func (m *Manager) Doctor(ctx context.Context, name domain.VMName) (Report, error) {
 	report := Report{Name: string(name)}
 	noAddress := guest.Check{
-		Check:   "address",
+		Check:   string(CheckAddress),
 		Status:  guest.CheckWarning,
 		Message: "No IPv4 address on the shared network was read from the guest; limanix shell works without it.",
 	}
@@ -67,7 +105,7 @@ func (m *Manager) Doctor(ctx context.Context, name domain.VMName) (Report, error
 func (m *Manager) NetworkCheck(ctx context.Context, name domain.VMName, port uint16, protocol Protocol) (Report, error) {
 	report := Report{Name: string(name), Port: port, Protocol: protocol}
 	noAddress := guest.Check{
-		Check:   "address",
+		Check:   string(CheckAddress),
 		Status:  guest.CheckFailed,
 		Message: "No IPv4 address on the shared network was read from the guest; the Mac has nothing to connect to.",
 	}
@@ -110,7 +148,7 @@ func (m *Manager) inspect(ctx context.Context, report *Report, noAddress guest.C
 	switch {
 	case info.Notice != "":
 		report.Checks = append(report.Checks, guest.Check{
-			Check:   "address",
+			Check:   string(CheckAddress),
 			Status:  guest.CheckFailed,
 			Message: "The guest has no lmx yet and reports neither its address nor its checks.",
 			Hint:    "Run limanix update; it installs lmx.",
@@ -119,7 +157,7 @@ func (m *Manager) inspect(ctx context.Context, report *Report, noAddress guest.C
 		report.Checks = append(report.Checks, noAddress)
 	default:
 		report.Checks = append(report.Checks, guest.Check{
-			Check:   "address",
+			Check:   string(CheckAddress),
 			Status:  guest.CheckOK,
 			Message: fmt.Sprintf("The guest has %s on the shared network.", info.Address),
 		})
@@ -131,7 +169,7 @@ func (m *Manager) inspect(ctx context.Context, report *Report, noAddress guest.C
 // vmCheck says whether the VM runs and how its last create, update, or delete ended. A record without an error has an
 // operation status.
 func vmCheck(name string, info Info) guest.Check {
-	check := guest.Check{Check: "vm", Status: guest.CheckWarning}
+	check := guest.Check{Check: string(CheckVM), Status: guest.CheckWarning}
 
 	switch {
 	case busy(info):
@@ -174,7 +212,7 @@ func busy(info Info) bool {
 func answered(name string, checks []guest.Check, err error) []guest.Check {
 	if err != nil {
 		return []guest.Check{{
-			Check:   "guest",
+			Check:   string(CheckGuest),
 			Status:  guest.CheckFailed,
 			Message: err.Error(),
 			Hint:    fmt.Sprintf("Check guest access with limanix shell %s -- true.", name),
@@ -192,7 +230,7 @@ func (m *Manager) connect(ctx context.Context, address string, port uint16, afte
 	if err == nil {
 		_ = connection.Close()
 
-		return guest.Check{Check: "connect", Status: guest.CheckOK, Message: fmt.Sprintf("Connected to %s from the Mac.", target)}
+		return guest.Check{Check: string(CheckConnect), Status: guest.CheckOK, Message: fmt.Sprintf("Connected to %s from the Mac.", target)}
 	}
 
 	hint := "The guest checks passed; check a VPN, a firewall, or the Local Network permission of your terminal app."
@@ -201,7 +239,7 @@ func (m *Manager) connect(ctx context.Context, address string, port uint16, afte
 	}
 
 	return guest.Check{
-		Check:   "connect",
+		Check:   string(CheckConnect),
 		Status:  guest.CheckFailed,
 		Message: fmt.Sprintf("Cannot connect to %s from the Mac: %s.", target, refusal(err)),
 		Hint:    hint,

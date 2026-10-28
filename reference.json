@@ -1,0 +1,777 @@
+{
+  "commands": [
+    {
+      "name": "limanix",
+      "usage": "limanix",
+      "about": "Development sandboxes with Lima and NixOS.",
+      "details": null,
+      "args": [],
+      "checks": []
+    },
+    {
+      "name": "limanix create",
+      "usage": "limanix create [flags]",
+      "about": "Create a development sandbox from a TOML configuration.",
+      "details": null,
+      "args": [
+        {
+          "name": "--config",
+          "short": null,
+          "value": "string",
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Path to the VM configuration file (required).",
+          "details": null
+        },
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print the VM as machine-readable JSON.",
+          "details": null
+        }
+      ],
+      "checks": []
+    },
+    {
+      "name": "limanix delete",
+      "usage": "limanix delete NAME [flags]",
+      "about": "Delete a VM; preserve its managed host home by default.",
+      "details": null,
+      "args": [
+        {
+          "name": "--force",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Force Lima to stop and delete the VM.",
+          "details": null
+        },
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print machine-readable JSON.",
+          "details": null
+        },
+        {
+          "name": "--remove-home",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Also remove this VM's managed host home and its contents.",
+          "details": null
+        }
+      ],
+      "checks": []
+    },
+    {
+      "name": "limanix doctor",
+      "usage": "limanix doctor NAME [flags]",
+      "about": "Check a VM, its address, and the guest owner lmx.",
+      "details": "Check a VM, its address, and the guest owner lmx. Each check is ok, warning, failed, or unknown, with a hint when there is something to do. The command exits with status 1 when a check failed.",
+      "args": [
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print machine-readable JSON.",
+          "details": null
+        }
+      ],
+      "checks": [
+        {
+          "id": "vm",
+          "what": "The saved record and Lima: the VM runs, and its last create or update completed."
+        },
+        {
+          "id": "address",
+          "what": "The guest has an IPv4 address on the shared network."
+        },
+        {
+          "id": "guest",
+          "what": "Takes the place of the guest checks when the guest gives no answer."
+        }
+      ]
+    },
+    {
+      "name": "limanix first-config",
+      "usage": "limanix first-config [PATH]",
+      "about": "Write the default limanix.toml.",
+      "details": "Write the default limanix.toml in an existing directory (default: current directory). Existing files are overwritten; configuration symlinks are rejected.",
+      "args": [],
+      "checks": []
+    },
+    {
+      "name": "limanix list",
+      "usage": "limanix list [flags]",
+      "about": "List VMs managed by Limanix.",
+      "details": null,
+      "args": [
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print machine-readable JSON.",
+          "details": null
+        },
+        {
+          "name": "--quiet",
+          "short": "-q",
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print only VM names, one per line.",
+          "details": null
+        }
+      ],
+      "checks": []
+    },
+    {
+      "name": "limanix modules",
+      "usage": "limanix modules",
+      "about": "Manage bundled and third-party NixOS modules.",
+      "details": null,
+      "args": [],
+      "checks": []
+    },
+    {
+      "name": "limanix modules add",
+      "usage": "limanix modules add NAME DIRECTORY",
+      "about": "Import a directory containing default.nix.",
+      "details": null,
+      "args": [],
+      "checks": []
+    },
+    {
+      "name": "limanix modules list",
+      "usage": "limanix modules list [flags]",
+      "about": "List available module identifiers.",
+      "details": null,
+      "args": [
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print machine-readable JSON.",
+          "details": null
+        },
+        {
+          "name": "--quiet",
+          "short": "-q",
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print only module selectors, one per line.",
+          "details": null
+        }
+      ],
+      "checks": []
+    },
+    {
+      "name": "limanix modules remove",
+      "usage": "limanix modules remove NAME",
+      "about": "Remove an imported module from the catalog.",
+      "details": null,
+      "args": [],
+      "checks": []
+    },
+    {
+      "name": "limanix network",
+      "usage": "limanix network",
+      "about": "Prepare macOS networking for QEMU guests and check connections to a VM.",
+      "details": null,
+      "args": [],
+      "checks": []
+    },
+    {
+      "name": "limanix network check",
+      "usage": "limanix network check NAME PORT [flags]",
+      "about": "Check why a guest port may be unreachable from the Mac.",
+      "details": "Check the VM and its address, the guest firewall, the listener and its process, then connect to a TCP port from the Mac; a UDP port has no connection to try. The command exits with status 1 when a check failed.",
+      "args": [
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print machine-readable JSON.",
+          "details": null
+        },
+        {
+          "name": "--udp",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Check a UDP port instead of a TCP one.",
+          "details": null
+        }
+      ],
+      "checks": [
+        {
+          "id": "vm",
+          "what": "The saved record and Lima: the VM runs, and its last create or update completed."
+        },
+        {
+          "id": "address",
+          "what": "The guest has an IPv4 address on the shared network."
+        },
+        {
+          "id": "guest",
+          "what": "Takes the place of the guest checks when the guest gives no answer."
+        },
+        {
+          "id": "connect",
+          "what": "The Mac connects to the address and port within 3 seconds. Only for a TCP port."
+        }
+      ]
+    },
+    {
+      "name": "limanix network setup",
+      "usage": "limanix network setup",
+      "about": "Install the bundled socket_vmnet helper and Lima sudoers with administrator approval.",
+      "details": null,
+      "args": [],
+      "checks": []
+    },
+    {
+      "name": "limanix shell",
+      "usage": "limanix shell NAME [--session SESSION | -- COMMAND ...] [flags]",
+      "about": "Connect as the configured development user.",
+      "details": "Connect as the configured development user. With --session, create or attach to a named persistent session. Select a session provider in the VM configuration. --session cannot be combined with a guest command.",
+      "args": [
+        {
+          "name": "--session",
+          "short": null,
+          "value": "string",
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Create or attach to a named persistent session; requires a session provider in the VM.",
+          "details": null
+        }
+      ],
+      "checks": []
+    },
+    {
+      "name": "limanix start",
+      "usage": "limanix start NAME [flags]",
+      "about": "Start an existing VM.",
+      "details": null,
+      "args": [
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print the VM as machine-readable JSON.",
+          "details": null
+        }
+      ],
+      "checks": []
+    },
+    {
+      "name": "limanix stop",
+      "usage": "limanix stop NAME [flags]",
+      "about": "Stop a VM and preserve its disk and home.",
+      "details": null,
+      "args": [
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print the VM as machine-readable JSON.",
+          "details": null
+        }
+      ],
+      "checks": []
+    },
+    {
+      "name": "limanix update",
+      "usage": "limanix update [flags]",
+      "about": "Apply a configuration and restart an existing VM.",
+      "details": null,
+      "args": [
+        {
+          "name": "--config",
+          "short": null,
+          "value": "string",
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Path to the VM configuration file (required).",
+          "details": null
+        },
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print the VM as machine-readable JSON.",
+          "details": null
+        }
+      ],
+      "checks": []
+    }
+  ],
+  "config": [
+    {
+      "key": "schema_version",
+      "type": "integer",
+      "choices": [],
+      "default": "1",
+      "required": false,
+      "example": null,
+      "doc": "Contract version, independent of the installed Limanix package version."
+    },
+    {
+      "key": "name",
+      "type": "string",
+      "choices": [],
+      "default": "\"example-box\"",
+      "required": false,
+      "example": null,
+      "doc": "Sandbox name."
+    },
+    {
+      "key": "user",
+      "type": "table",
+      "choices": [],
+      "default": null,
+      "required": false,
+      "example": null,
+      "doc": "Regular guest user and sudo access."
+    },
+    {
+      "key": "user.name",
+      "type": "string",
+      "choices": [],
+      "default": "\"dev\"",
+      "required": false,
+      "example": null,
+      "doc": "Regular guest username."
+    },
+    {
+      "key": "user.home",
+      "type": "string",
+      "choices": [],
+      "default": "\"/home/dev\"",
+      "required": false,
+      "example": null,
+      "doc": "Guest user's home directory."
+    },
+    {
+      "key": "user.sudo",
+      "type": "boolean",
+      "choices": [],
+      "default": "true",
+      "required": false,
+      "example": null,
+      "doc": "Passwordless sudo inside the guest."
+    },
+    {
+      "key": "resources",
+      "type": "table",
+      "choices": [],
+      "default": null,
+      "required": false,
+      "example": null,
+      "doc": "Guest architecture and compute resources."
+    },
+    {
+      "key": "resources.arch",
+      "type": "string",
+      "choices": [
+        "arm64",
+        "amd64"
+      ],
+      "default": null,
+      "required": false,
+      "example": null,
+      "doc": "Guest architecture; the Mac's own by default."
+    },
+    {
+      "key": "resources.disk",
+      "type": "string (GiB)",
+      "choices": [],
+      "default": "\"10GiB\"",
+      "required": false,
+      "example": null,
+      "doc": "Guest system disk size in GiB."
+    },
+    {
+      "key": "resources.mem",
+      "type": "string (GiB)",
+      "choices": [],
+      "default": "\"8GiB\"",
+      "required": false,
+      "example": null,
+      "doc": "Guest memory size in GiB."
+    },
+    {
+      "key": "resources.cpu",
+      "type": "integer",
+      "choices": [],
+      "default": "4",
+      "required": false,
+      "example": null,
+      "doc": "Guest CPU count, a positive integer."
+    },
+    {
+      "key": "home",
+      "type": "table",
+      "choices": [],
+      "default": null,
+      "required": false,
+      "example": null,
+      "doc": "Host storage for the guest user's home directory."
+    },
+    {
+      "key": "home.root",
+      "type": "string",
+      "choices": [],
+      "default": "\"~/.limanix\"",
+      "required": false,
+      "example": null,
+      "doc": "Host root for <root>/<name>-<id>. Limanix creates this directory on the Mac and mounts it at user.home with read-write access."
+    },
+    {
+      "key": "shell",
+      "type": "table",
+      "choices": [],
+      "default": null,
+      "required": false,
+      "example": null,
+      "doc": "Shell, prompt, editor and multiplexer of the development account."
+    },
+    {
+      "key": "shell.preset",
+      "type": "string",
+      "choices": [
+        "terminal",
+        "minimal"
+      ],
+      "default": "\"terminal\"",
+      "required": false,
+      "example": null,
+      "doc": "Shell preset: terminal is Zsh with Oh My Zsh, the CLI tools, Lazygit, Yazi and the GitHub CLI; minimal is Bash with the CLI tools."
+    },
+    {
+      "key": "shell.prompt",
+      "type": "string",
+      "choices": [
+        "pure",
+        "starship",
+        "none"
+      ],
+      "default": "\"pure\"",
+      "required": false,
+      "example": null,
+      "doc": "Zsh prompt of the terminal preset; none leaves the prompt to your startup files. The minimal preset has no prompt to choose: there it defaults to and must be none."
+    },
+    {
+      "key": "shell.editor",
+      "type": "string",
+      "choices": [
+        "astronvim",
+        "neovim",
+        "none"
+      ],
+      "default": "\"astronvim\"",
+      "required": false,
+      "example": null,
+      "doc": "Editor: astronvim is Neovim configured with language servers for the chosen toolchains, neovim is plain Neovim. Defaults to none with the minimal preset."
+    },
+    {
+      "key": "shell.multiplexer",
+      "type": "string",
+      "choices": [
+        "tmux",
+        "none"
+      ],
+      "default": "\"tmux\"",
+      "required": false,
+      "example": null,
+      "doc": "Terminal multiplexer, which also provides the sessions of limanix shell --session. Defaults to none with the minimal preset."
+    },
+    {
+      "key": "shell.dotfiles",
+      "type": "string",
+      "choices": [],
+      "default": "\"\"",
+      "required": false,
+      "example": "~/dotfiles",
+      "doc": "Host directory of your dotfiles, mounted read-write at /mnt/dotfiles: each new shell links its top-level dot-entries and the entries of its .config into the home, leaving existing files alone. Empty mounts none."
+    },
+    {
+      "key": "toolchains",
+      "type": "table",
+      "choices": [],
+      "default": null,
+      "required": false,
+      "example": null,
+      "doc": "Language toolchains, one version each."
+    },
+    {
+      "key": "toolchains.go",
+      "type": "string",
+      "choices": [],
+      "default": "\"\"",
+      "required": false,
+      "example": "1.27",
+      "doc": "Go line, with gopls, Delve and GCC. Empty installs no Go."
+    },
+    {
+      "key": "toolchains.rust",
+      "type": "string",
+      "choices": [],
+      "default": "\"\"",
+      "required": false,
+      "example": "stable",
+      "doc": "Default toolchain of rustup, which installs it at the first start after a change: stable, beta, nightly, a dated channel such as nightly-2026-10-01, or a Rust version such as 1.90.0. Empty installs no Rust."
+    },
+    {
+      "key": "toolchains.python",
+      "type": "string",
+      "choices": [],
+      "default": "\"\"",
+      "required": false,
+      "example": "3.14",
+      "doc": "Python line, with virtualenv and Pyright. Empty installs no Python."
+    },
+    {
+      "key": "toolchains.nodejs",
+      "type": "string",
+      "choices": [],
+      "default": "\"\"",
+      "required": false,
+      "example": "26",
+      "doc": "Node.js line, with npm, npx and the TypeScript language server. Empty installs no Node.js."
+    },
+    {
+      "key": "toolchains.java",
+      "type": "string",
+      "choices": [],
+      "default": "\"\"",
+      "required": false,
+      "example": "21",
+      "doc": "OpenJDK line, with the jdtls language server; JAVA_HOME points to it. Empty installs no Java."
+    },
+    {
+      "key": "toolchains.maven",
+      "type": "string",
+      "choices": [],
+      "default": "\"\"",
+      "required": false,
+      "example": "3",
+      "doc": "Apache Maven line, which runs on the java line and needs it. Empty installs no Maven."
+    },
+    {
+      "key": "toolchains.gradle",
+      "type": "string",
+      "choices": [],
+      "default": "\"\"",
+      "required": false,
+      "example": "9",
+      "doc": "Gradle line, which runs on the java line and needs it; the build stops when the Gradle line does not support that Java. Empty installs no Gradle."
+    },
+    {
+      "key": "toolchains.gcc",
+      "type": "string",
+      "choices": [],
+      "default": "\"\"",
+      "required": false,
+      "example": "15",
+      "doc": "GCC line for C and C++, with GDB, clangd, make, CMake, Ninja, Meson and pkg-config; the compilers find the headers and libraries of [nixos] packages. Empty installs no GCC."
+    },
+    {
+      "key": "toolchains.clang",
+      "type": "string",
+      "choices": [],
+      "default": "\"\"",
+      "required": false,
+      "example": "22",
+      "doc": "Clang line, with clangd, clang-format, clang-tidy and LLDB, next to GCC, which it brings; cc and c++ stay GCC. Empty installs no Clang."
+    },
+    {
+      "key": "nixos",
+      "type": "table",
+      "choices": [],
+      "default": null,
+      "required": false,
+      "example": null,
+      "doc": "Trusted modules that configure the guest system."
+    },
+    {
+      "key": "nixos.modules",
+      "type": "array[string]",
+      "choices": [],
+      "default": "[]",
+      "required": false,
+      "example": null,
+      "doc": "Selected modules: lmx:NAME or lmx:NAME-VERSION from the embedded catalog's modules, or third-party:NAME imported with limanix modules add. The [shell] and [toolchains] tables choose the other catalog modules. Omitting a version selects the module default. Multiple versions and repeated identifiers are accepted; an empty list installs no optional modules."
+    },
+    {
+      "key": "nixos.packages",
+      "type": "array[string]",
+      "choices": [],
+      "default": "[]",
+      "required": false,
+      "example": null,
+      "doc": "Commands from the guest's nixpkgs by attribute path, such as jq or python3Packages.ipython; unstable:NAME takes the package from the catalog's nixos-unstable revision. Naming a package allows its license. A command that another package of the guest also provides fails the build."
+    },
+    {
+      "key": "theme",
+      "type": "table",
+      "choices": [],
+      "default": null,
+      "required": false,
+      "example": null,
+      "doc": "Colors of the guest."
+    },
+    {
+      "key": "theme.flavor",
+      "type": "string",
+      "choices": [
+        "system",
+        "latte",
+        "frappe",
+        "macchiato",
+        "mocha"
+      ],
+      "default": "\"system\"",
+      "required": false,
+      "example": null,
+      "doc": "Colors of lmx and the catalog modules: system uses the terminal's own colors and background, so the guest follows the theme of your terminal; latte is a light Catppuccin flavor, and frappe, macchiato and mocha are dark ones."
+    },
+    {
+      "key": "network",
+      "type": "table",
+      "choices": [],
+      "default": null,
+      "required": false,
+      "example": null,
+      "doc": "Guest network and inbound firewall ports."
+    },
+    {
+      "key": "network.mode",
+      "type": "string",
+      "choices": [
+        "shared"
+      ],
+      "default": "\"shared\"",
+      "required": false,
+      "example": null,
+      "doc": "Shared/NAT network. The Mac reaches the guest by its own IP address."
+    },
+    {
+      "key": "network.ports",
+      "type": "table",
+      "choices": [],
+      "default": null,
+      "required": false,
+      "example": null,
+      "doc": "Inbound guest firewall ports."
+    },
+    {
+      "key": "network.ports.tcp",
+      "type": "array[integer]",
+      "choices": [],
+      "default": "[]",
+      "required": false,
+      "example": null,
+      "doc": "Inbound TCP ports in the guest firewall. Services listen on a guest network interface and are reached at <guest-ip>:<port> from the Mac."
+    },
+    {
+      "key": "network.ports.udp",
+      "type": "array[integer]",
+      "choices": [],
+      "default": "[]",
+      "required": false,
+      "example": null,
+      "doc": "Inbound UDP ports in the guest firewall."
+    },
+    {
+      "key": "env",
+      "type": "table[string, string]",
+      "choices": [],
+      "default": "{}",
+      "required": false,
+      "example": null,
+      "doc": "Guest-wide environment for login sessions and system/user services."
+    },
+    {
+      "key": "mounts",
+      "type": "array of tables",
+      "choices": [],
+      "default": "[]",
+      "required": false,
+      "example": null,
+      "doc": "Host directories mounted inside the guest."
+    },
+    {
+      "key": "mounts[].mode",
+      "type": "string",
+      "choices": [
+        "rw",
+        "ro"
+      ],
+      "default": "\"rw\"",
+      "required": false,
+      "example": null,
+      "doc": "Mount access: rw or ro."
+    },
+    {
+      "key": "mounts[].source",
+      "type": "string",
+      "choices": [],
+      "default": null,
+      "required": true,
+      "example": null,
+      "doc": "Host directory to mount inside the guest."
+    },
+    {
+      "key": "mounts[].target",
+      "type": "string",
+      "choices": [],
+      "default": null,
+      "required": true,
+      "example": null,
+      "doc": "Mount destination inside the guest."
+    }
+  ],
+  "example": "# Default Limanix configuration for a development sandbox.\n# Edit these values to match your environment.\n\n# Contract version, independent of the installed Limanix package version.\nschema_version = 1\n# Sandbox name.\nname = \"example-box\"\n# Host directories mounted inside the guest.\nmounts = []\n\n# Regular guest user and sudo access.\n[user]\n# Regular guest username.\nname = \"dev\"\n# Guest user's home directory.\nhome = \"/home/dev\"\n# Passwordless sudo inside the guest.\nsudo = true\n\n# Guest architecture and compute resources.\n[resources]\n# Guest architecture; the Mac's own by default.\narch = \"arm64\"\n# Guest system disk size in GiB.\ndisk = \"10GiB\"\n# Guest memory size in GiB.\nmem = \"8GiB\"\n# Guest CPU count, a positive integer.\ncpu = 4\n\n# Host storage for the guest user's home directory.\n[home]\n# Host root for <root>/<name>-<id>. Limanix creates this directory on the Mac and mounts\n# it at user.home with read-write access.\nroot = \"~/.limanix\"\n\n# Shell, prompt, editor and multiplexer of the development account.\n[shell]\n# Shell preset: terminal is Zsh with Oh My Zsh, the CLI tools, Lazygit, Yazi and the\n# GitHub CLI; minimal is Bash with the CLI tools.\npreset = \"terminal\"\n# Zsh prompt of the terminal preset; none leaves the prompt to your startup files. The\n# minimal preset has no prompt to choose: there it defaults to and must be none.\nprompt = \"pure\"\n# Editor: astronvim is Neovim configured with language servers for the chosen\n# toolchains, neovim is plain Neovim. Defaults to none with the minimal preset.\neditor = \"astronvim\"\n# Terminal multiplexer, which also provides the sessions of limanix shell --session.\n# Defaults to none with the minimal preset.\nmultiplexer = \"tmux\"\n# Host directory of your dotfiles, mounted read-write at /mnt/dotfiles: each new shell\n# links its top-level dot-entries and the entries of its .config into the home, leaving\n# existing files alone. Empty mounts none.\n# dotfiles = \"~/dotfiles\"\n\n# Language toolchains, one version each.\n[toolchains]\n# Go line, with gopls, Delve and GCC. Empty installs no Go.\n# go = \"1.27\"\n# Default toolchain of rustup, which installs it at the first start after a change:\n# stable, beta, nightly, a dated channel such as nightly-2026-10-01, or a Rust version\n# such as 1.90.0. Empty installs no Rust.\n# rust = \"stable\"\n# Python line, with virtualenv and Pyright. Empty installs no Python.\n# python = \"3.14\"\n# Node.js line, with npm, npx and the TypeScript language server. Empty installs no\n# Node.js.\n# nodejs = \"26\"\n# OpenJDK line, with the jdtls language server; JAVA_HOME points to it. Empty installs\n# no Java.\n# java = \"21\"\n# Apache Maven line, which runs on the java line and needs it. Empty installs no Maven.\n# maven = \"3\"\n# Gradle line, which runs on the java line and needs it; the build stops when the Gradle\n# line does not support that Java. Empty installs no Gradle.\n# gradle = \"9\"\n# GCC line for C and C++, with GDB, clangd, make, CMake, Ninja, Meson and pkg-config;\n# the compilers find the headers and libraries of [nixos] packages. Empty installs no\n# GCC.\n# gcc = \"15\"\n# Clang line, with clangd, clang-format, clang-tidy and LLDB, next to GCC, which it\n# brings; cc and c++ stay GCC. Empty installs no Clang.\n# clang = \"22\"\n\n# Trusted modules that configure the guest system.\n[nixos]\n# Selected modules: lmx:NAME or lmx:NAME-VERSION from the embedded catalog's modules, or\n# third-party:NAME imported with limanix modules add. The [shell] and [toolchains]\n# tables choose the other catalog modules. Omitting a version selects the module\n# default. Multiple versions and repeated identifiers are accepted; an empty list\n# installs no optional modules.\nmodules = []\n# Commands from the guest's nixpkgs by attribute path, such as jq or\n# python3Packages.ipython; unstable:NAME takes the package from the catalog's\n# nixos-unstable revision. Naming a package allows its license. A command that another\n# package of the guest also provides fails the build.\npackages = []\n\n# Colors of the guest.\n[theme]\n# Colors of lmx and the catalog modules: system uses the terminal's own colors and\n# background, so the guest follows the theme of your terminal; latte is a light\n# Catppuccin flavor, and frappe, macchiato and mocha are dark ones.\nflavor = \"system\"\n\n# Guest network and inbound firewall ports.\n[network]\n# Shared/NAT network. The Mac reaches the guest by its own IP address.\nmode = \"shared\"\n\n# Inbound guest firewall ports.\n[network.ports]\n# Inbound TCP ports in the guest firewall. Services listen on a guest network interface\n# and are reached at <guest-ip>:<port> from the Mac.\ntcp = []\n# Inbound UDP ports in the guest firewall.\nudp = []\n\n# Guest-wide environment for login sessions and system/user services.\n[env]\n"
+}

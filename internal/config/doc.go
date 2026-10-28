@@ -1,7 +1,7 @@
 // Package config owns the public TOML configuration contract, defaults, and generated reference.
 //
 // [Config] and its nested models describe user input. Their fields and tags are shared by parsing, validation,
-// commented TOML rendering, and Markdown reference generation. Configuration schema versioning is independent
+// commented TOML rendering, and the reference of [Reference]. Configuration schema versioning is independent
 // of the application release and the state-record schema.
 //
 // # Input pipeline
@@ -28,5 +28,5 @@
 // # Reading the implementation
 //
 // Start with models.go and [Default], then parser.go and schema.go for decoding, validate.go for policy, and load.go
-// for filesystem resolution. render.go and reference.go derive examples and reference tables from those same models.
+// for filesystem resolution. render.go and reference.go derive the example file and the reference fields from those same models.
 package config

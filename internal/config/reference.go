@@ -1,50 +1,136 @@
 package config
 
 import (
-	"fmt"
-	"html"
 	"reflect"
 	"strings"
 
 	"github.com/limanix/client/internal/domain"
 )
 
-// RenderReference returns Markdown field tables generated from types, tags and defaults.
-func RenderReference() (string, error) {
-	var output strings.Builder
-
-	if err := referenceModel(&output, reflect.ValueOf(Default()), ""); err != nil {
-		return "", err
-	}
-
-	return output.String(), nil
+// Field is a key of limanix.toml: its TOML type, the values it accepts, its default as a TOML literal, and its
+// description. A table has no default, and an entry field of a table array has one only when the model declares it.
+type Field struct {
+	Key      string   `json:"key"`
+	Type     string   `json:"type"`
+	Choices  []string `json:"choices"`
+	Default  *string  `json:"default"`
+	Required bool     `json:"required"`
+	Example  *string  `json:"example"`
+	Doc      string   `json:"doc"`
 }
 
-func typeName(item reflect.StructField) string {
-	if item.Type == reflect.TypeFor[domain.Architecture]() {
+// Reference lists every key of limanix.toml from the model's types, tags and defaults. The guest architecture has no
+// fixed default: it is the Mac's.
+func Reference() ([]Field, error) {
+	var fields []Field
+	if err := referenceFields(&fields, reflect.ValueOf(Default()), ""); err != nil {
+		return nil, err
+	}
+
+	return fields, nil
+}
+
+func referenceFields(fields *[]Field, model reflect.Value, prefix string) error {
+	for index := range model.NumField() {
 		var (
-			values  = domain.Architectures()
-			choices = make([]string, len(values))
+			item  = model.Type().Field(index)
+			value = model.Field(index)
+			key   = joinField(prefix, item.Tag.Get("toml"))
 		)
 
+		switch {
+		case value.Kind() == reflect.Struct:
+			*fields = append(*fields, Field{Key: key, Type: "table", Choices: []string{}, Doc: item.Tag.Get("doc")})
+			if err := referenceFields(fields, value, key); err != nil {
+				return err
+			}
+		case isTableArray(value):
+			empty := "[]"
+			*fields = append(*fields, Field{
+				Key: key, Type: "array of tables", Choices: []string{}, Default: &empty, Doc: item.Tag.Get("doc"),
+			})
+			entry := value.Type().Elem()
+			for field := range entry.NumField() {
+				*fields = append(*fields, entryField(key+"[]", entry.Field(field)))
+			}
+		default:
+			field := valueField(key, item)
+			if item.Type != reflect.TypeFor[domain.Architecture]() {
+				encoded, err := defaultLiteral(value)
+				if err != nil {
+					return err
+				}
+				field.Default = &encoded
+			}
+			*fields = append(*fields, field)
+		}
+	}
+
+	return nil
+}
+
+func valueField(key string, item reflect.StructField) Field {
+	field := Field{
+		Key:     key,
+		Type:    modelTypeName(item.Type),
+		Choices: choices(item),
+		Doc:     item.Tag.Get("doc"),
+	}
+	if example, ok := item.Tag.Lookup("example"); ok {
+		field.Example = &example
+	}
+
+	return field
+}
+
+func entryField(prefix string, item reflect.StructField) Field {
+	field := valueField(joinField(prefix, item.Tag.Get("toml")), item)
+	field.Required = item.Tag.Get("required") == "true"
+	if declared, ok := item.Tag.Lookup("default"); ok {
+		quoted := quoteTOMLString(declared)
+		field.Default = &quoted
+	}
+
+	return field
+}
+
+func choices(item reflect.StructField) []string {
+	if item.Type == reflect.TypeFor[domain.Architecture]() {
+		values := domain.Architectures()
+		names := make([]string, len(values))
 		for index, value := range values {
-			choices[index] = quoteTOMLString(string(value))
+			names[index] = string(value)
 		}
 
-		return strings.Join(choices, " or ")
+		return names
 	}
 
-	if choices := item.Tag.Get("choices"); choices != "" {
-		values := strings.Split(choices, ",")
+	if listed := item.Tag.Get("choices"); listed != "" {
+		return strings.Split(listed, ",")
+	}
 
-		for index := range values {
-			values[index] = quoteTOMLString(values[index])
+	return []string{}
+}
+
+func defaultLiteral(value reflect.Value) (string, error) {
+	if value.Kind() != reflect.Map {
+		return tomlLiteral(value)
+	}
+
+	entries := make([]string, 0, value.Len())
+	for _, key := range sortedMapKeys(value) {
+		encoded, err := tomlLiteral(value.MapIndex(key))
+		if err != nil {
+			return "", err
 		}
-
-		return strings.Join(values, " or ")
+		entries = append(entries, key.String()+" = "+encoded)
 	}
 
-	return modelTypeName(item.Type)
+	if len(entries) == 0 {
+		return "{}", nil
+	}
+
+	return "{ " + strings.Join(entries, ", ") + " }", nil
 }
 
 func modelTypeName(model reflect.Type) string {
@@ -66,169 +152,4 @@ func modelTypeName(model reflect.Type) string {
 	default:
 		return model.Name()
 	}
-}
-
-func escapeMarkdownCell(value string) string {
-	return strings.NewReplacer("|", "&#124;", "\n", " ", "\r", " ").Replace(html.EscapeString(value))
-}
-
-func markdownCode(value string) string {
-	value = escapeMarkdownCell(value)
-
-	for _, character := range "`*_[]\\" {
-		value = strings.ReplaceAll(value, string(character), fmt.Sprintf("&#%d;", character))
-	}
-
-	return "<code>" + value + "</code>"
-}
-
-func referenceModel(output *strings.Builder, model reflect.Value, prefix string) error {
-	if prefix == "" {
-		output.WriteString("## Top-level fields\n\n")
-	} else {
-		output.WriteString("## `" + prefix + "`\n\n")
-	}
-
-	output.WriteString("| Field | Type | Default | Description |\n| --- | --- | --- | --- |\n")
-
-	for index := range model.NumField() {
-		var (
-			item  = model.Type().Field(index)
-			value = model.Field(index)
-		)
-
-		if value.Kind() == reflect.Struct || value.Kind() == reflect.Map || isTableArray(value) {
-			continue
-		}
-
-		encoded, err := tomlLiteral(value)
-		if err != nil {
-			return err
-		}
-
-		referenceRow(output, item, markdownCode(encoded))
-	}
-
-	output.WriteByte('\n')
-
-	for index := range model.NumField() {
-		var (
-			item  = model.Type().Field(index)
-			value = model.Field(index)
-			name  = joinField(prefix, item.Tag.Get("toml"))
-			err   error
-		)
-
-		switch {
-		case value.Kind() == reflect.Struct:
-			err = referenceModel(output, value, name)
-		case value.Kind() == reflect.Map:
-			err = referenceMap(output, item, value, name)
-		case isTableArray(value):
-			err = referenceEntries(output, item, value, name)
-		}
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func referenceRow(output *strings.Builder, item reflect.StructField, defaultValue string) {
-	fmt.Fprintf(
-		output,
-		"| %s | %s | %s | %s |\n",
-		markdownCode(item.Tag.Get("toml")),
-		markdownCode(typeName(item)),
-		defaultValue,
-		escapeMarkdownCell(item.Tag.Get("doc")),
-	)
-}
-
-func referenceMap(output *strings.Builder, item reflect.StructField, value reflect.Value, name string) error {
-	fmt.Fprintf(
-		output,
-		"## `%s`\n\n%s\n\nType: %s.\n\n| Default key | Default value |\n| --- | --- |\n",
-		name,
-		item.Tag.Get("doc"),
-		markdownCode(typeName(item)),
-	)
-
-	for _, key := range sortedMapKeys(value) {
-		encoded, err := tomlLiteral(value.MapIndex(key))
-		if err != nil {
-			return err
-		}
-
-		fmt.Fprintf(output, "| %s | %s |\n", markdownCode(key.String()), markdownCode(encoded))
-	}
-
-	output.WriteByte('\n')
-	return nil
-}
-
-func referenceEntries(output *strings.Builder, item reflect.StructField, value reflect.Value, name string) error {
-	fmt.Fprintf(
-		output,
-		"## `%s`\n\n%s\n\n| Field | Type | Default per entry | Description |\n| --- | --- | --- | --- |\n",
-		name,
-		item.Tag.Get("doc"),
-	)
-
-	entryType := value.Type().Elem()
-
-	for index := range entryType.NumField() {
-		var (
-			entry        = entryType.Field(index)
-			defaultValue = "Required"
-		)
-
-		if declared, exists := entry.Tag.Lookup("default"); exists {
-			defaultValue = markdownCode(quoteTOMLString(declared))
-		}
-
-		referenceRow(output, entry, defaultValue)
-	}
-
-	output.WriteString("\n### Default entries\n\n")
-	if value.Len() == 0 {
-		output.WriteString("Default: `[]`.\n\n")
-		return nil
-	}
-
-	return referenceDefaults(output, value)
-}
-
-func referenceDefaults(output *strings.Builder, entries reflect.Value) error {
-	var (
-		entryType  = entries.Type().Elem()
-		columns    = make([]string, entryType.NumField())
-		separators = make([]string, len(columns))
-	)
-
-	for field := range entryType.NumField() {
-		columns[field] = markdownCode(entryType.Field(field).Tag.Get("toml"))
-		separators[field] = "---"
-	}
-
-	output.WriteString("| " + strings.Join(columns, " | ") + " |\n")
-	output.WriteString("| " + strings.Join(separators, " | ") + " |\n")
-
-	for index := range entries.Len() {
-		for field := range entryType.NumField() {
-			encoded, err := tomlLiteral(entries.Index(index).Field(field))
-			if err != nil {
-				return err
-			}
-
-			columns[field] = markdownCode(encoded)
-		}
-
-		output.WriteString("| " + strings.Join(columns, " | ") + " |\n")
-	}
-
-	output.WriteByte('\n')
-	return nil
 }

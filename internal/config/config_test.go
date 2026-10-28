@@ -386,14 +386,39 @@ func TestLoadValidatesResolvedHostPathText(t *testing.T) {
 }
 
 func TestReferenceDocumentsModelDefaultsAndMountRequirements(t *testing.T) {
-	reference, err := RenderReference()
+	fields, err := Reference()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"## `resources`", "## `network.ports`", "## `mounts`", "~/.limanix", "string (GiB)", "Required", "third-party:NAME", "&#34;rw&#34; or &#34;ro&#34;"} {
-		if !strings.Contains(reference, expected) {
-			t.Errorf("reference missing %q", expected)
+	keys := make(map[string]Field, len(fields))
+	for _, field := range fields {
+		keys[field.Key] = field
+	}
+	text := func(value *string) string {
+		if value == nil {
+			return "<none>"
 		}
+		return *value
+	}
+
+	for key, want := range map[string]string{"resources": "table", "network.ports": "table", "mounts": "array of tables", "resources.disk": "string (GiB)", "env": "table[string, string]"} {
+		if keys[key].Type != want {
+			t.Errorf("%s has type %q, want %q", key, keys[key].Type, want)
+		}
+	}
+	for key, want := range map[string]string{"home.root": `"~/.limanix"`, "resources.disk": `"10GiB"`, "mounts": "[]", "env": "{}", "mounts[].mode": `"rw"`, "resources.arch": "<none>", "mounts[].source": "<none>"} {
+		if got := text(keys[key].Default); got != want {
+			t.Errorf("%s defaults to %s, want %s", key, got, want)
+		}
+	}
+	if !keys["mounts[].source"].Required || !keys["mounts[].target"].Required || keys["mounts[].mode"].Required {
+		t.Error("only the source and target of a mount are required")
+	}
+	if !reflect.DeepEqual(keys["mounts[].mode"].Choices, []string{"rw", "ro"}) || !reflect.DeepEqual(keys["resources.arch"].Choices, []string{"arm64", "amd64"}) {
+		t.Errorf("choices: %v %v", keys["mounts[].mode"].Choices, keys["resources.arch"].Choices)
+	}
+	if text(keys["toolchains.go"].Example) != "1.27" || !strings.Contains(keys["nixos.modules"].Doc, "third-party:NAME") {
+		t.Errorf("examples and descriptions come from the tags: %+v %+v", keys["toolchains.go"], keys["nixos.modules"])
 	}
 }
 

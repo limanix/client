@@ -8,7 +8,7 @@ import (
 
 // Resources specifies the guest architecture and compute capacity.
 type Resources struct {
-	Arch domain.Architecture `toml:"arch" json:"arch" doc:"Guest architecture."`
+	Arch domain.Architecture `toml:"arch" json:"arch" doc:"Guest architecture; the Mac's own by default."`
 	Disk domain.ByteSize     `toml:"disk" json:"disk" doc:"Guest system disk size in GiB."`
 	Mem  domain.ByteSize     `toml:"mem" json:"mem" doc:"Guest memory size in GiB."`
 	CPU  int                 `toml:"cpu" json:"cpu" doc:"Guest CPU count, a positive integer."`

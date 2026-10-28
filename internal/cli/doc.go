@@ -12,7 +12,8 @@
 // [Command] constructs the Cobra tree without querying Lima or opening state.
 // [Dependencies] supplies lazy service factories; omitted factories are filled by internal/app.
 // [IO] keeps terminal streams explicit.
-// [Reference] walks the same command definitions without executing their handlers.
+// [BuildReference] walks the same command definitions and the configuration model, without executing handlers, into
+// the [Reference] that reference.json keeps for the LimaNix site.
 //
 // # Process boundary
 //
