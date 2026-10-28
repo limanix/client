@@ -18,8 +18,7 @@ type Client interface {
 
 // Guest uses a management connection to provision and access the regular guest account.
 type Guest struct {
-	// Stdout and Stderr receive the build lines of an apply, each on the stream the build wrote it to.
-	Stdout io.Writer
+	// Stderr receives the build lines of an apply, so that standard output carries only results.
 	Stderr io.Writer
 
 	// Warn receives problems that do not stop an apply, such as a nearly full disk.
@@ -31,7 +30,6 @@ type Guest struct {
 // New binds guest operations to the supplied management connection.
 func New(client Client) *Guest {
 	return &Guest{
-		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 		Warn:   log.New(os.Stderr, "limanix: warning: ", 0).Printf,
 		client: client,

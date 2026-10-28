@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,6 +27,36 @@ func encodeJSON(writer io.Writer, value any) error {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(value)
+}
+
+func writeNames[T any](writer io.Writer, entries []T, name func(T) string) error {
+	for _, entry := range entries {
+		if _, err := fmt.Fprintln(writer, name(entry)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func writeVM(ctx context.Context, writer io.Writer, manager Manager, name domain.VMName) error {
+	entries, err := manager.FetchAll(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if entry.Name == string(name) {
+			return encodeJSON(writer, entry)
+		}
+	}
+
+	return fmt.Errorf("VM %s is not listed", name)
+}
+
+type deletedVM struct {
+	Name string  `json:"name"`
+	Home *string `json:"home"`
 }
 
 // writeReport prints a report as JSON, or as lmx prints checks: aligned rows of status, check, and message, each hint

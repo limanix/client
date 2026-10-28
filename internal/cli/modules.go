@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/modules"
 )
 
 func modulesCommand(dependencies Dependencies) *cobra.Command {
@@ -26,7 +27,7 @@ func modulesCommand(dependencies Dependencies) *cobra.Command {
 }
 
 func moduleListCommand(dependencies Dependencies) *cobra.Command {
-	var asJSON bool
+	var asJSON, quiet bool
 
 	command := &cobra.Command{
 		Use:   "list",
@@ -34,6 +35,10 @@ func moduleListCommand(dependencies Dependencies) *cobra.Command {
 		Args:  exactArgs(0),
 
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if quiet && asJSON {
+				return usageError(errQuietJSON)
+			}
+
 			registry, err := dependencies.Registry()
 			if err != nil {
 				return err
@@ -44,14 +49,18 @@ func moduleListCommand(dependencies Dependencies) *cobra.Command {
 				return err
 			}
 
-			if asJSON {
+			switch {
+			case asJSON:
 				return writeJSON(cmd.OutOrStdout(), entries)
+			case quiet:
+				return writeNames(cmd.OutOrStdout(), entries, func(entry modules.Info) string { return entry.Name })
 			}
 
 			return writeModules(cmd.OutOrStdout(), entries)
 		},
 	}
 	command.Flags().BoolVar(&asJSON, "json", false, "Print machine-readable JSON.")
+	command.Flags().BoolVarP(&quiet, "quiet", "q", false, "Print only module selectors, one per line.")
 	return command
 }
 

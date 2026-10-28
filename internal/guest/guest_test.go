@@ -124,11 +124,11 @@ func applyClient(follow, wait string) *fakeClient {
 func TestApplyBuildsWithTheGenerationsLMXAndWaitsAfterRestart(t *testing.T) {
 	client := applyClient(strings.TrimSuffix(example(t, "apply-follow.jsonl"), "\n"), example(t, "status.json"))
 	var (
-		stdout, stderr bytes.Buffer
-		warnings       []string
-		guest          = New(client)
+		stderr   bytes.Buffer
+		warnings []string
+		guest    = New(client)
 	)
-	guest.Stdout, guest.Stderr = &stdout, &stderr
+	guest.Stderr = &stderr
 	guest.Warn = func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
 
 	if err := guest.Apply(context.Background(), "sandbox", generation, domain.ARM64); err != nil {
@@ -147,9 +147,8 @@ func TestApplyBuildsWithTheGenerationsLMXAndWaitsAfterRestart(t *testing.T) {
 	if !reflect.DeepEqual(client.calls, want) {
 		t.Fatalf("guest steps:\n%s", strings.Join(client.calls, "\n"))
 	}
-	if stdout.String() != "/nix/store/00000000000000000000000000000000-nixos-system-dev-box-26.05\n" ||
-		stderr.String() != "building the system configuration...\nthese 12 derivations will be built: …\n" {
-		t.Fatalf("build lines: stdout %q, stderr %q", stdout.String(), stderr.String())
+	if stderr.String() != "building the system configuration...\nthese 12 derivations will be built: …\n/nix/store/00000000000000000000000000000000-nixos-system-dev-box-26.05\n" {
+		t.Fatalf("build lines: %q", stderr.String())
 	}
 	if len(warnings) != 2 || !strings.HasPrefix(warnings[0], "Less than 10% of the guest disk") || warnings[1] != "12 lines of the build output were skipped" {
 		t.Fatalf("warnings: %q", warnings)
@@ -171,7 +170,7 @@ func TestApplyReportsTheWaitAfterTheRestart(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			client := applyClient(example(t, "apply-follow.jsonl"), test.wait)
 			guest := New(client)
-			guest.Stdout, guest.Stderr, guest.Warn = io.Discard, io.Discard, func(string, ...any) {}
+			guest.Stderr, guest.Warn = io.Discard, func(string, ...any) {}
 
 			err := guest.Apply(context.Background(), "sandbox", generation, domain.ARM64)
 			if _, unfinished := errors.AsType[*FinalizeError](err); err == nil || err.Error() != test.want || unfinished != test.unfinished {

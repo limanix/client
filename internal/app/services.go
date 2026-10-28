@@ -76,7 +76,6 @@ func (s *Services) Manager() (*vm.Manager, error) {
 		warn   = log.New(s.diagnostics, "limanix: warning: ", 0).Printf
 	)
 
-	guests.Stdout = s.output
 	guests.Stderr = s.diagnostics
 	guests.Warn = warn
 

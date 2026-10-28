@@ -84,7 +84,6 @@ type applyEvents struct {
 type event struct {
 	Event     *string `json:"event"`
 	Contract  *int    `json:"contract"`
-	Stream    string  `json:"stream"`
 	Line      string  `json:"line"`
 	Truncated bool    `json:"truncated"`
 	Message   string  `json:"message"`
@@ -130,16 +129,11 @@ func (events *applyEvents) handle(line []byte) {
 
 	switch *item.Event {
 	case "output":
-		output := events.guest.Stdout
-		if item.Stream == "stderr" {
-			output = events.guest.Stderr
-		}
-
 		if item.Truncated {
 			item.Line += " …"
 		}
 
-		_, _ = fmt.Fprintln(output, item.Line)
+		_, _ = fmt.Fprintln(events.guest.Stderr, item.Line)
 	case "warning":
 		events.guest.Warn("%s", item.Message)
 	case "lagged":

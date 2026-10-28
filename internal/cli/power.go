@@ -8,7 +8,9 @@ import (
 )
 
 func startCommand(dependencies Dependencies) *cobra.Command {
-	return &cobra.Command{
+	var asJSON bool
+
+	command := &cobra.Command{
 		Use:   "start NAME",
 		Short: "Start an existing VM.",
 		Args:  exactArgs(1),
@@ -28,14 +30,22 @@ func startCommand(dependencies Dependencies) *cobra.Command {
 				return err
 			}
 
+			if asJSON {
+				return writeVM(cmd.Context(), cmd.OutOrStdout(), manager, name)
+			}
+
 			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Started %s.\n", name)
 			return err
 		},
 	}
+	command.Flags().BoolVar(&asJSON, "json", false, "Print the VM as machine-readable JSON.")
+	return command
 }
 
 func stopCommand(dependencies Dependencies) *cobra.Command {
-	return &cobra.Command{
+	var asJSON bool
+
+	command := &cobra.Command{
 		Use:   "stop NAME",
 		Short: "Stop a VM and preserve its disk and home.",
 		Args:  exactArgs(1),
@@ -55,8 +65,14 @@ func stopCommand(dependencies Dependencies) *cobra.Command {
 				return err
 			}
 
+			if asJSON {
+				return writeVM(cmd.Context(), cmd.OutOrStdout(), manager, name)
+			}
+
 			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Stopped %s.\n", name)
 			return err
 		},
 	}
+	command.Flags().BoolVar(&asJSON, "json", false, "Print the VM as machine-readable JSON.")
+	return command
 }
