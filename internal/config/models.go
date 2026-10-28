@@ -1,6 +1,10 @@
 package config
 
-import "github.com/limanix/client/internal/domain"
+import (
+	"runtime"
+
+	"github.com/limanix/client/internal/domain"
+)
 
 // Resources specifies the guest architecture and compute capacity.
 type Resources struct {
@@ -113,7 +117,7 @@ func Default() Config {
 			Sudo: true,
 		},
 		Resources: Resources{
-			Arch: domain.ARM64,
+			Arch: domain.Architecture(runtime.GOARCH),
 			Disk: domain.ByteSize(10 * domain.GiB),
 			CPU:  4,
 			Mem:  domain.ByteSize(8 * domain.GiB),
@@ -137,25 +141,11 @@ func Default() Config {
 		Network: Network{
 			Mode: "shared",
 			Ports: Ports{
-				TCP: []int{8080},
+				TCP: []int{},
 				UDP: []int{},
 			},
 		},
-		Env: map[domain.EnvName]domain.EnvValue{
-			"APP_ENV":       "development",
-			"APP_LOG_LEVEL": "debug",
-		},
-		Mounts: []Mount{
-			{
-				Mode:   "rw",
-				Source: "~/projects/my-project",
-				Target: "/workspace",
-			},
-			{
-				Mode:   "ro",
-				Source: "~/.ssh/limanix",
-				Target: "/mnt/git-keys",
-			},
-		},
+		Env:    map[domain.EnvName]domain.EnvValue{},
+		Mounts: []Mount{},
 	}
 }

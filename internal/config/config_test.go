@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -15,6 +16,9 @@ import (
 
 func TestDefaultRoundTripAndIndependentCollections(t *testing.T) {
 	expected := Default()
+	if len(expected.Mounts) != 0 || len(expected.Env) != 0 || len(expected.Network.Ports.TCP) != 0 || expected.Resources.Arch != domain.Architecture(runtime.GOARCH) {
+		t.Fatalf("omitted settings add nothing and follow the binary's architecture: %#v", expected)
+	}
 	parsed, err := Parse(nil)
 	if err != nil || !reflect.DeepEqual(parsed, expected) {
 		t.Fatalf("defaults changed: %#v, %v", parsed, err)
@@ -28,9 +32,7 @@ func TestDefaultRoundTripAndIndependentCollections(t *testing.T) {
 		t.Fatalf("example round trip: %#v, %v", parsed, err)
 	}
 	parsed.Env["CUSTOM"] = "changed"
-	parsed.Mounts[0].Source = "changed"
 	parsed.NixOS.Modules = append(parsed.NixOS.Modules, "lmx:changed")
-	parsed.Network.Ports.TCP[0] = 9090
 	if fresh := Default(); !reflect.DeepEqual(fresh, expected) {
 		t.Fatal("default collections are shared")
 	}

@@ -271,6 +271,7 @@ func fixture(t *testing.T) fixtureData {
 func (f fixtureData) configuration(name string) config.Config {
 	cfg := config.Default()
 	cfg.Name = domain.VMName(name)
+	cfg.Resources.Arch = domain.ARM64
 	cfg.Home.Root = filepath.Join(f.root, "homes")
 	cfg.Env = map[domain.EnvName]domain.EnvValue{"TOKEN": "sensitive-test-token"}
 	cfg.Mounts = []config.Mount{{Mode: "rw", Source: f.project, Target: "/workspace"}}

@@ -272,7 +272,6 @@ func editFixture(t *testing.T) (*Client, *limatype.Instance, string, []byte) {
 		}
 	}
 	cfg := config.Default()
-	cfg.Mounts = nil
 	cfg.Resources.CPU = 2
 	data, err := Render(cfg, home, runtimeDir, "arm64", 501, 42022)
 	if err != nil {

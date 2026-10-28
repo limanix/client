@@ -10,8 +10,8 @@
 //	Load:  file → Parse → resolve host paths from the real file directory
 //
 // [Parse] performs no filesystem access. Unknown fields, invalid types, and missing required entry fields are rejected
-// before defaults are applied. Omitted fields keep defaults; explicitly supplied collections replace them, including
-// an empty ENV table. Guest paths are normalized without inspecting the guest filesystem.
+// before defaults are applied. Omitted fields keep defaults: no mounts, environment or open ports, and the guest
+// architecture of the Limanix binary. Guest paths are normalized without inspecting the guest filesystem.
 //
 // [Load] follows the configuration file's resolved location when interpreting relative host paths and expands a leading tilde.
 // It does not require mount sources to exist; VM preflight checks them before allocating resources.

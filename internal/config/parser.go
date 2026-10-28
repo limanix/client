@@ -27,10 +27,6 @@ func Parse(data []byte) (Config, error) {
 
 	result := Default()
 
-	if _, exists := supplied["env"]; exists {
-		result.Env = map[domain.EnvName]domain.EnvValue{}
-	}
-
 	decoder := toml.NewDecoder(bytes.NewReader(data)).DisallowUnknownFields()
 	if err := decoder.Decode(&result); err != nil {
 		return Config{}, decodeError(err)

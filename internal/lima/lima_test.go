@@ -17,6 +17,7 @@ import (
 
 func TestTemplateBoundaries(t *testing.T) {
 	cfg := config.Default()
+	cfg.Resources.Arch = domain.ARM64
 	cfg.User = config.User{Name: "developer", Home: "/home/developer", Sudo: false}
 	cfg.Mounts = []config.Mount{{Source: "/nested", Target: "/workspace/data", Mode: "rw"}, {Source: "/project", Target: "/workspace", Mode: "rw"}, {Source: "/keys", Target: "/mnt/keys", Mode: "ro"}}
 	cfg.Env = map[domain.EnvName]domain.EnvValue{"API_TOKEN": "test-secret-absent-from-template"}
@@ -76,7 +77,6 @@ func TestNativeValidation(t *testing.T) {
 		}
 	}
 	cfg := config.Default()
-	cfg.Mounts = nil
 	data, err := Render(cfg, home, runtime, "arm64", 501, 42022)
 	if err != nil {
 		t.Fatal(err)
@@ -151,7 +151,6 @@ func TestArchitectureTemplatesUseHardwareArchitecture(t *testing.T) {
 
 func TestDotfilesMountWritableOnlyWhenConfigured(t *testing.T) {
 	cfg := config.Default()
-	cfg.Mounts = nil
 	mounts := func() map[string]limatype.Mount {
 		t.Helper()
 		data, err := Render(cfg, "/managed/home", "/managed/runtime", "arm64", 501, 42022)
