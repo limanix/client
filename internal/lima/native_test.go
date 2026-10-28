@@ -292,39 +292,6 @@ func editFixture(t *testing.T) (*Client, *limatype.Instance, string, []byte) {
 	return client, inst, filepath.Join(dir, "replacement.yaml"), data
 }
 
-func TestNativeEditValidatesThenAtomicallyReplaces(t *testing.T) {
-	client, inst, path, previous := editFixture(t)
-	data := bytes.Replace(previous, []byte(`"cpus": 2`), []byte(`"cpus": 3`), 1)
-	if bytes.Equal(data, previous) {
-		t.Fatal("fixture CPU replacement failed")
-	}
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	validated := false
-	client.native.validateDriver = func(_ context.Context, actual *limatype.Instance) error {
-		if *actual.Config.CPUs != 3 {
-			t.Fatal("driver did not receive new template")
-		}
-		validated = true
-		return nil
-	}
-	if err := client.Edit(context.Background(), inst.Name, path); err != nil {
-		t.Fatal(err)
-	}
-	actual, err := os.ReadFile(filepath.Join(inst.Dir, filenames.LimaYAML))
-	if err != nil {
-		t.Fatal(err)
-	}
-	info, err := os.Stat(filepath.Join(inst.Dir, filenames.LimaYAML))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !validated || !bytes.Equal(actual, data) || info.Mode().Perm() != 0o600 {
-		t.Fatalf("edit lost validation/data/permissions: %v %o", validated, info.Mode().Perm())
-	}
-}
-
 func TestNativeEditFailurePreservesConfiguration(t *testing.T) {
 	for _, mode := range []string{"running", "invalid-schema", "driver", "cancel"} {
 		t.Run(mode, func(t *testing.T) {

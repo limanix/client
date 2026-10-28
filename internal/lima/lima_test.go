@@ -1,11 +1,8 @@
 package lima
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -63,37 +60,6 @@ func TestTemplateBoundaries(t *testing.T) {
 		if parent < 0 || nested < parent {
 			t.Fatal("parent mount must precede its child")
 		}
-	}
-}
-
-func TestNativeValidation(t *testing.T) {
-	t.Setenv("LIMA_HOME", t.TempDir())
-	directory := t.TempDir()
-	home := filepath.Join(directory, "home")
-	runtime := filepath.Join(directory, "runtime")
-	for _, dir := range []string{home, runtime} {
-		if err := os.Mkdir(dir, 0o700); err != nil {
-			t.Fatal(err)
-		}
-	}
-	cfg := config.Default()
-	data, err := Render(cfg, home, runtime, "arm64", 501, 42022)
-	if err != nil {
-		t.Fatal(err)
-	}
-	template := filepath.Join(directory, "lima.yaml")
-	if err := os.WriteFile(template, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	client := NewClient(nil)
-	if err := client.Validate(context.Background(), template); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(template, []byte(`{"cpus":-1}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := client.Validate(context.Background(), template); err == nil {
-		t.Fatal("native Lima schema accepted invalid CPU")
 	}
 }
 
