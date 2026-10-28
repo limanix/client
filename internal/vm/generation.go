@@ -60,7 +60,7 @@ func (g *generationBuilder) prepare(ctx context.Context, instance domain.Instanc
 		return "", err
 	}
 
-	document, err := lima.Render(cfg, instance.Identity.Home, directory, hostArch, g.hostUID, sshPort)
+	document, err := lima.Render(cfg, instance.Identity.Home, filepath.Dir(directory), hostArch, g.hostUID, sshPort)
 	if err != nil {
 		return "", err
 	}
@@ -103,6 +103,51 @@ func (g *generationBuilder) discard(instance domain.Instance) error {
 	return g.removeAll(directory)
 }
 
+// selectCurrent publishes a built generation for guest status and observation.
+// The relative link works on both the host and the guest; rename exposes either complete selection.
+func (g *generationBuilder) selectCurrent(instance domain.Instance) (failure error) {
+	directory, err := g.store.GenerationDir(instance)
+	if err != nil {
+		return err
+	}
+	if _, err = filesystem.RequireDirectory(directory); err != nil {
+		return err
+	}
+
+	parent := filepath.Dir(directory)
+	current := filepath.Join(parent, "current")
+	info, err := os.Lstat(current)
+	switch {
+	case err == nil && info.Mode()&os.ModeSymlink == 0:
+		return fmt.Errorf("generation selector %q is not a symlink", current)
+	case err != nil && !errors.Is(err, os.ErrNotExist):
+		return err
+	}
+
+	id, err := randomID()
+	if err != nil {
+		return err
+	}
+	temporary := filepath.Join(parent, ".current-"+id+".tmp")
+	if err = os.Symlink(instance.Generation, temporary); err != nil {
+		return err
+	}
+	defer func() {
+		if err := os.Remove(temporary); err != nil && !errors.Is(err, os.ErrNotExist) {
+			failure = errors.Join(failure, err)
+		}
+	}()
+	if err = os.Rename(temporary, current); err != nil {
+		return err
+	}
+
+	folder, err := os.Open(parent)
+	if err != nil {
+		return err
+	}
+	return errors.Join(folder.Sync(), folder.Close())
+}
+
 func (g *generationBuilder) prune(instance domain.Instance) []error {
 	current, err := g.store.GenerationDir(instance)
 	if err != nil {
@@ -119,7 +164,7 @@ func (g *generationBuilder) prune(instance domain.Instance) []error {
 
 	for _, entry := range entries {
 		candidate := filepath.Join(parent, entry.Name())
-		if candidate == current {
+		if candidate == current || entry.Name() == "current" {
 			continue
 		}
 

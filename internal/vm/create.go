@@ -64,7 +64,7 @@ func (m *Manager) Create(ctx context.Context, path string) (result domain.Instan
 		return result, m.recordFailure(result, err)
 	}
 
-	result, err = m.recordReady(result, m.applyGuest(ctx, result))
+	result, err = m.recordReady(result, m.applyGuest(ctx, result, template, false))
 	if err == nil {
 		m.refreshSSHConfig(ctx)
 	}

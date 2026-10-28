@@ -53,8 +53,8 @@ type Homes interface {
 
 // Guest applies a prepared generation, checks the guest, and opens the development user's session.
 type Guest interface {
-	Apply(context.Context, string, string, domain.Architecture) error
-	Reserve(context.Context, string) error
+	Build(context.Context, string, string, domain.Architecture) error
+	Converge(context.Context, string, string) error
 	Status(context.Context, lima.Instance) guest.Status
 	Doctor(context.Context, string) ([]guest.Check, error)
 	NetCheck(context.Context, string, uint16, bool) ([]guest.Check, error)

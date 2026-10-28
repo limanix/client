@@ -43,8 +43,6 @@ func (m *Manager) Update(ctx context.Context, path string) (result domain.Instan
 		return result, err
 	}
 
-	m.reserveGuest(ctx, result, actual, cfg.Resources.Disk)
-
 	generation, err := randomID()
 	if err != nil {
 		return result, err
@@ -62,7 +60,7 @@ func (m *Manager) Update(ctx context.Context, path string) (result domain.Instan
 		return result, err
 	}
 
-	result, err = m.recordReady(result, m.applyUpdate(ctx, result, cfg.Resources.Disk, template))
+	result, err = m.recordReady(result, m.applyUpdate(ctx, result, cfg.Resources, template))
 	if err != nil {
 		return result, err
 	}
@@ -112,36 +110,21 @@ func (m *Manager) discardUncommitted(instance domain.Instance) error {
 	return m.generations.discard(instance)
 }
 
-func (m *Manager) applyUpdate(ctx context.Context, instance domain.Instance, disk domain.ByteSize, template string) error {
-	actual, err := m.checkUpdateBackend(ctx, instance.Identity, disk)
+func (m *Manager) applyUpdate(ctx context.Context, instance domain.Instance, resources config.Resources, template string) error {
+	actual, err := m.checkUpdateBackend(ctx, instance.Identity, resources.Disk)
 	if err != nil {
 		return err
 	}
 
-	name := instance.Identity.LimaName()
-	if actual.Status == lima.Running {
-		if err = m.backend.Stop(ctx, name); err != nil {
+	running := actual.Status == lima.Running
+	if running && (int64(resources.Disk) > *actual.Disk || int64(resources.Mem) > *actual.Memory) {
+		if err = m.backend.Stop(ctx, actual.Name); err != nil {
 			return err
 		}
+		running = false
 	}
 
-	if err = m.backend.Edit(ctx, name, template); err != nil {
-		return err
-	}
-
-	return m.applyGuest(ctx, instance)
-}
-
-// reserveGuest makes room before a running VM stops; a growing disk gains room when it restarts instead.
-// A low disk only warns: removing modules may still fit, and the apply reports a failed build.
-func (m *Manager) reserveGuest(ctx context.Context, instance domain.Instance, actual lima.Instance, disk domain.ByteSize) {
-	if actual.Status != lima.Running || actual.Disk == nil || int64(disk) > *actual.Disk {
-		return
-	}
-
-	if err := m.guest.Reserve(ctx, actual.Name); err != nil {
-		m.Warn("VM '%s' may fail to update: %v", instance.Identity.Name, err)
-	}
+	return m.applyGuest(ctx, instance, template, running)
 }
 
 func (m *Manager) checkUpdateBackend(ctx context.Context, identity domain.Identity, disk domain.ByteSize) (lima.Instance, error) {

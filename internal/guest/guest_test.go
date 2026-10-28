@@ -55,16 +55,6 @@ func (client *fakeClient) Stream(ctx context.Context, _ string, args []string, o
 	return client.stream(ctx, output)
 }
 
-func (client *fakeClient) Start(context.Context, string) error {
-	client.record("start")
-	return nil
-}
-
-func (client *fakeClient) Stop(context.Context, string) error {
-	client.record("stop")
-	return nil
-}
-
 func (client *fakeClient) Shell(_ context.Context, _ string, args []string) (int, error) {
 	client.record(strings.Join(args, " "))
 	return client.shellStatus, nil
@@ -121,7 +111,7 @@ func applyClient(follow, wait string) *fakeClient {
 	}
 }
 
-func TestApplyBuildsWithTheGenerationsLMXAndWaitsAfterRestart(t *testing.T) {
+func TestBuildUsesTheGenerationsLMX(t *testing.T) {
 	client := applyClient(strings.TrimSuffix(example(t, "apply-follow.jsonl"), "\n"), example(t, "status.json"))
 	var (
 		stderr   bytes.Buffer
@@ -131,18 +121,15 @@ func TestApplyBuildsWithTheGenerationsLMXAndWaitsAfterRestart(t *testing.T) {
 	guest.Stderr = &stderr
 	guest.Warn = func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
 
-	if err := guest.Apply(context.Background(), "sandbox", generation, domain.ARM64); err != nil {
+	if err := guest.Build(context.Background(), "sandbox", generation, domain.ARM64); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{
 		"sudo lmx store reserve --json",
 		"sudo systemctl stop lmx*",
-		"sudo nix build --extra-experimental-features nix-command flakes --no-write-lock-file --no-update-lock-file --out-link /run/limanix-lmx path:/mnt/limanix/flake#packages.aarch64-linux.lmx",
+		"sudo nix build --extra-experimental-features nix-command flakes --no-write-lock-file --no-update-lock-file --out-link /run/limanix-lmx path:/mnt/limanix/0123456789ab/flake#packages.aarch64-linux.lmx",
 		"sudo systemd-run --unit=lmx-transient.service --service-type=notify --property=TimeoutStopSec=25s --collect --quiet /run/limanix-lmx/bin/lmxd --transient --config /run/limanix-lmx/etc/lmx/config.json",
 		"sudo /run/limanix-lmx/bin/lmx apply -g 0123456789ab --follow --json",
-		"stop",
-		"start",
-		"sudo lmx status --wait converged -g 0123456789ab --json",
 	}
 	if !reflect.DeepEqual(client.calls, want) {
 		t.Fatalf("guest steps:\n%s", strings.Join(client.calls, "\n"))
@@ -155,7 +142,7 @@ func TestApplyBuildsWithTheGenerationsLMXAndWaitsAfterRestart(t *testing.T) {
 	}
 }
 
-func TestApplyReportsTheWaitAfterTheRestart(t *testing.T) {
+func TestConvergeReportsTheWaitAfterTheRestart(t *testing.T) {
 	timeout := `{"contract":1,"ok":false,"error":{"code":"wait.timeout","message":"Generation 0123456789ab did not converge within 10 minutes.",` +
 		`"details":{"conditions":[{"type":"RestartRequired","message":"Generation 0123456789ab is built; restart the VM to boot it."}]}}}`
 	for _, test := range []struct {
@@ -172,7 +159,7 @@ func TestApplyReportsTheWaitAfterTheRestart(t *testing.T) {
 			guest := New(client)
 			guest.Stderr, guest.Warn = io.Discard, func(string, ...any) {}
 
-			err := guest.Apply(context.Background(), "sandbox", generation, domain.ARM64)
+			err := guest.Converge(context.Background(), "sandbox", generation)
 			if _, unfinished := errors.AsType[*FinalizeError](err); err == nil || err.Error() != test.want || unfinished != test.unfinished {
 				t.Fatalf("wait: %v", err)
 			}
@@ -183,7 +170,7 @@ func TestApplyReportsTheWaitAfterTheRestart(t *testing.T) {
 	}
 }
 
-func TestApplyFailureReturnsTheGuestToItsOwnLMXD(t *testing.T) {
+func TestBuildFailureReturnsTheGuestToItsOwnLMXD(t *testing.T) {
 	full := `{"contract":1,"ok":false,"error":{"code":"apply.build_failed","message":"nixos-rebuild failed with exit status 1.",` +
 		`"details":{"exit_code":1,"disk":{"bytes":100,"free_bytes":2,"available_bytes":0,"inodes":10,"free_inodes":5}}}}` + "\n"
 	for _, test := range []struct {
@@ -201,7 +188,7 @@ func TestApplyFailureReturnsTheGuestToItsOwnLMXD(t *testing.T) {
 				return errors.New("exit status 1")
 			}
 
-			err := New(client).Apply(context.Background(), "sandbox", generation, domain.ARM64)
+			err := New(client).Build(context.Background(), "sandbox", generation, domain.ARM64)
 			build, ok := errors.AsType[*Error](err)
 			if !ok || build.Code != "apply.build_failed" || !strings.HasPrefix(err.Error(), "lmx: nixos-rebuild failed with exit status 1.") {
 				t.Fatalf("build failure: %v", err)
@@ -210,14 +197,14 @@ func TestApplyFailureReturnsTheGuestToItsOwnLMXD(t *testing.T) {
 				t.Fatalf("disk usage: %v", err)
 			}
 			restored := []string{"sudo systemctl stop lmx-transient.service", "sudo systemctl start lmx.service"}
-			if !reflect.DeepEqual(client.calls[len(client.calls)-2:], restored) || slices.Contains(client.calls, "stop") {
+			if !reflect.DeepEqual(client.calls[len(client.calls)-2:], restored) {
 				t.Fatalf("guest steps:\n%s", strings.Join(client.calls, "\n"))
 			}
 		})
 	}
 }
 
-func TestApplyExplainsAFullDiskBeforeLMXRuns(t *testing.T) {
+func TestBuildExplainsAFullDiskBeforeLMXRuns(t *testing.T) {
 	failure := commandFailure(t, 1, "error: writing to file: No space left on device")
 	client := applyClient("", "")
 	client.run = func(_ context.Context, command string) (string, error) {
@@ -227,7 +214,7 @@ func TestApplyExplainsAFullDiskBeforeLMXRuns(t *testing.T) {
 		return "", nil
 	}
 
-	err := New(client).Apply(context.Background(), "sandbox", generation, domain.ARM64)
+	err := New(client).Build(context.Background(), "sandbox", generation, domain.ARM64)
 	if !errors.Is(err, failure) || !errors.Is(err, errDiskFull) {
 		t.Fatalf("full disk: %v", err)
 	}
@@ -236,9 +223,17 @@ func TestApplyExplainsAFullDiskBeforeLMXRuns(t *testing.T) {
 	}
 }
 
-func TestApplyCancellationStopsTheGuestApply(t *testing.T) {
-	for _, confirmed := range []bool{true, false} {
-		t.Run(fmt.Sprintf("confirmed=%t", confirmed), func(t *testing.T) {
+func TestBuildCancellationStopsTheGuestApply(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		confirmed bool
+		completed bool
+	}{
+		{name: "cancelled", confirmed: true},
+		{name: "unreachable"},
+		{name: "completed before cancellation", confirmed: true, completed: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			stopped := make(chan struct{})
@@ -247,6 +242,10 @@ func TestApplyCancellationStopsTheGuestApply(t *testing.T) {
 				cancel()
 				select {
 				case <-stopped:
+					if test.completed {
+						_, _ = io.WriteString(output, `{"contract":1,"ok":true,"data":{"generation":"0123456789ab","state":"restart_required"}}`+"\n")
+						return nil
+					}
 					_, _ = io.WriteString(output, `{"contract":1,"ok":false,"error":{"code":"apply.cancelled","message":"The apply was cancelled."}}`+"\n")
 					return errors.New("exit status 130")
 				case <-session.Done():
@@ -260,19 +259,20 @@ func TestApplyCancellationStopsTheGuestApply(t *testing.T) {
 				if _, bounded := cleanup.Deadline(); !bounded || cleanup.Err() != nil {
 					t.Errorf("the cancel has no context of its own: %v", cleanup.Err())
 				}
-				if !confirmed {
+				if !test.confirmed {
 					return "", errors.New("guest unreachable")
 				}
 				close(stopped)
 				return `{"contract":1,"ok":true,"data":{"cancelled":true}}`, nil
 			}
 
-			err := New(client).Apply(ctx, "sandbox", generation, domain.ARM64)
-			if confirmed != errors.Is(err, context.Canceled) || !confirmed && !strings.Contains(err.Error(), "cannot confirm the guest apply stopped") {
+			err := New(client).Build(ctx, "sandbox", generation, domain.ARM64)
+			if test.completed && err != nil || !test.completed && test.confirmed != errors.Is(err, context.Canceled) ||
+				!test.confirmed && (err == nil || !strings.Contains(err.Error(), "cannot confirm the guest apply stopped")) {
 				t.Fatalf("cancellation: %v", err)
 			}
 			if !slices.Contains(client.calls, "sudo /run/limanix-lmx/bin/lmx apply cancel -g 0123456789ab --json") ||
-				!slices.Contains(client.calls, "sudo systemctl start lmx.service") || slices.Contains(client.calls, "stop") {
+				slices.Contains(client.calls, "sudo systemctl start lmx.service") == test.completed {
 				t.Fatalf("guest steps:\n%s", strings.Join(client.calls, "\n"))
 			}
 		})

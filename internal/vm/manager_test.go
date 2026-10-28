@@ -45,6 +45,7 @@ type fakeBackend struct {
 	failOn            string
 	shellExit         int
 	onValidate        func()
+	onBuild           func()
 	rejectStoppedStop bool
 	disk              *domain.DiskUsage
 	unfinalized       bool
@@ -83,7 +84,7 @@ func (f *fakeBackend) Validate(_ context.Context, template string) error {
 	if err := f.called("validate", "", false, nil); err != nil {
 		return err
 	}
-	if _, err := templateDisk(template); err != nil {
+	if _, err := templateSize(template, "disk"); err != nil {
 		return err
 	}
 	if f.onValidate != nil {
@@ -108,18 +109,20 @@ func templatePort(path string) int {
 	return template.SSH.LocalPort
 }
 
-func templateDisk(path string) (*int64, error) {
+func templateSize(path, field string) (*int64, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var template struct {
-		Disk string `json:"disk"`
-	}
+	var template map[string]json.RawMessage
 	if err := json.Unmarshal(data, &template); err != nil {
 		return nil, err
 	}
-	disk, err := domain.ParseByteSize(template.Disk)
+	var value string
+	if err := json.Unmarshal(template[field], &value); err != nil {
+		return nil, err
+	}
+	disk, err := domain.ParseByteSize(value)
 	if err != nil {
 		return nil, err
 	}
@@ -131,12 +134,16 @@ func (f *fakeBackend) Create(_ context.Context, name, template string) error {
 	if err := f.called("create", name, false, nil); err != nil {
 		return err
 	}
-	disk, err := templateDisk(template)
+	disk, err := templateSize(template, "disk")
+	if err != nil {
+		return err
+	}
+	memory, err := templateSize(template, "memory")
 	if err != nil {
 		return err
 	}
 	f.instances[name] = lima.Instance{
-		Name: name, Status: lima.Stopped, Disk: disk,
+		Name: name, Status: lima.Stopped, Disk: disk, Memory: memory,
 		Networks: []lima.Network{{MACAddress: "52:55:55:4a:e4:84", Shared: true}},
 		SSHPort:  templatePort(template),
 	}
@@ -178,12 +185,17 @@ func (f *fakeBackend) Edit(_ context.Context, name, template string) error {
 	if err := f.called("edit", name, false, nil); err != nil {
 		return err
 	}
-	disk, err := templateDisk(template)
+	disk, err := templateSize(template, "disk")
+	if err != nil {
+		return err
+	}
+	memory, err := templateSize(template, "memory")
 	if err != nil {
 		return err
 	}
 	instance := f.instances[name]
 	instance.Disk = disk
+	instance.Memory = memory
 	instance.SSHPort = templatePort(template)
 	f.instances[name] = instance
 	return nil
@@ -224,6 +236,9 @@ func (f *fakeBackend) answer(command string) (string, error) {
 }
 
 func (f *fakeBackend) Stream(_ context.Context, name string, args []string, output io.Writer) error {
+	if f.onBuild != nil {
+		f.onBuild()
+	}
 	if err := f.called("stream", name, false, args); err != nil {
 		return err
 	}
@@ -521,7 +536,7 @@ func TestFailedUpdateRetriesPruneAllStaleGenerations(t *testing.T) {
 	}
 	parent := filepath.Dir(generation)
 	entries, err := os.ReadDir(parent)
-	if err != nil || len(entries) != 3 {
+	if err != nil || len(entries) != 4 {
 		t.Fatalf("failed generations lost: %v %v", entries, err)
 	}
 	f.backend.failOn = ""
@@ -530,7 +545,7 @@ func TestFailedUpdateRetriesPruneAllStaleGenerations(t *testing.T) {
 		t.Fatalf("retry %+v: %v", updated, err)
 	}
 	entries, err = os.ReadDir(parent)
-	if err != nil || len(entries) != 1 || entries[0].Name() != updated.Generation {
+	if err != nil || len(entries) != 2 || !slices.ContainsFunc(entries, func(entry os.DirEntry) bool { return entry.Name() == updated.Generation }) {
 		t.Fatalf("stale generations remain: %v %v", entries, err)
 	}
 }
@@ -602,6 +617,9 @@ func TestReadyVMRunsTheRecordedGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.assertGuestApplied(t, updated)
+	if got := updateEffects(f.backend.calls); !slices.Equal(got, []string{"stream", "stop", "edit", "start"}) {
+		t.Fatalf("update without resource growth must build before restarting: %v", got)
+	}
 }
 
 func TestUnfinalizedGenerationIsReadyWithWarning(t *testing.T) {
@@ -637,47 +655,6 @@ func TestUnfinalizedGenerationIsReadyWithWarning(t *testing.T) {
 // firstCall returns the index of the first backend call matching the predicate, or -1.
 func (f fixtureData) firstCall(match func(backendCall) bool) int {
 	return slices.IndexFunc(f.backend.calls, match)
-}
-
-func TestUpdateMakesRoomBeforeStoppingRunningVM(t *testing.T) {
-	nearlyFull := &domain.DiskUsage{Bytes: 100, FreeBytes: 50, Inodes: 100, FreeInodes: 5}
-	for _, test := range []struct {
-		name   string
-		grow   bool
-		warned bool
-	}{
-		{name: "same-disk", warned: true},
-		{name: "growing-disk", grow: true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			f := fixture(t)
-			instance, path := f.create(t, "sandbox")
-			if f.backend.instances[instance.Identity.LimaName()].Status != lima.Running {
-				t.Fatal("fixture VM is not running")
-			}
-			if test.grow {
-				cfg := f.configuration("sandbox")
-				cfg.Resources.Disk += domain.ByteSize(domain.GiB)
-				path = f.writeConfig(t, cfg)
-			}
-			var warnings []string
-			f.manager.Warn = func(format string, args ...any) { warnings = append(warnings, fmt.Sprintf(format, args...)) }
-			f.backend.calls = nil
-			f.backend.disk = nearlyFull
-			updated, err := f.manager.Update(context.Background(), path)
-			if err != nil || updated.Status != domain.Ready {
-				t.Fatalf("a low guest disk must not block the update: %+v %v", updated, err)
-			}
-			stop := f.firstCall(func(call backendCall) bool { return call.Operation == "stop" })
-			reserve := f.firstCall(func(call backendCall) bool { return slices.Contains(call.Arguments, "reserve") })
-			if before := reserve >= 0 && reserve < stop; before == test.grow {
-				t.Fatalf("room must be made before stopping unless the disk grows: %v", f.backend.calls)
-			}
-			if warned := slices.ContainsFunc(warnings, func(warning string) bool { return strings.Contains(warning, "may fail") }); warned != test.warned {
-				t.Fatalf("unexpected low-disk warnings: %v", warnings)
-			}
-		})
-	}
 }
 
 func TestListReportsRunningGuestDisk(t *testing.T) {

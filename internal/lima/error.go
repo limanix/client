@@ -12,6 +12,7 @@ var (
 	ErrMissingMetadata          = errors.New("expected instance metadata")
 	ErrInvalidStatus            = errors.New("expected a known instance status")
 	ErrInvalidDisk              = errors.New("expected a nonnegative disk size in bytes")
+	ErrInvalidMemory            = errors.New("expected a nonnegative memory size in bytes")
 	ErrMissingConfig            = errors.New("instance configuration is unavailable")
 	ErrMissingAgentProvider     = errors.New("packaged guest-agent provider is unavailable")
 	ErrEmptyAgentPath           = errors.New("packaged guest-agent provider returned an empty path")

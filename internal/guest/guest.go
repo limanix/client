@@ -11,8 +11,6 @@ import (
 type Client interface {
 	Run(context.Context, string, []string, bool) (string, error)
 	Stream(context.Context, string, []string, io.Writer) error
-	Start(context.Context, string) error
-	Stop(context.Context, string) error
 	Shell(context.Context, string, []string) (int, error)
 }
 
