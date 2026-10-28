@@ -53,7 +53,10 @@ func firstConfigCommand() *cobra.Command {
 }
 
 func createCommand(dependencies Dependencies) *cobra.Command {
-	var path string
+	var (
+		path   string
+		asJSON bool
+	)
 
 	command := &cobra.Command{
 		Use:   "create",
@@ -71,6 +74,10 @@ func createCommand(dependencies Dependencies) *cobra.Command {
 				return err
 			}
 
+			if asJSON {
+				return writeVM(cmd.Context(), cmd.OutOrStdout(), manager, instance.Identity.Name)
+			}
+
 			_, err = fmt.Fprintf(
 				cmd.OutOrStdout(),
 				"Created %s. Managed home: %s\n",
@@ -83,11 +90,15 @@ func createCommand(dependencies Dependencies) *cobra.Command {
 	}
 
 	command.Flags().StringVar(&path, "config", "", "Path to the VM configuration file (required).")
+	command.Flags().BoolVar(&asJSON, "json", false, "Print the VM as machine-readable JSON.")
 	return command
 }
 
 func updateCommand(dependencies Dependencies) *cobra.Command {
-	var path string
+	var (
+		path   string
+		asJSON bool
+	)
 
 	command := &cobra.Command{
 		Use:   "update",
@@ -105,11 +116,16 @@ func updateCommand(dependencies Dependencies) *cobra.Command {
 				return err
 			}
 
+			if asJSON {
+				return writeVM(cmd.Context(), cmd.OutOrStdout(), manager, instance.Identity.Name)
+			}
+
 			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Updated %s.\n", instance.Identity.Name)
 			return err
 		},
 	}
 
 	command.Flags().StringVar(&path, "config", "", "Path to the VM configuration file (required).")
+	command.Flags().BoolVar(&asJSON, "json", false, "Print the VM as machine-readable JSON.")
 	return command
 }

@@ -10,6 +10,7 @@ import (
 var (
 	errMissingConfig        = errors.New("required flag --config was not provided")
 	errMissingModuleCommand = errors.New("a modules subcommand is required")
+	errQuietJSON            = errors.New("--quiet cannot be combined with --json")
 )
 
 // exitError carries either a usage failure or an unmodified guest exit status.
