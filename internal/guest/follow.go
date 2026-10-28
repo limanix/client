@@ -9,7 +9,8 @@ import (
 )
 
 // follow runs the apply in the generation's lmxd and prints its build as it runs. The apply belongs to lmxd: when
-// ctx ends, follow cancels it in the guest and returns ctx's error once lmx confirms the stop.
+// ctx ends, follow cancels it in the guest. A confirmed successful outcome wins over cancellation; otherwise it
+// returns ctx's error once lmx confirms the stop.
 func (guest *Guest) follow(ctx context.Context, name, generation string) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -40,7 +41,9 @@ func (guest *Guest) follow(ctx context.Context, name, generation string) error {
 	err := guest.cancelApply(ctx, name, generation, finished)
 	closeSession()
 	<-finished
-	events.flush()
+	if events.outcome(failure) == nil {
+		return nil
+	}
 
 	if err != nil && events.answer == nil {
 		return fmt.Errorf("cannot confirm the guest apply stopped: %w", err)

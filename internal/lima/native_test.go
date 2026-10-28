@@ -26,13 +26,13 @@ func TestFetchAllFiltersBeforeInspection(t *testing.T) {
 			t.Fatalf("foreign VM inspected: %s", name)
 		}
 		nat := true
-		return &limatype.Instance{Name: name, Status: limatype.StatusRunning, Disk: 10 * domain.GiB, Config: &limatype.LimaYAML{}, Networks: []limatype.Network{{MACAddress: "52:55:55:AA:BB:CC", VZNAT: &nat}}}, nil
+		return &limatype.Instance{Name: name, Status: limatype.StatusRunning, Disk: 10 * domain.GiB, Memory: 8 * domain.GiB, Config: &limatype.LimaYAML{}, Networks: []limatype.Network{{MACAddress: "52:55:55:AA:BB:CC", VZNAT: &nat}}}, nil
 	}
 	instances, err := client.FetchAll(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(instances) != 1 || instances[0].Status != Running || *instances[0].Disk != 10*domain.GiB || !reflect.DeepEqual(instances[0].Networks, []Network{{MACAddress: "52:55:55:aa:bb:cc", Shared: true}}) {
+	if len(instances) != 1 || instances[0].Status != Running || *instances[0].Disk != 10*domain.GiB || *instances[0].Memory != 8*domain.GiB || !reflect.DeepEqual(instances[0].Networks, []Network{{MACAddress: "52:55:55:aa:bb:cc", Shared: true}}) {
 		t.Fatalf("unexpected metadata: %#v", instances)
 	}
 	client.native.instances = func() ([]string, error) { return []string{"colima"}, nil }
@@ -59,11 +59,11 @@ func TestNativeMetadataStatusesAndDamagedInstances(t *testing.T) {
 	for _, status := range []Status{Unknown, Uninitialized, Installing, Broken, Stopped, Running} {
 		upstream := &limatype.Instance{Name: "limanix-owned", Status: string(status), Errors: []error{errors.New("damaged YAML")}}
 		inst, err := instanceMetadata(upstream)
-		if err != nil || inst.Status != status || inst.Disk != nil {
+		if err != nil || inst.Status != status || inst.Disk != nil || inst.Memory != nil {
 			t.Fatalf("status %q failed: %#v %v", status, inst, err)
 		}
 	}
-	for _, upstream := range []*limatype.Instance{nil, {Name: "foreign", Status: limatype.StatusRunning}, {Name: "limanix-owned", Status: "FutureState"}, {Name: "limanix-owned", Status: limatype.StatusStopped, Disk: -1}} {
+	for _, upstream := range []*limatype.Instance{nil, {Name: "foreign", Status: limatype.StatusRunning}, {Name: "limanix-owned", Status: "FutureState"}, {Name: "limanix-owned", Status: limatype.StatusStopped, Disk: -1}, {Name: "limanix-owned", Status: limatype.StatusStopped, Memory: -1}} {
 		if _, err := instanceMetadata(upstream); err == nil {
 			t.Fatalf("accepted invalid metadata: %#v", upstream)
 		}

@@ -127,13 +127,36 @@ func (m *Manager) requireLima(ctx context.Context, identity domain.Identity) (li
 	}
 }
 
-func (m *Manager) applyGuest(ctx context.Context, instance domain.Instance) error {
+func (m *Manager) applyGuest(ctx context.Context, instance domain.Instance, template string, running bool) error {
 	name := instance.Identity.LimaName()
+	if !running {
+		if err := m.backend.Edit(ctx, name, template); err != nil {
+			return err
+		}
+		if err := m.backend.Start(ctx, name); err != nil {
+			return err
+		}
+	}
+	if err := m.guest.Build(ctx, name, instance.Generation, instance.Identity.Arch); err != nil {
+		return err
+	}
+	if err := m.generations.selectCurrent(instance); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := m.backend.Stop(ctx, name); err != nil {
+		return err
+	}
+	if err := m.backend.Edit(ctx, name, template); err != nil {
+		return err
+	}
 	if err := m.backend.Start(ctx, name); err != nil {
 		return err
 	}
 
-	return m.guest.Apply(ctx, name, instance.Generation, instance.Identity.Arch)
+	return m.guest.Converge(ctx, name, instance.Generation)
 }
 
 // recordReady saves the VM as ready after a successful apply, or as failed after a failed one. A generation that runs

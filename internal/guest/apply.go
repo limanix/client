@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	// lmxPackage links the lmx package of the mounted generation. The link keeps the package from the garbage
+	// lmxPackage links the lmx package of the requested generation. The link keeps the package from the garbage
 	// collector until the VM restarts and clears /run.
 	lmxPackage = "/run/limanix-lmx"
 
@@ -27,26 +27,18 @@ const (
 // errDiskFull explains a build that ran out of room before lmx could measure the disk.
 var errDiskFull = errors.New("guest disk is full; raise resources.disk or remove guest data")
 
-// Apply builds the mounted generation with the lmxd it brings, restarts the VM into it and waits until lmxd reports
-// the generation converged. A *FinalizeError means that the generation runs, but lmxd could not finalize it yet.
-func (guest *Guest) Apply(ctx context.Context, name, generation string, arch domain.Architecture) error {
+// Build prepares the requested generation for the next boot without restarting the VM.
+// After a failed build it attempts to return the running system to its own lmxd.
+// A confirmed successful apply remains successful if cancellation arrives as it finishes.
+func (guest *Guest) Build(ctx context.Context, name, generation string, arch domain.Architecture) error {
 	if err := guest.build(ctx, name, generation, arch); err != nil {
 		guest.restore(ctx, name)
 		return err
 	}
-
-	if err := guest.client.Stop(ctx, name); err != nil {
-		return err
-	}
-
-	if err := guest.client.Start(ctx, name); err != nil {
-		return err
-	}
-
-	return guest.converge(ctx, name, generation)
+	return nil
 }
 
-// build replaces the guest's lmxd with the one of the mounted generation: every platform, the base image
+// build replaces the guest's lmxd with the one of the requested generation: every platform, the base image
 // included, then applies the generation the same way.
 func (guest *Guest) build(ctx context.Context, name, generation string, arch domain.Architecture) error {
 	system, err := arch.LimaArch()
@@ -68,7 +60,7 @@ func (guest *Guest) build(ctx context.Context, name, generation string, arch dom
 		"--extra-experimental-features", "nix-command flakes",
 		"--no-write-lock-file", "--no-update-lock-file",
 		"--out-link", lmxPackage,
-		"path:/mnt/limanix/flake#packages." + system + "-linux.lmx",
+		"path:/mnt/limanix/" + generation + "/flake#packages." + system + "-linux.lmx",
 	}
 	if _, err = guest.client.Run(ctx, name, install, false); err != nil {
 		return explainSpace(err)
@@ -85,12 +77,7 @@ func (guest *Guest) build(ctx context.Context, name, generation string, arch dom
 		return err
 	}
 
-	if err = guest.follow(ctx, name, generation); err != nil {
-		return err
-	}
-
-	// An interruption as the apply ends still keeps the VM from restarting.
-	return ctx.Err()
+	return guest.follow(ctx, name, generation)
 }
 
 // explainSpace adds a hint to a failed command that ran out of room on the guest disk.
@@ -103,9 +90,10 @@ func explainSpace(err error) error {
 	return err
 }
 
-// converge waits until the lmxd of the restarted VM reports the generation converged. Another outcome carries the
+// Converge waits until the lmxd of the restarted VM reports the generation converged. Another outcome carries the
 // conditions lmxd reported last, because the message of a timeout does not name them.
-func (guest *Guest) converge(ctx context.Context, name, generation string) error {
+// A *FinalizeError means that the generation runs, but lmxd could not finalize it yet.
+func (guest *Guest) Converge(ctx context.Context, name, generation string) error {
 	err := guest.lmx(ctx, name, nil, "lmx", "status", "--wait", "converged", "-g", generation)
 
 	failure, ok := errors.AsType[*Error](err)

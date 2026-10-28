@@ -15,16 +15,25 @@
 //	        ↓                                   ↓
 //	save creating                       prepare generation → save updating
 //	        ↓                                   ↓
-//	Lima create                         stop if running → edit
+//	Lima create                         stop for disk or memory growth
 //	        ↓                                   ↓
-//	start → guest apply                 start → guest apply
+//	start                               edit → start, if stopped
+//	        ↓                                   ↓
+//	build → select current              build → select current
+//	        ↓                                   ↓
+//	stop → start → converge             stop → edit → start → converge
 //	        ↓                                   ↓
 //	save ready                          save ready → prune old inputs
 //
-// Create and Update load configuration and run preflight before taking the VM lock. Update checks saved identity and
-// backend disk size under that lock, makes room on a running guest whose disk does not grow, warns when the guest
-// disk stays nearly full, then rechecks the live backend before editing. It preserves identity and home
-// and refuses a disk shrink or an unknown current disk size.
+// Create and Update hold the VM lock while applying a generation. The read-only mount covers all input generations;
+// after a successful build, an atomic relative current symlink selects the generation for status and observation.
+// A running VM whose disk and memory do not grow builds first and restarts once; that stop applies the Lima settings.
+// A stopped VM, or a running one whose disk or memory grows, gets the new Lima settings before the build boots it, so
+// an update also repairs a VM that cannot start with its old settings, such as an SSH port another program took.
+// A failed build keeps current and the installed environment; Lima settings applied before the build remain.
+// A confirmed successful build is selected even if the caller cancels, but cancellation prevents the next stop.
+// Failures while preparing boot entries, installing environment, editing Lima or restarting are not rolled back.
+// Update preserves identity and home and refuses a disk shrink or an unknown current disk size.
 //
 // # Failure and deletion boundaries
 //

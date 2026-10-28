@@ -99,6 +99,8 @@ func instanceMetadata(upstream *limatype.Instance) (Instance, error) {
 		return Instance{}, ErrInvalidStatus
 	case upstream.Disk < 0:
 		return Instance{}, ErrInvalidDisk
+	case upstream.Memory < 0:
+		return Instance{}, ErrInvalidMemory
 	}
 
 	inst := Instance{
@@ -110,6 +112,8 @@ func instanceMetadata(upstream *limatype.Instance) (Instance, error) {
 	if upstream.Config != nil {
 		disk := upstream.Disk
 		inst.Disk = &disk
+		memory := upstream.Memory
+		inst.Memory = &memory
 
 		if upstream.Config.SSH.LocalPort != nil {
 			inst.SSHPort = *upstream.Config.SSH.LocalPort

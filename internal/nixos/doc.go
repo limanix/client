@@ -2,7 +2,8 @@
 //
 // [Prepare] creates the host-side inputs for one VM generation. It does not run Nix, connect to a guest, or change VM state.
 // internal/vm supplies the generation directory and holds module-source leases while copying; internal/guest later
-// applies the result through the read-only /mnt/limanix mount.
+// builds the inputs at /mnt/limanix/<generation> through the read-only generations mount.
+// After a successful build, internal/vm switches the relative current selector and restarts the VM.
 //
 // The [catalog contract] defines the ownership, public interface, and compatibility requirements shared with the catalog.
 //
