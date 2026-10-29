@@ -20,7 +20,7 @@ jobs:
       modules-tag: ${{ steps.catalog.outputs.modules-tag }}
     steps:
       - name: Check module tag
-        uses: mr-chelyshkin/actions/tag-format-check@v2
+        uses: mr-chelyshkin/actions/tag-format-check@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
         with:
           tag: ${{ github.event.client_payload.tag }}
           pattern: '^v[1-9][0-9]*$'
@@ -47,7 +47,7 @@ jobs:
         run: python3 -B -m unittest discover -s .github/scripts
       - name: Select client versions
         id: tags
-        uses: mr-chelyshkin/actions/tag-list@v2
+        uses: mr-chelyshkin/actions/tag-list@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
         with:
           pattern: '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(\+[1-9][0-9]*)?$'
           count: ${{ vars.RELEASE_COUNT }}

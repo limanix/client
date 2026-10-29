@@ -57,7 +57,7 @@ jobs:
           sudo chown -R 0:0 .cache/nix
       - name: Evaluate generated guest flakes
         timeout-minutes: 40
-        uses: mr-chelyshkin/actions/task-run@v2
+        uses: mr-chelyshkin/actions/task-run@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
         with:
           task: ci/nix/eval
           args: |

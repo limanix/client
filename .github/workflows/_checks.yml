@@ -47,7 +47,7 @@ jobs:
           key: guest-agent-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'Taskfile.yml', 'internal/bundle/generator/**', 'internal/bundle/vmnetgen/**') }}
       - name: Run check
         timeout-minutes: ${{ matrix.task == 'ci/golang/test' && 40 || 15 }}
-        uses: mr-chelyshkin/actions/task-run@v2
+        uses: mr-chelyshkin/actions/task-run@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
         with:
           task: ${{ matrix.task }}
           args: modules_version=${{ inputs.modules-tag }}
