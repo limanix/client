@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/filesystem"
@@ -53,11 +54,23 @@ func (*Manager) Remove(identity domain.Identity) error {
 		return fmt.Errorf("%w: %s", ErrNotDirectory, home)
 	}
 
-	if err = os.RemoveAll(home); err != nil {
+	if err = removeAll(home); err != nil {
 		return fmt.Errorf("cannot remove managed home %q: %w", home, err)
 	}
 
 	return nil
+}
+
+func removeAll(home string) error {
+	_ = filepath.WalkDir(home, func(path string, entry fs.DirEntry, err error) error {
+		if err == nil && entry.IsDir() {
+			_ = os.Chmod(path, 0o700)
+		}
+
+		return nil
+	})
+
+	return os.RemoveAll(home)
 }
 
 func checkedPaths(identity domain.Identity) (root, home string, err error) {
