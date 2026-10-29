@@ -18,11 +18,11 @@ import (
 // Info is a catalog row, including an error for a damaged imported module. Kind says how limanix.toml chooses a
 // bundled module: modules in [nixos] modules, toolchains in [toolchains], shell components in [shell].
 type Info struct {
-	Name        string  `json:"name"`
-	Source      string  `json:"source"`
-	Kind        string  `json:"kind"`
-	Description string  `json:"description"`
-	Error       *string `json:"error"`
+	Name        string  `json:"name" doc:"Full selector, such as lmx:docker, lmx:go-1.27 or third-party:my-tools."`
+	Source      string  `json:"source" doc:"lmx or third-party."`
+	Kind        string  `json:"kind" doc:"modules, toolchains or shell. Imported modules are modules."`
+	Description string  `json:"description" doc:"Catalog description, or Locally imported NixOS module."`
+	Error       *string `json:"error" doc:"null, or a diagnostic for an imported module that fails the registry checks."`
 }
 
 // Available returns bundled modules and independently reports invalid catalog entries.

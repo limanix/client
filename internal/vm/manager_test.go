@@ -80,6 +80,17 @@ func (f *fakeBackend) FetchAll(context.Context) ([]lima.Instance, error) {
 	return instances, nil
 }
 
+func (f *fakeBackend) Fetch(_ context.Context, name string) (lima.Instance, error) {
+	if err := f.called("fetch", name, false, nil); err != nil {
+		return lima.Instance{}, err
+	}
+	instance, ok := f.instances[name]
+	if !ok {
+		return lima.Instance{}, fs.ErrNotExist
+	}
+	return instance, nil
+}
+
 func (f *fakeBackend) Validate(_ context.Context, template string) error {
 	if err := f.called("validate", "", false, nil); err != nil {
 		return err

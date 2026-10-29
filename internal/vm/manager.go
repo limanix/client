@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net"
 	"os"
@@ -107,19 +108,13 @@ func (m *Manager) recordFailure(instance domain.Instance, cause error) error {
 }
 
 func (m *Manager) requireLima(ctx context.Context, identity domain.Identity) (lima.Instance, error) {
-	instances, err := m.backend.FetchAll(ctx)
-	if err != nil {
-		return lima.Instance{}, err
-	}
-
-	for _, instance := range instances {
-		if instance.Name == identity.LimaName() {
-			return instance, nil
+	instance, err := m.backend.Fetch(ctx, identity.LimaName())
+	if errors.Is(err, fs.ErrNotExist) {
+		return lima.Instance{}, &InstanceError{
+			Name:  identity.Name,
+			Cause: ErrBackendMissing,
 		}
 	}
 
-	return lima.Instance{}, &InstanceError{
-		Name:  identity.Name,
-		Cause: ErrBackendMissing,
-	}
+	return instance, err
 }

@@ -14,7 +14,7 @@ func Command(streams IO, dependencies Dependencies) *cobra.Command {
 	dependencies = withDefaultDependencies(streams, dependencies)
 
 	root := &cobra.Command{
-		Use:           "limanix",
+		Use:           "limanix COMMAND",
 		Short:         "Development sandboxes with Lima and NixOS.",
 		Version:       buildinfo.Version,
 		Args:          exactArgs(0),
@@ -33,6 +33,8 @@ func Command(streams IO, dependencies Dependencies) *cobra.Command {
 		return usageError(err)
 	})
 	root.CompletionOptions.DisableDefaultCmd = true
+	root.Flags().BoolP("help", "h", false, "Print the help of limanix or of the command it follows.")
+	root.Flags().BoolP("version", "v", false, "Print the version of the client.")
 	root.PersistentFlags().Bool("debug", false, "Enable internal Lima diagnostic logging.")
 	_ = root.PersistentFlags().MarkHidden("debug")
 
@@ -57,5 +59,12 @@ func Command(streams IO, dependencies Dependencies) *cobra.Command {
 		doctorCommand(dependencies),
 		modulesCommand(dependencies),
 	)
+	root.InitDefaultHelpCmd()
+	if help, _, err := root.Find([]string{"help"}); err == nil {
+		help.Use = "help [COMMAND ...]"
+		help.Short = "Print the help of a command."
+		help.Long = "Print the help of a command. limanix help COMMAND is the same as limanix COMMAND --help; without a " +
+			"command, it prints the help of limanix."
+	}
 	return root
 }

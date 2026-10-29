@@ -2,6 +2,8 @@ package vm
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"slices"
 
 	"golang.org/x/sync/errgroup"
@@ -19,18 +21,32 @@ func (m *Manager) Fetch(ctx context.Context, name domain.VMName) (Info, error) {
 		return Info{}, err
 	}
 
+	info, err := m.fetchInfo(ctx, name)
+	if err != nil {
+		return Info{}, err
+	}
+
+	return info, ctx.Err()
+}
+
+func (m *Manager) fetchInfo(ctx context.Context, name domain.VMName) (Info, error) {
 	entry, err := m.store.Fetch(name)
 	if err != nil {
 		return Info{}, err
 	}
 
-	instances, err := m.listBackend(ctx, []state.Entry{entry})
-	if err != nil {
-		return Info{}, err
+	instances := make(map[string]lima.Instance)
+	if entry.Identity != nil {
+		instance, err := m.backend.Fetch(ctx, entry.Identity.LimaName())
+		switch {
+		case err == nil:
+			instances[instance.Name] = instance
+		case !errors.Is(err, fs.ErrNotExist):
+			return Info{}, err
+		}
 	}
 
-	info := m.instanceInfo(ctx, entry, instances)
-	return info, ctx.Err()
+	return m.instanceInfo(ctx, entry, instances), nil
 }
 
 // FetchAll lists every saved VM, including damaged or interrupted records.

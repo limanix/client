@@ -16,6 +16,7 @@ import (
 // Backend is the VM lifecycle contract implemented by the Lima adapter.
 type Backend interface {
 	Preflight(context.Context, config.Config) error
+	Fetch(context.Context, string) (lima.Instance, error)
 	FetchAll(context.Context) ([]lima.Instance, error)
 	Validate(context.Context, string) error
 	Create(context.Context, string, string) error
@@ -36,6 +37,7 @@ type Store interface {
 
 	// InstanceLock returns a non-nil lock on success and a nil interface on failure.
 	InstanceLock(context.Context, domain.VMName) (io.Closer, error)
+	PortLock(context.Context, int) (io.Closer, error)
 
 	RequireAbsent(domain.VMName) error
 	Remove(domain.VMName) error

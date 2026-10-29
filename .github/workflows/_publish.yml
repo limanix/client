@@ -65,6 +65,22 @@ jobs:
           pattern: ${{ needs.build.outputs.artifact-name }}-*
           merge-multiple: true
           path: bin
+      - name: Describe rebuild
+        id: rebuild
+        if: contains(inputs.release-tag, '+')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release-tag }}
+          MODULES_TAG: ${{ inputs.modules-tag }}
+        run: |
+          base=${TAG%+*}
+          build=${TAG#*+}
+          previous=$base
+          if [ "$build" -gt 1 ]; then previous="$base+$((build - 1))"; fi
+          was=$(gh release view "$previous" --repo "$GITHUB_REPOSITORY" --json body --jq .body |
+            sed -n 's/^Module catalog: \[\(v[0-9]*\)\].*/\1/p')
+          printf 'notes=Rebuild of %s with module catalog %s (was %s); the client source is unchanged.\n' \
+            "$base" "$MODULES_TAG" "${was:-unknown}" >> "$GITHUB_OUTPUT"
       - name: Create release token
         id: release-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -85,9 +101,11 @@ jobs:
           body: |
             Client source: `${{ inputs.commit-sha }}`
             Module catalog: [${{ inputs.modules-tag }}](https://github.com/limanix/modules/releases/tag/${{ inputs.modules-tag }})
+
+            ${{ steps.rebuild.outputs.notes }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: ${{ !contains(inputs.release-tag, '+') }}
           fail_on_unmatched_files: true
           make_latest: legacy
           files: |

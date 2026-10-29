@@ -50,10 +50,14 @@ func (m *Manager) Create(ctx context.Context, path string) (result domain.Instan
 		return result, err
 	}
 
-	port, err := m.sshPort(ctx, lima.Instance{})
+	port, release, err := m.sshPort(ctx, lima.Instance{})
 	if err != nil {
 		return result, err
 	}
+
+	defer func() {
+		err = errors.Join(err, release())
+	}()
 
 	template, err := m.prepareCreation(ctx, result, cfg, port)
 	if err != nil {

@@ -75,7 +75,7 @@ func (s *Store) Initialize() error {
 		return fmt.Errorf("initialize state at %s: %w", s.root, err)
 	}
 
-	for _, relative := range []string{"instances", "modules", "homes", "locks", "locks/instances"} {
+	for _, relative := range []string{"instances", "modules", "homes", "locks", "locks/instances", "locks/ports"} {
 		directory := filepath.Join(s.root, relative)
 		if err := filesystem.CheckDirectory(directory); err != nil {
 			return err

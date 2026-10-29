@@ -8,22 +8,22 @@ import (
 
 // Resources specifies the guest architecture and compute capacity.
 type Resources struct {
-	Arch domain.Architecture `toml:"arch" json:"arch" doc:"Guest architecture; the Mac's own by default."`
-	Disk domain.ByteSize     `toml:"disk" json:"disk" doc:"Guest system disk size in GiB."`
+	Arch domain.Architecture `toml:"arch" json:"arch" doc:"Guest architecture; the Mac's own by default." update:"fixed"`
+	Disk domain.ByteSize     `toml:"disk" json:"disk" doc:"Guest system disk size in GiB." update:"grow"`
 	Mem  domain.ByteSize     `toml:"mem" json:"mem" doc:"Guest memory size in GiB."`
 	CPU  int                 `toml:"cpu" json:"cpu" doc:"Guest CPU count, a positive integer."`
 }
 
 // User configures the regular account created inside the guest.
 type User struct {
-	Name domain.Username  `toml:"name" json:"name" doc:"Regular guest username."`
-	Home domain.GuestPath `toml:"home" json:"home" doc:"Guest user's home directory."`
+	Name domain.Username  `toml:"name" json:"name" doc:"Regular guest username." update:"fixed"`
+	Home domain.GuestPath `toml:"home" json:"home" doc:"Guest user's home directory." update:"fixed"`
 	Sudo bool             `toml:"sudo" json:"sudo" doc:"Passwordless sudo inside the guest."`
 }
 
 // Home selects the host directory that owns persistent guest home directories.
 type Home struct {
-	Root string `toml:"root" json:"root" doc:"Host root for <root>/<name>-<id>. Limanix creates this directory on the Mac and mounts it at user.home with read-write access."`
+	Root string `toml:"root" json:"root" doc:"Host root for <root>/<name>-<id>. Limanix creates this directory on the Mac and mounts it at user.home with read-write access." update:"fixed"`
 }
 
 // Shell chooses the interactive environment of the development account from the catalog's shell components.
@@ -102,7 +102,7 @@ type Config struct {
 	NixOS         NixOS                              `toml:"nixos" json:"nixos" doc:"Trusted modules that configure the guest system."`
 	Theme         Theme                              `toml:"theme" json:"theme" doc:"Colors of the guest."`
 	Network       Network                            `toml:"network" json:"network" doc:"Guest network and inbound firewall ports."`
-	Env           map[domain.EnvName]domain.EnvValue `toml:"env" json:"env" doc:"Guest-wide environment for login sessions and system/user services."`
+	Env           map[domain.EnvName]domain.EnvValue `toml:"env" json:"env" doc:"Guest-wide environment for login sessions and system/user services. PATH is managed by NixOS and cannot be set."`
 	Mounts        []Mount                            `toml:"mounts" json:"mounts" doc:"Host directories mounted inside the guest."`
 }
 

@@ -3,6 +3,7 @@ package vm
 import (
 	"context"
 	"errors"
+	"io/fs"
 
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/lima"
@@ -62,26 +63,22 @@ func (m *Manager) deleteResources(ctx context.Context, identity domain.Identity,
 }
 
 func (m *Manager) deleteBackend(ctx context.Context, name string, force bool) error {
-	instances, err := m.backend.FetchAll(ctx)
+	instance, err := m.backend.Fetch(ctx, name)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+
 	if err != nil {
 		return err
 	}
 
-	for _, instance := range instances {
-		if instance.Name != name {
-			continue
+	if instance.Status == lima.Running && !force {
+		if err = m.backend.Stop(ctx, name); err != nil {
+			return err
 		}
-
-		if instance.Status == lima.Running && !force {
-			if err = m.backend.Stop(ctx, name); err != nil {
-				return err
-			}
-		}
-
-		return m.backend.Delete(ctx, name, force)
 	}
 
-	return nil
+	return m.backend.Delete(ctx, name, force)
 }
 
 func (m *Manager) releaseHome(identity domain.Identity, remove bool) error {

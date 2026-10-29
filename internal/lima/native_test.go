@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/lima-vm/lima/v2/pkg/limatype"
 	"github.com/lima-vm/lima/v2/pkg/limatype/filenames"
@@ -138,27 +137,23 @@ func TestNativeStartUsesSelfAndPackagedAgent(t *testing.T) {
 	}
 }
 
-func TestNativeStartForwardsCancellationAndCleansFailure(t *testing.T) {
+func TestNativeStartKeepsBootingOnCancellationAndCleansFailure(t *testing.T) {
 	for _, mode := range []string{"inflight", "cancel-at-success", "failure"} {
 		t.Run(mode, func(t *testing.T) {
 			client, inst := nativeLifecycleClient(t, limatype.AARCH64)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			var child context.Context
+			children := make(chan context.Context, 1)
+			booted := make(chan struct{})
+			defer close(booted)
 			client.native.start = func(actual context.Context, _ *limatype.Instance, _ bool, _ bool, _ string, _ string) error {
-				child = actual
+				children <- actual
 				switch mode {
 				case "inflight":
 					cancel()
-					select {
-					case <-actual.Done():
-						return actual.Err()
-					case <-time.After(time.Second):
-						t.Fatal("startup did not receive cancellation")
-					}
+					<-booted
 				case "cancel-at-success":
 					cancel()
-					return nil
 				case "failure":
 					return errors.New("startup failed")
 				}
@@ -171,10 +166,16 @@ func TestNativeStartForwardsCancellationAndCleansFailure(t *testing.T) {
 			if mode != "failure" && !errors.Is(err, context.Canceled) {
 				t.Fatalf("lost cancellation cause: %v", err)
 			}
+			child := <-children
 			select {
 			case <-child.Done():
+				if mode != "failure" {
+					t.Fatal("cancellation stopped the booting hostagent")
+				}
 			default:
-				t.Fatal("unsuccessful startup retained hostagent context")
+				if mode == "failure" {
+					t.Fatal("failed startup retained hostagent context")
+				}
 			}
 		})
 	}
@@ -241,6 +242,7 @@ func TestNativeStopDeleteOrderingAndForce(t *testing.T) {
 		calls = append(calls, "stop")
 		return nil
 	}
+	inst.Status = limatype.StatusRunning
 	if err := client.Stop(context.Background(), inst.Name); err != nil {
 		t.Fatal(err)
 	}
@@ -350,6 +352,7 @@ func TestNativeStopPreservesCancellationCause(t *testing.T) {
 		cancel()
 		return errors.New("timed out waiting for instance to shut down after 3 minutes")
 	}
+	inst.Status = limatype.StatusRunning
 	if err := client.Stop(ctx, inst.Name); !errors.Is(err, context.Canceled) {
 		t.Fatalf("lost upstream shutdown cancellation: %v", err)
 	}

@@ -31,6 +31,14 @@ func Validate(config Config) error {
 		return fieldError("toolchains.gradle", `needs a JDK: add java to [toolchains], such as java = "21"`)
 	}
 
+	if _, set := config.Env["PATH"]; set {
+		return fieldError("env.PATH", "is managed by NixOS: add commands with [nixos] packages")
+	}
+
+	if err := validateHostPaths(config); err != nil {
+		return err
+	}
+
 	if err := validatePorts(config.Network.Ports.TCP, "tcp"); err != nil {
 		return err
 	}
@@ -40,6 +48,24 @@ func Validate(config Config) error {
 	}
 
 	return validateMounts(config.User.Home, config.Mounts)
+}
+
+func validateHostPaths(config Config) error {
+	if strings.ContainsRune(config.Home.Root, ',') {
+		return fieldError("home.root", "host paths cannot contain ','")
+	}
+
+	if strings.ContainsRune(string(config.Shell.Dotfiles), ',') {
+		return fieldError("shell.dotfiles", "host paths cannot contain ','")
+	}
+
+	for index, mount := range config.Mounts {
+		if strings.ContainsRune(mount.Source, ',') {
+			return fieldError(fmt.Sprintf("mounts[%d].source", index), "host paths cannot contain ','")
+		}
+	}
+
+	return nil
 }
 
 func validatePorts(ports []int, protocol string) error {
@@ -116,13 +142,9 @@ func checkedGuestTarget(value domain.GuestPath, field string) (string, error) {
 	)
 
 	for _, root := range reserved {
-		if isWithin(target, root) {
+		if isWithin(target, root) || isWithin(root, target) {
 			return "", fieldError(field, "destination is reserved for the guest system")
 		}
-	}
-
-	if isWithin("/home/limanix-admin", target) {
-		return "", fieldError(field, "destination is reserved for the guest system")
 	}
 
 	return target, nil

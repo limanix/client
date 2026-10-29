@@ -25,10 +25,10 @@ const (
 // Check is a check record of the host contract: what was checked, how it stands, and a hint when there is something
 // to do.
 type Check struct {
-	Check   string      `json:"check"`
-	Status  CheckStatus `json:"status"`
-	Message string      `json:"message"`
-	Hint    string      `json:"hint,omitempty"`
+	Check   string      `json:"check" doc:"Check name."`
+	Status  CheckStatus `json:"status" doc:"ok, warning, failed or unknown."`
+	Message string      `json:"message" doc:"What the check found."`
+	Hint    string      `json:"hint,omitempty" doc:"What to do about it. Present only when there is something to do."`
 }
 
 type checksData struct {

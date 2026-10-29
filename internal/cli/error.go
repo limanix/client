@@ -36,6 +36,20 @@ func (e *exitError) Unwrap() error {
 	return e.err
 }
 
+var exitStatuses = []ExitStatus{
+	{Status: exitCode(0), What: "Success."},
+	{Status: exitCode(1), What: "The command failed. `limanix doctor` and `limanix network check` also exit with `1`, " +
+		"after printing every check, when one failed."},
+	{Status: exitCode(2), What: "Usage error, such as an unknown command, a missing argument, a missing `--config`, " +
+		"or `-q` with `--json`."},
+	{Status: exitCode(130), What: "The command was interrupted: Ctrl-C, `SIGTERM`, or a closed terminal."},
+	{What: "`limanix shell` exits with the status of the guest command or shell."},
+}
+
+func exitCode(code int) *int {
+	return &code
+}
+
 func usageError(err error) error {
 	return &exitError{
 		code: 2,

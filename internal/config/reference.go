@@ -9,14 +9,23 @@ import (
 
 // Field is a key of limanix.toml: its TOML type, the values it accepts, its default as a TOML literal, and its
 // description. A table has no default, and an entry field of a table array has one only when the model declares it.
+// Update is fixed for a key that only create sets, or grow for one that update may only raise; Format is the rule
+// that a value must follow.
 type Field struct {
 	Key      string   `json:"key"`
 	Type     string   `json:"type"`
 	Choices  []string `json:"choices"`
 	Default  *string  `json:"default"`
 	Required bool     `json:"required"`
+	Update   *string  `json:"update"`
+	Format   *string  `json:"format"`
 	Example  *string  `json:"example"`
 	Doc      string   `json:"doc"`
+}
+
+var formats = map[reflect.Type]error{
+	byteSizeType:                     domain.ErrInvalidSizeFormat,
+	reflect.TypeFor[domain.VMName](): domain.ErrInvalidVMName,
 }
 
 // Reference lists every key of limanix.toml from the model's types, tags and defaults. The guest architecture has no
@@ -78,6 +87,14 @@ func valueField(key string, item reflect.StructField) Field {
 	}
 	if example, ok := item.Tag.Lookup("example"); ok {
 		field.Example = &example
+	}
+	if update, ok := item.Tag.Lookup("update"); ok {
+		field.Update = &update
+	}
+	if rule, ok := formats[item.Type]; ok {
+		text := strings.TrimPrefix(rule.Error(), "expected ")
+		text = strings.ToUpper(text[:1]) + text[1:] + "."
+		field.Format = &text
 	}
 
 	return field

@@ -47,10 +47,10 @@ jobs:
           path: |
             .cache/go
             .cache/nix
-          key: pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum', 'internal/nixos/resources/flake.lock.tmpl') }}-${{ inputs.modules-tag }}-${{ matrix.id }}-${{ github.sha }}
+          key: pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}-${{ inputs.modules-tag }}-${{ matrix.id }}-${{ github.sha }}
           restore-keys: |
-            pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum', 'internal/nixos/resources/flake.lock.tmpl') }}-${{ inputs.modules-tag }}-${{ matrix.id }}-
-            pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum', 'internal/nixos/resources/flake.lock.tmpl') }}-
+            pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}-${{ inputs.modules-tag }}-${{ matrix.id }}-
+            pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}-
       - name: Prepare Nix cache permissions
         run: |
           mkdir -p .cache/nix

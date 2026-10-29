@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -56,6 +57,22 @@ func (s *Store) vmLock(ctx context.Context, name domain.VMName, shared bool) (*L
 		0,
 		fmt.Sprintf("another operation is running for VM %q", name),
 	)
+}
+
+// PortLock reserves an SSH port for one operation and immediately rejects a port that another one holds.
+func (s *Store) PortLock(ctx context.Context, port int) (io.Closer, error) {
+	lock, err := s.lock(
+		ctx,
+		filepath.Join(s.root, "locks", "ports", strconv.Itoa(port)+".lock"),
+		false,
+		0,
+		fmt.Sprintf("SSH port %d is reserved by another operation", port),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return lock, nil
 }
 
 // RegistryLock supports concurrent readers and waits a bounded time for writers.

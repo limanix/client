@@ -14,7 +14,7 @@ import (
 
 func networkCommand(dependencies Dependencies) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "network",
+		Use:   "network COMMAND",
 		Short: "Prepare macOS networking for QEMU guests and check connections to a VM.",
 		Args:  exactArgs(0),
 		RunE: func(cmd *cobra.Command, _ []string) error {

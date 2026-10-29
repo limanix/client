@@ -43,6 +43,20 @@ func (client *Client) inspectInstance(ctx context.Context, name string) (*limaty
 	return inst, nil
 }
 
+// Fetch inspects one Limanix-owned instance; a missing instance is os.ErrNotExist.
+func (client *Client) Fetch(ctx context.Context, name string) (instance Instance, failure error) {
+	defer func() {
+		failure = operationError(ctx, "list", failure)
+	}()
+
+	upstream, err := client.inspectInstance(ctx, name)
+	if err != nil {
+		return Instance{}, err
+	}
+
+	return instanceMetadata(upstream)
+}
+
 // FetchAll enumerates the native Lima store and filters foreign names before inspecting them.
 func (client *Client) FetchAll(ctx context.Context) (instances []Instance, failure error) {
 	defer func() {

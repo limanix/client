@@ -2,11 +2,35 @@
   "commands": [
     {
       "name": "limanix",
-      "usage": "limanix",
+      "usage": "limanix COMMAND [flags]",
       "about": "Development sandboxes with Lima and NixOS.",
       "details": null,
-      "args": [],
-      "checks": []
+      "args": [
+        {
+          "name": "--help",
+          "short": "-h",
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print the help of limanix or of the command it follows.",
+          "details": null
+        },
+        {
+          "name": "--version",
+          "short": "-v",
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print the version of the client.",
+          "details": null
+        }
+      ],
+      "checks": [],
+      "output": [],
+      "columns": [],
+      "json": []
     },
     {
       "name": "limanix create",
@@ -18,7 +42,7 @@
           "name": "--config",
           "short": null,
           "value": "string",
-          "required": false,
+          "required": true,
           "default": null,
           "values": [],
           "about": "Path to the VM configuration file (required).",
@@ -35,7 +59,53 @@
           "details": null
         }
       ],
-      "checks": []
+      "checks": [],
+      "output": [
+        "Created NAME. Managed home: PATH"
+      ],
+      "columns": [],
+      "json": [
+        {
+          "id": "name",
+          "what": "VM name."
+        },
+        {
+          "id": "address",
+          "what": "Guest IPv4 address on the shared network, or an empty string."
+        },
+        {
+          "id": "disk",
+          "what": "bytes, free_bytes, inodes and free_inodes of the guest disk, or null when not read."
+        },
+        {
+          "id": "home",
+          "what": "Path of the managed home on the Mac; null when the identity record cannot be read."
+        },
+        {
+          "id": "lima_name",
+          "what": "Name of the Lima instance; null when the identity record cannot be read."
+        },
+        {
+          "id": "error",
+          "what": "Saved error of the last operation, or null."
+        },
+        {
+          "id": "notice",
+          "what": "What to do to make the guest answer. Present only when there is a notice."
+        },
+        {
+          "id": "state",
+          "what": "As STATE; null when the operation record cannot be read."
+        },
+        {
+          "id": "arch",
+          "what": "Guest architecture, arm64 or amd64; null when the identity record cannot be read."
+        },
+        {
+          "id": "status",
+          "what": "As STATUS; null when no Lima instance matches or the identity record cannot be read."
+        }
+      ]
     },
     {
       "name": "limanix delete",
@@ -43,6 +113,16 @@
       "about": "Delete a VM; preserve its managed host home by default.",
       "details": null,
       "args": [
+        {
+          "name": "NAME",
+          "short": null,
+          "value": "string",
+          "required": true,
+          "default": null,
+          "values": [],
+          "about": "VM name.",
+          "details": null
+        },
         {
           "name": "--force",
           "short": null,
@@ -74,7 +154,22 @@
           "details": null
         }
       ],
-      "checks": []
+      "checks": [],
+      "output": [
+        "Deleted NAME.",
+        "Preserved managed home: PATH"
+      ],
+      "columns": [],
+      "json": [
+        {
+          "id": "name",
+          "what": "VM name."
+        },
+        {
+          "id": "home",
+          "what": "Path of the managed home that delete kept, or null with --remove-home."
+        }
+      ]
     },
     {
       "name": "limanix doctor",
@@ -82,6 +177,16 @@
       "about": "Check a VM, its address, and the guest owner lmx.",
       "details": "Check a VM, its address, and the guest owner lmx. Each check is ok, warning, failed, or unknown, with a hint when there is something to do. The command exits with status 1 when a check failed.",
       "args": [
+        {
+          "name": "NAME",
+          "short": null,
+          "value": "string",
+          "required": true,
+          "default": null,
+          "values": [],
+          "about": "VM name.",
+          "details": null
+        },
         {
           "name": "--json",
           "short": null,
@@ -106,6 +211,34 @@
           "id": "guest",
           "what": "Takes the place of the guest checks when the guest gives no answer."
         }
+      ],
+      "output": [],
+      "columns": [],
+      "json": [
+        {
+          "id": "name",
+          "what": "VM name."
+        },
+        {
+          "id": "checks",
+          "what": "The checks in the order they ran."
+        },
+        {
+          "id": "checks[].check",
+          "what": "Check name."
+        },
+        {
+          "id": "checks[].status",
+          "what": "ok, warning, failed or unknown."
+        },
+        {
+          "id": "checks[].message",
+          "what": "What the check found."
+        },
+        {
+          "id": "checks[].hint",
+          "what": "What to do about it. Present only when there is something to do."
+        }
       ]
     },
     {
@@ -113,8 +246,46 @@
       "usage": "limanix first-config [PATH]",
       "about": "Write the default limanix.toml.",
       "details": "Write the default limanix.toml in an existing directory (default: current directory). Existing files are overwritten; configuration symlinks are rejected.",
-      "args": [],
-      "checks": []
+      "args": [
+        {
+          "name": "PATH",
+          "short": null,
+          "value": "string",
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Existing directory to write `limanix.toml` into; the current directory when omitted.",
+          "details": null
+        }
+      ],
+      "checks": [],
+      "output": [
+        "Wrote PATH."
+      ],
+      "columns": [],
+      "json": []
+    },
+    {
+      "name": "limanix help",
+      "usage": "limanix help [COMMAND ...]",
+      "about": "Print the help of a command.",
+      "details": "Print the help of a command. limanix help COMMAND is the same as limanix COMMAND --help; without a command, it prints the help of limanix.",
+      "args": [
+        {
+          "name": "COMMAND ...",
+          "short": null,
+          "value": "strings",
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Command to explain, such as `network check`.",
+          "details": null
+        }
+      ],
+      "checks": [],
+      "output": [],
+      "columns": [],
+      "json": []
     },
     {
       "name": "limanix list",
@@ -143,23 +314,117 @@
           "details": null
         }
       ],
-      "checks": []
+      "checks": [],
+      "output": [],
+      "columns": [
+        {
+          "id": "NAME",
+          "what": "VM name."
+        },
+        {
+          "id": "STATUS",
+          "what": "Lima's power state, such as `Running` or `Stopped`. `Missing` when no Lima instance matches the saved VM, or its identity record cannot be read."
+        },
+        {
+          "id": "STATE",
+          "what": "The last LimaNix operation: `ready`, `error` or `interrupted`; `creating`, `updating` or `deleting` while one runs; `corrupt` when the operation record cannot be read."
+        },
+        {
+          "id": "ADDRESS",
+          "what": "The guest's IPv4 address on the shared network, or `-` when none was read."
+        },
+        {
+          "id": "DISK",
+          "what": "Used share of the guest disk, by bytes or, when they are scarcer, by inodes, such as `97% inodes`. `-` when the VM is stopped or did not answer."
+        }
+      ],
+      "json": [
+        {
+          "id": "name",
+          "what": "VM name."
+        },
+        {
+          "id": "address",
+          "what": "Guest IPv4 address on the shared network, or an empty string."
+        },
+        {
+          "id": "disk",
+          "what": "bytes, free_bytes, inodes and free_inodes of the guest disk, or null when not read."
+        },
+        {
+          "id": "home",
+          "what": "Path of the managed home on the Mac; null when the identity record cannot be read."
+        },
+        {
+          "id": "lima_name",
+          "what": "Name of the Lima instance; null when the identity record cannot be read."
+        },
+        {
+          "id": "error",
+          "what": "Saved error of the last operation, or null."
+        },
+        {
+          "id": "notice",
+          "what": "What to do to make the guest answer. Present only when there is a notice."
+        },
+        {
+          "id": "state",
+          "what": "As STATE; null when the operation record cannot be read."
+        },
+        {
+          "id": "arch",
+          "what": "Guest architecture, arm64 or amd64; null when the identity record cannot be read."
+        },
+        {
+          "id": "status",
+          "what": "As STATUS; null when no Lima instance matches or the identity record cannot be read."
+        }
+      ]
     },
     {
       "name": "limanix modules",
-      "usage": "limanix modules",
+      "usage": "limanix modules COMMAND",
       "about": "Manage bundled and third-party NixOS modules.",
       "details": null,
       "args": [],
-      "checks": []
+      "checks": [],
+      "output": [],
+      "columns": [],
+      "json": []
     },
     {
       "name": "limanix modules add",
       "usage": "limanix modules add NAME DIRECTORY",
       "about": "Import a directory containing default.nix.",
       "details": null,
-      "args": [],
-      "checks": []
+      "args": [
+        {
+          "name": "NAME",
+          "short": null,
+          "value": "string",
+          "required": true,
+          "default": null,
+          "values": [],
+          "about": "Module name without `third-party:`: up to 63 lowercase letters, digits and single hyphens, with every hyphen-separated part starting with a letter.",
+          "details": null
+        },
+        {
+          "name": "DIRECTORY",
+          "short": null,
+          "value": "string",
+          "required": true,
+          "default": null,
+          "values": [],
+          "about": "Directory with a regular file named `default.nix` at its root. It may be relative, absolute or start with `~`.",
+          "details": null
+        }
+      ],
+      "checks": [],
+      "output": [
+        "Imported third-party:NAME."
+      ],
+      "columns": [],
+      "json": []
     },
     {
       "name": "limanix modules list",
@@ -188,23 +453,66 @@
           "details": null
         }
       ],
-      "checks": []
+      "checks": [],
+      "output": [],
+      "columns": [],
+      "json": [
+        {
+          "id": "name",
+          "what": "Full selector, such as lmx:docker, lmx:go-1.27 or third-party:my-tools."
+        },
+        {
+          "id": "source",
+          "what": "lmx or third-party."
+        },
+        {
+          "id": "kind",
+          "what": "modules, toolchains or shell. Imported modules are modules."
+        },
+        {
+          "id": "description",
+          "what": "Catalog description, or Locally imported NixOS module."
+        },
+        {
+          "id": "error",
+          "what": "null, or a diagnostic for an imported module that fails the registry checks."
+        }
+      ]
     },
     {
       "name": "limanix modules remove",
       "usage": "limanix modules remove NAME",
       "about": "Remove an imported module from the catalog.",
       "details": null,
-      "args": [],
-      "checks": []
+      "args": [
+        {
+          "name": "NAME",
+          "short": null,
+          "value": "string",
+          "required": true,
+          "default": null,
+          "values": [],
+          "about": "Name of an imported module, without `third-party:`.",
+          "details": null
+        }
+      ],
+      "checks": [],
+      "output": [
+        "Removed third-party:NAME from the catalog."
+      ],
+      "columns": [],
+      "json": []
     },
     {
       "name": "limanix network",
-      "usage": "limanix network",
+      "usage": "limanix network COMMAND",
       "about": "Prepare macOS networking for QEMU guests and check connections to a VM.",
       "details": null,
       "args": [],
-      "checks": []
+      "checks": [],
+      "output": [],
+      "columns": [],
+      "json": []
     },
     {
       "name": "limanix network check",
@@ -212,6 +520,26 @@
       "about": "Check why a guest port may be unreachable from the Mac.",
       "details": "Check the VM and its address, the guest firewall, the listener and its process, then connect to a TCP port from the Mac; a UDP port has no connection to try. The command exits with status 1 when a check failed.",
       "args": [
+        {
+          "name": "NAME",
+          "short": null,
+          "value": "string",
+          "required": true,
+          "default": null,
+          "values": [],
+          "about": "VM name.",
+          "details": null
+        },
+        {
+          "name": "PORT",
+          "short": null,
+          "value": "uint16",
+          "required": true,
+          "default": null,
+          "values": [],
+          "about": "Port number from 1 to 65535.",
+          "details": null
+        },
         {
           "name": "--json",
           "short": null,
@@ -250,6 +578,42 @@
           "id": "connect",
           "what": "The Mac connects to the address and port within 3 seconds. Only for a TCP port."
         }
+      ],
+      "output": [],
+      "columns": [],
+      "json": [
+        {
+          "id": "name",
+          "what": "VM name."
+        },
+        {
+          "id": "port",
+          "what": "Checked port."
+        },
+        {
+          "id": "protocol",
+          "what": "tcp or udp."
+        },
+        {
+          "id": "checks",
+          "what": "The checks in the order they ran."
+        },
+        {
+          "id": "checks[].check",
+          "what": "Check name."
+        },
+        {
+          "id": "checks[].status",
+          "what": "ok, warning, failed or unknown."
+        },
+        {
+          "id": "checks[].message",
+          "what": "What the check found."
+        },
+        {
+          "id": "checks[].hint",
+          "what": "What to do about it. Present only when there is something to do."
+        }
       ]
     },
     {
@@ -258,7 +622,10 @@
       "about": "Install the bundled socket_vmnet helper and Lima sudoers with administrator approval.",
       "details": null,
       "args": [],
-      "checks": []
+      "checks": [],
+      "output": [],
+      "columns": [],
+      "json": []
     },
     {
       "name": "limanix shell",
@@ -266,6 +633,26 @@
       "about": "Connect as the configured development user.",
       "details": "Connect as the configured development user. With --session, create or attach to a named persistent session. Select a session provider in the VM configuration. --session cannot be combined with a guest command.",
       "args": [
+        {
+          "name": "NAME",
+          "short": null,
+          "value": "string",
+          "required": true,
+          "default": null,
+          "values": [],
+          "about": "VM name.",
+          "details": null
+        },
+        {
+          "name": "COMMAND ...",
+          "short": null,
+          "value": "strings",
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Guest command and its arguments, after `--`. They reach the guest unchanged, without a guest shell.",
+          "details": null
+        },
         {
           "name": "--session",
           "short": null,
@@ -277,7 +664,10 @@
           "details": null
         }
       ],
-      "checks": []
+      "checks": [],
+      "output": [],
+      "columns": [],
+      "json": []
     },
     {
       "name": "limanix start",
@@ -286,24 +676,15 @@
       "details": null,
       "args": [
         {
-          "name": "--json",
+          "name": "NAME",
           "short": null,
-          "value": null,
-          "required": false,
+          "value": "string",
+          "required": true,
           "default": null,
           "values": [],
-          "about": "Print the VM as machine-readable JSON.",
+          "about": "VM name.",
           "details": null
-        }
-      ],
-      "checks": []
-    },
-    {
-      "name": "limanix stop",
-      "usage": "limanix stop NAME [flags]",
-      "about": "Stop a VM and preserve its disk and home.",
-      "details": null,
-      "args": [
+        },
         {
           "name": "--json",
           "short": null,
@@ -315,7 +696,128 @@
           "details": null
         }
       ],
-      "checks": []
+      "checks": [],
+      "output": [
+        "Started NAME."
+      ],
+      "columns": [],
+      "json": [
+        {
+          "id": "name",
+          "what": "VM name."
+        },
+        {
+          "id": "address",
+          "what": "Guest IPv4 address on the shared network, or an empty string."
+        },
+        {
+          "id": "disk",
+          "what": "bytes, free_bytes, inodes and free_inodes of the guest disk, or null when not read."
+        },
+        {
+          "id": "home",
+          "what": "Path of the managed home on the Mac; null when the identity record cannot be read."
+        },
+        {
+          "id": "lima_name",
+          "what": "Name of the Lima instance; null when the identity record cannot be read."
+        },
+        {
+          "id": "error",
+          "what": "Saved error of the last operation, or null."
+        },
+        {
+          "id": "notice",
+          "what": "What to do to make the guest answer. Present only when there is a notice."
+        },
+        {
+          "id": "state",
+          "what": "As STATE; null when the operation record cannot be read."
+        },
+        {
+          "id": "arch",
+          "what": "Guest architecture, arm64 or amd64; null when the identity record cannot be read."
+        },
+        {
+          "id": "status",
+          "what": "As STATUS; null when no Lima instance matches or the identity record cannot be read."
+        }
+      ]
+    },
+    {
+      "name": "limanix stop",
+      "usage": "limanix stop NAME [flags]",
+      "about": "Stop a VM and preserve its disk and home.",
+      "details": null,
+      "args": [
+        {
+          "name": "NAME",
+          "short": null,
+          "value": "string",
+          "required": true,
+          "default": null,
+          "values": [],
+          "about": "VM name.",
+          "details": null
+        },
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print the VM as machine-readable JSON.",
+          "details": null
+        }
+      ],
+      "checks": [],
+      "output": [
+        "Stopped NAME."
+      ],
+      "columns": [],
+      "json": [
+        {
+          "id": "name",
+          "what": "VM name."
+        },
+        {
+          "id": "address",
+          "what": "Guest IPv4 address on the shared network, or an empty string."
+        },
+        {
+          "id": "disk",
+          "what": "bytes, free_bytes, inodes and free_inodes of the guest disk, or null when not read."
+        },
+        {
+          "id": "home",
+          "what": "Path of the managed home on the Mac; null when the identity record cannot be read."
+        },
+        {
+          "id": "lima_name",
+          "what": "Name of the Lima instance; null when the identity record cannot be read."
+        },
+        {
+          "id": "error",
+          "what": "Saved error of the last operation, or null."
+        },
+        {
+          "id": "notice",
+          "what": "What to do to make the guest answer. Present only when there is a notice."
+        },
+        {
+          "id": "state",
+          "what": "As STATE; null when the operation record cannot be read."
+        },
+        {
+          "id": "arch",
+          "what": "Guest architecture, arm64 or amd64; null when the identity record cannot be read."
+        },
+        {
+          "id": "status",
+          "what": "As STATUS; null when no Lima instance matches or the identity record cannot be read."
+        }
+      ]
     },
     {
       "name": "limanix update",
@@ -327,7 +829,7 @@
           "name": "--config",
           "short": null,
           "value": "string",
-          "required": false,
+          "required": true,
           "default": null,
           "values": [],
           "about": "Path to the VM configuration file (required).",
@@ -344,7 +846,87 @@
           "details": null
         }
       ],
-      "checks": []
+      "checks": [],
+      "output": [
+        "Updated NAME."
+      ],
+      "columns": [],
+      "json": [
+        {
+          "id": "name",
+          "what": "VM name."
+        },
+        {
+          "id": "address",
+          "what": "Guest IPv4 address on the shared network, or an empty string."
+        },
+        {
+          "id": "disk",
+          "what": "bytes, free_bytes, inodes and free_inodes of the guest disk, or null when not read."
+        },
+        {
+          "id": "home",
+          "what": "Path of the managed home on the Mac; null when the identity record cannot be read."
+        },
+        {
+          "id": "lima_name",
+          "what": "Name of the Lima instance; null when the identity record cannot be read."
+        },
+        {
+          "id": "error",
+          "what": "Saved error of the last operation, or null."
+        },
+        {
+          "id": "notice",
+          "what": "What to do to make the guest answer. Present only when there is a notice."
+        },
+        {
+          "id": "state",
+          "what": "As STATE; null when the operation record cannot be read."
+        },
+        {
+          "id": "arch",
+          "what": "Guest architecture, arm64 or amd64; null when the identity record cannot be read."
+        },
+        {
+          "id": "status",
+          "what": "As STATUS; null when no Lima instance matches or the identity record cannot be read."
+        }
+      ]
+    }
+  ],
+  "exit_statuses": [
+    {
+      "status": 0,
+      "what": "Success."
+    },
+    {
+      "status": 1,
+      "what": "The command failed. `limanix doctor` and `limanix network check` also exit with `1`, after printing every check, when one failed."
+    },
+    {
+      "status": 2,
+      "what": "Usage error, such as an unknown command, a missing argument, a missing `--config`, or `-q` with `--json`."
+    },
+    {
+      "status": 130,
+      "what": "The command was interrupted: Ctrl-C, `SIGTERM`, or a closed terminal."
+    },
+    {
+      "status": null,
+      "what": "`limanix shell` exits with the status of the guest command or shell."
+    }
+  ],
+  "environment": [
+    {
+      "id": "LIMANIX_HOME",
+      "default": "~/Library/Application Support/Limanix",
+      "what": "LimaNix state: VM records, prepared configurations and imported modules."
+    },
+    {
+      "id": "LIMA_HOME",
+      "default": "~/.lima",
+      "what": "Lima's instances, each in a directory with its host agent logs `ha.stdout.log` and `ha.stderr.log`."
     }
   ],
   "config": [
@@ -354,6 +936,8 @@
       "choices": [],
       "default": "1",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Contract version, independent of the installed Limanix package version."
     },
@@ -363,6 +947,8 @@
       "choices": [],
       "default": "\"example-box\"",
       "required": false,
+      "update": null,
+      "format": "A lowercase hostname label of 1 to 63 characters.",
       "example": null,
       "doc": "Sandbox name."
     },
@@ -372,6 +958,8 @@
       "choices": [],
       "default": null,
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Regular guest user and sudo access."
     },
@@ -381,6 +969,8 @@
       "choices": [],
       "default": "\"dev\"",
       "required": false,
+      "update": "fixed",
+      "format": null,
       "example": null,
       "doc": "Regular guest username."
     },
@@ -390,6 +980,8 @@
       "choices": [],
       "default": "\"/home/dev\"",
       "required": false,
+      "update": "fixed",
+      "format": null,
       "example": null,
       "doc": "Guest user's home directory."
     },
@@ -399,6 +991,8 @@
       "choices": [],
       "default": "true",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Passwordless sudo inside the guest."
     },
@@ -408,6 +1002,8 @@
       "choices": [],
       "default": null,
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Guest architecture and compute resources."
     },
@@ -420,6 +1016,8 @@
       ],
       "default": null,
       "required": false,
+      "update": "fixed",
+      "format": null,
       "example": null,
       "doc": "Guest architecture; the Mac's own by default."
     },
@@ -429,6 +1027,8 @@
       "choices": [],
       "default": "\"10GiB\"",
       "required": false,
+      "update": "grow",
+      "format": "A positive whole GiB size, such as 8GiB.",
       "example": null,
       "doc": "Guest system disk size in GiB."
     },
@@ -438,6 +1038,8 @@
       "choices": [],
       "default": "\"8GiB\"",
       "required": false,
+      "update": null,
+      "format": "A positive whole GiB size, such as 8GiB.",
       "example": null,
       "doc": "Guest memory size in GiB."
     },
@@ -447,6 +1049,8 @@
       "choices": [],
       "default": "4",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Guest CPU count, a positive integer."
     },
@@ -456,6 +1060,8 @@
       "choices": [],
       "default": null,
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Host storage for the guest user's home directory."
     },
@@ -465,6 +1071,8 @@
       "choices": [],
       "default": "\"~/.limanix\"",
       "required": false,
+      "update": "fixed",
+      "format": null,
       "example": null,
       "doc": "Host root for <root>/<name>-<id>. Limanix creates this directory on the Mac and mounts it at user.home with read-write access."
     },
@@ -474,6 +1082,8 @@
       "choices": [],
       "default": null,
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Shell, prompt, editor and multiplexer of the development account."
     },
@@ -486,6 +1096,8 @@
       ],
       "default": "\"terminal\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Shell preset: terminal is Zsh with Oh My Zsh, the CLI tools, Lazygit, Yazi and the GitHub CLI; minimal is Bash with the CLI tools."
     },
@@ -499,6 +1111,8 @@
       ],
       "default": "\"pure\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Zsh prompt of the terminal preset; none leaves the prompt to your startup files. The minimal preset has no prompt to choose: there it defaults to and must be none."
     },
@@ -512,6 +1126,8 @@
       ],
       "default": "\"astronvim\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Editor: astronvim is Neovim configured with language servers for the chosen toolchains, neovim is plain Neovim. Defaults to none with the minimal preset."
     },
@@ -524,6 +1140,8 @@
       ],
       "default": "\"tmux\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Terminal multiplexer, which also provides the sessions of limanix shell --session. Defaults to none with the minimal preset."
     },
@@ -533,6 +1151,8 @@
       "choices": [],
       "default": "\"\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": "~/dotfiles",
       "doc": "Host directory of your dotfiles, mounted read-write at /mnt/dotfiles: each new shell links its top-level dot-entries and the entries of its .config into the home, leaving existing files alone. Empty mounts none."
     },
@@ -542,6 +1162,8 @@
       "choices": [],
       "default": null,
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Language toolchains, one version each."
     },
@@ -551,6 +1173,8 @@
       "choices": [],
       "default": "\"\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": "1.27",
       "doc": "Go line, with gopls, Delve and GCC. Empty installs no Go."
     },
@@ -560,6 +1184,8 @@
       "choices": [],
       "default": "\"\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": "stable",
       "doc": "Default toolchain of rustup, which installs it at the first start after a change: stable, beta, nightly, a dated channel such as nightly-2026-10-01, or a Rust version such as 1.90.0. Empty installs no Rust."
     },
@@ -569,6 +1195,8 @@
       "choices": [],
       "default": "\"\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": "3.14",
       "doc": "Python line, with virtualenv and Pyright. Empty installs no Python."
     },
@@ -578,6 +1206,8 @@
       "choices": [],
       "default": "\"\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": "26",
       "doc": "Node.js line, with npm, npx and the TypeScript language server. Empty installs no Node.js."
     },
@@ -587,6 +1217,8 @@
       "choices": [],
       "default": "\"\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": "21",
       "doc": "OpenJDK line, with the jdtls language server; JAVA_HOME points to it. Empty installs no Java."
     },
@@ -596,6 +1228,8 @@
       "choices": [],
       "default": "\"\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": "3",
       "doc": "Apache Maven line, which runs on the java line and needs it. Empty installs no Maven."
     },
@@ -605,6 +1239,8 @@
       "choices": [],
       "default": "\"\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": "9",
       "doc": "Gradle line, which runs on the java line and needs it; the build stops when the Gradle line does not support that Java. Empty installs no Gradle."
     },
@@ -614,6 +1250,8 @@
       "choices": [],
       "default": "\"\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": "15",
       "doc": "GCC line for C and C++, with GDB, clangd, make, CMake, Ninja, Meson and pkg-config; the compilers find the headers and libraries of [nixos] packages. Empty installs no GCC."
     },
@@ -623,6 +1261,8 @@
       "choices": [],
       "default": "\"\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": "22",
       "doc": "Clang line, with clangd, clang-format, clang-tidy and LLDB, next to GCC, which it brings; cc and c++ stay GCC. Empty installs no Clang."
     },
@@ -632,6 +1272,8 @@
       "choices": [],
       "default": null,
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Trusted modules that configure the guest system."
     },
@@ -641,6 +1283,8 @@
       "choices": [],
       "default": "[]",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Selected modules: lmx:NAME or lmx:NAME-VERSION from the embedded catalog's modules, or third-party:NAME imported with limanix modules add. The [shell] and [toolchains] tables choose the other catalog modules. Omitting a version selects the module default. Multiple versions and repeated identifiers are accepted; an empty list installs no optional modules."
     },
@@ -650,6 +1294,8 @@
       "choices": [],
       "default": "[]",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Commands from the guest's nixpkgs by attribute path, such as jq or python3Packages.ipython; unstable:NAME takes the package from the catalog's nixos-unstable revision. Naming a package allows its license. A command that another package of the guest also provides fails the build."
     },
@@ -659,6 +1305,8 @@
       "choices": [],
       "default": null,
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Colors of the guest."
     },
@@ -674,6 +1322,8 @@
       ],
       "default": "\"system\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Colors of lmx and the catalog modules. System uses the terminal's colors and background. Latte is a light Catppuccin flavor; frappe, macchiato and mocha are dark ones."
     },
@@ -683,6 +1333,8 @@
       "choices": [],
       "default": null,
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Guest network and inbound firewall ports."
     },
@@ -694,6 +1346,8 @@
       ],
       "default": "\"shared\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Shared/NAT network. The Mac reaches the guest by its own IP address."
     },
@@ -703,6 +1357,8 @@
       "choices": [],
       "default": null,
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Inbound guest firewall ports."
     },
@@ -712,6 +1368,8 @@
       "choices": [],
       "default": "[]",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Inbound TCP ports in the guest firewall. Services listen on a guest network interface and are reached at <guest-ip>:<port> from the Mac."
     },
@@ -721,6 +1379,8 @@
       "choices": [],
       "default": "[]",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Inbound UDP ports in the guest firewall."
     },
@@ -730,8 +1390,10 @@
       "choices": [],
       "default": "{}",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
-      "doc": "Guest-wide environment for login sessions and system/user services."
+      "doc": "Guest-wide environment for login sessions and system/user services. PATH is managed by NixOS and cannot be set."
     },
     {
       "key": "mounts",
@@ -739,6 +1401,8 @@
       "choices": [],
       "default": "[]",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Host directories mounted inside the guest."
     },
@@ -751,6 +1415,8 @@
       ],
       "default": "\"rw\"",
       "required": false,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Mount access: rw or ro."
     },
@@ -760,6 +1426,8 @@
       "choices": [],
       "default": null,
       "required": true,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Host directory to mount inside the guest."
     },
@@ -769,9 +1437,11 @@
       "choices": [],
       "default": null,
       "required": true,
+      "update": null,
+      "format": null,
       "example": null,
       "doc": "Mount destination inside the guest."
     }
   ],
-  "example": "# Default Limanix configuration for a development sandbox.\n# Edit these values to match your environment.\n\n# Contract version, independent of the installed Limanix package version.\nschema_version = 1\n# Sandbox name.\nname = \"example-box\"\n# Host directories mounted inside the guest.\nmounts = []\n\n# Regular guest user and sudo access.\n[user]\n# Regular guest username.\nname = \"dev\"\n# Guest user's home directory.\nhome = \"/home/dev\"\n# Passwordless sudo inside the guest.\nsudo = true\n\n# Guest architecture and compute resources.\n[resources]\n# Guest architecture; the Mac's own by default.\narch = \"arm64\"\n# Guest system disk size in GiB.\ndisk = \"10GiB\"\n# Guest memory size in GiB.\nmem = \"8GiB\"\n# Guest CPU count, a positive integer.\ncpu = 4\n\n# Host storage for the guest user's home directory.\n[home]\n# Host root for <root>/<name>-<id>. Limanix creates this directory on the Mac and mounts\n# it at user.home with read-write access.\nroot = \"~/.limanix\"\n\n# Shell, prompt, editor and multiplexer of the development account.\n[shell]\n# Shell preset: terminal is Zsh with Oh My Zsh, the CLI tools, Lazygit, Yazi and the\n# GitHub CLI; minimal is Bash with the CLI tools.\npreset = \"terminal\"\n# Zsh prompt of the terminal preset; none leaves the prompt to your startup files. The\n# minimal preset has no prompt to choose: there it defaults to and must be none.\nprompt = \"pure\"\n# Editor: astronvim is Neovim configured with language servers for the chosen\n# toolchains, neovim is plain Neovim. Defaults to none with the minimal preset.\neditor = \"astronvim\"\n# Terminal multiplexer, which also provides the sessions of limanix shell --session.\n# Defaults to none with the minimal preset.\nmultiplexer = \"tmux\"\n# Host directory of your dotfiles, mounted read-write at /mnt/dotfiles: each new shell\n# links its top-level dot-entries and the entries of its .config into the home, leaving\n# existing files alone. Empty mounts none.\n# dotfiles = \"~/dotfiles\"\n\n# Language toolchains, one version each.\n[toolchains]\n# Go line, with gopls, Delve and GCC. Empty installs no Go.\n# go = \"1.27\"\n# Default toolchain of rustup, which installs it at the first start after a change:\n# stable, beta, nightly, a dated channel such as nightly-2026-10-01, or a Rust version\n# such as 1.90.0. Empty installs no Rust.\n# rust = \"stable\"\n# Python line, with virtualenv and Pyright. Empty installs no Python.\n# python = \"3.14\"\n# Node.js line, with npm, npx and the TypeScript language server. Empty installs no\n# Node.js.\n# nodejs = \"26\"\n# OpenJDK line, with the jdtls language server; JAVA_HOME points to it. Empty installs\n# no Java.\n# java = \"21\"\n# Apache Maven line, which runs on the java line and needs it. Empty installs no Maven.\n# maven = \"3\"\n# Gradle line, which runs on the java line and needs it; the build stops when the Gradle\n# line does not support that Java. Empty installs no Gradle.\n# gradle = \"9\"\n# GCC line for C and C++, with GDB, clangd, make, CMake, Ninja, Meson and pkg-config;\n# the compilers find the headers and libraries of [nixos] packages. Empty installs no\n# GCC.\n# gcc = \"15\"\n# Clang line, with clangd, clang-format, clang-tidy and LLDB, next to GCC, which it\n# brings; cc and c++ stay GCC. Empty installs no Clang.\n# clang = \"22\"\n\n# Trusted modules that configure the guest system.\n[nixos]\n# Selected modules: lmx:NAME or lmx:NAME-VERSION from the embedded catalog's modules, or\n# third-party:NAME imported with limanix modules add. The [shell] and [toolchains]\n# tables choose the other catalog modules. Omitting a version selects the module\n# default. Multiple versions and repeated identifiers are accepted; an empty list\n# installs no optional modules.\nmodules = []\n# Commands from the guest's nixpkgs by attribute path, such as jq or\n# python3Packages.ipython; unstable:NAME takes the package from the catalog's\n# nixos-unstable revision. Naming a package allows its license. A command that another\n# package of the guest also provides fails the build.\npackages = []\n\n# Colors of the guest.\n[theme]\n# Colors of lmx and the catalog modules. System uses the terminal's colors and\n# background. Latte is a light Catppuccin flavor; frappe, macchiato and mocha are dark\n# ones.\nflavor = \"system\"\n\n# Guest network and inbound firewall ports.\n[network]\n# Shared/NAT network. The Mac reaches the guest by its own IP address.\nmode = \"shared\"\n\n# Inbound guest firewall ports.\n[network.ports]\n# Inbound TCP ports in the guest firewall. Services listen on a guest network interface\n# and are reached at <guest-ip>:<port> from the Mac.\ntcp = []\n# Inbound UDP ports in the guest firewall.\nudp = []\n\n# Guest-wide environment for login sessions and system/user services.\n[env]\n"
+  "example": "# Default Limanix configuration for a development sandbox.\n# Edit these values to match your environment.\n\n# Contract version, independent of the installed Limanix package version.\nschema_version = 1\n# Sandbox name.\nname = \"example-box\"\n# Host directories mounted inside the guest.\nmounts = []\n\n# Regular guest user and sudo access.\n[user]\n# Regular guest username.\nname = \"dev\"\n# Guest user's home directory.\nhome = \"/home/dev\"\n# Passwordless sudo inside the guest.\nsudo = true\n\n# Guest architecture and compute resources.\n[resources]\n# Guest architecture; the Mac's own by default.\narch = \"arm64\"\n# Guest system disk size in GiB.\ndisk = \"10GiB\"\n# Guest memory size in GiB.\nmem = \"8GiB\"\n# Guest CPU count, a positive integer.\ncpu = 4\n\n# Host storage for the guest user's home directory.\n[home]\n# Host root for <root>/<name>-<id>. Limanix creates this directory on the Mac and mounts\n# it at user.home with read-write access.\nroot = \"~/.limanix\"\n\n# Shell, prompt, editor and multiplexer of the development account.\n[shell]\n# Shell preset: terminal is Zsh with Oh My Zsh, the CLI tools, Lazygit, Yazi and the\n# GitHub CLI; minimal is Bash with the CLI tools.\npreset = \"terminal\"\n# Zsh prompt of the terminal preset; none leaves the prompt to your startup files. The\n# minimal preset has no prompt to choose: there it defaults to and must be none.\nprompt = \"pure\"\n# Editor: astronvim is Neovim configured with language servers for the chosen\n# toolchains, neovim is plain Neovim. Defaults to none with the minimal preset.\neditor = \"astronvim\"\n# Terminal multiplexer, which also provides the sessions of limanix shell --session.\n# Defaults to none with the minimal preset.\nmultiplexer = \"tmux\"\n# Host directory of your dotfiles, mounted read-write at /mnt/dotfiles: each new shell\n# links its top-level dot-entries and the entries of its .config into the home, leaving\n# existing files alone. Empty mounts none.\n# dotfiles = \"~/dotfiles\"\n\n# Language toolchains, one version each.\n[toolchains]\n# Go line, with gopls, Delve and GCC. Empty installs no Go.\n# go = \"1.27\"\n# Default toolchain of rustup, which installs it at the first start after a change:\n# stable, beta, nightly, a dated channel such as nightly-2026-10-01, or a Rust version\n# such as 1.90.0. Empty installs no Rust.\n# rust = \"stable\"\n# Python line, with virtualenv and Pyright. Empty installs no Python.\n# python = \"3.14\"\n# Node.js line, with npm, npx and the TypeScript language server. Empty installs no\n# Node.js.\n# nodejs = \"26\"\n# OpenJDK line, with the jdtls language server; JAVA_HOME points to it. Empty installs\n# no Java.\n# java = \"21\"\n# Apache Maven line, which runs on the java line and needs it. Empty installs no Maven.\n# maven = \"3\"\n# Gradle line, which runs on the java line and needs it; the build stops when the Gradle\n# line does not support that Java. Empty installs no Gradle.\n# gradle = \"9\"\n# GCC line for C and C++, with GDB, clangd, make, CMake, Ninja, Meson and pkg-config;\n# the compilers find the headers and libraries of [nixos] packages. Empty installs no\n# GCC.\n# gcc = \"15\"\n# Clang line, with clangd, clang-format, clang-tidy and LLDB, next to GCC, which it\n# brings; cc and c++ stay GCC. Empty installs no Clang.\n# clang = \"22\"\n\n# Trusted modules that configure the guest system.\n[nixos]\n# Selected modules: lmx:NAME or lmx:NAME-VERSION from the embedded catalog's modules, or\n# third-party:NAME imported with limanix modules add. The [shell] and [toolchains]\n# tables choose the other catalog modules. Omitting a version selects the module\n# default. Multiple versions and repeated identifiers are accepted; an empty list\n# installs no optional modules.\nmodules = []\n# Commands from the guest's nixpkgs by attribute path, such as jq or\n# python3Packages.ipython; unstable:NAME takes the package from the catalog's\n# nixos-unstable revision. Naming a package allows its license. A command that another\n# package of the guest also provides fails the build.\npackages = []\n\n# Colors of the guest.\n[theme]\n# Colors of lmx and the catalog modules. System uses the terminal's colors and\n# background. Latte is a light Catppuccin flavor; frappe, macchiato and mocha are dark\n# ones.\nflavor = \"system\"\n\n# Guest network and inbound firewall ports.\n[network]\n# Shared/NAT network. The Mac reaches the guest by its own IP address.\nmode = \"shared\"\n\n# Inbound guest firewall ports.\n[network.ports]\n# Inbound TCP ports in the guest firewall. Services listen on a guest network interface\n# and are reached at <guest-ip>:<port> from the Mac.\ntcp = []\n# Inbound UDP ports in the guest firewall.\nudp = []\n\n# Guest-wide environment for login sessions and system/user services. PATH is managed by\n# NixOS and cannot be set.\n[env]\n"
 }

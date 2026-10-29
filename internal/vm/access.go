@@ -2,12 +2,14 @@ package vm
 
 import (
 	"context"
+	"errors"
 	"net"
 	"sort"
 	"strconv"
 
 	"github.com/limanix/client/internal/lima"
 	"github.com/limanix/client/internal/sshconfig"
+	"github.com/limanix/client/internal/state"
 )
 
 // The SSH ports of VMs stay below the ephemeral range of macOS, which starts at 49152.
@@ -16,15 +18,15 @@ const (
 	sshPortLast  = 49151
 )
 
-// A stopped VM may need a new port if another process took its previous one.
-func (m *Manager) sshPort(ctx context.Context, actual lima.Instance) (int, error) {
+// A stopped VM may need a new port if another process took its previous one; a new port stays reserved until release.
+func (m *Manager) sshPort(ctx context.Context, actual lima.Instance) (int, func() error, error) {
 	if actual.SSHPort > 0 && (actual.Status == lima.Running || m.free(actual.SSHPort)) {
-		return actual.SSHPort, nil
+		return actual.SSHPort, func() error { return nil }, nil
 	}
 
 	instances, err := m.backend.FetchAll(ctx)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
 	taken := make(map[int]bool, len(instances))
@@ -33,12 +35,22 @@ func (m *Manager) sshPort(ctx context.Context, actual lima.Instance) (int, error
 	}
 
 	for port := sshPortFirst; port <= sshPortLast; port++ {
-		if !taken[port] && m.free(port) {
-			return port, nil
+		if taken[port] || !m.free(port) {
+			continue
 		}
+
+		reservation, err := m.store.PortLock(ctx, port)
+		if errors.Is(err, state.ErrLockBusy) {
+			continue
+		}
+		if err != nil {
+			return 0, nil, err
+		}
+
+		return port, reservation.Close, nil
 	}
 
-	return 0, ErrNoSSHPort
+	return 0, nil, ErrNoSSHPort
 }
 
 func (m *Manager) free(port int) bool {
