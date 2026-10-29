@@ -1,9 +1,5 @@
 // Package state persists VM ownership and operation progress and supplies host locks.
-//
-// Domain models describe a VM; [Store] owns their versioned JSON representation. Lima keeps its own backend store.
-// A Limanix state directory is not a guest disk or the guest user's managed home.
-//
-// # Storage layout
+// Lima stores backend state separately; guest home contents live under configuration home.root.
 //
 //	<state root>/
 //	├─ instances/<name>/
@@ -16,21 +12,14 @@
 //	├─ locks/registry.lock
 //	└─ runtime/guestagents/      archives materialized by internal/bundle
 //
-// [DefaultRoot] honors LIMANIX_HOME; otherwise it selects the platform's state location. This is separate from configuration
-// home.root, which selects where guest home contents live. [NewStore] resolves the root without creating it.
-// Reads and removal recheck that root and refuse a symlink introduced after construction.
-//
-// # Persistence and ownership
-//
-// [Store.Save] creates identity once and rejects a conflicting replacement. identity.json and instance.json are written
-// atomically as separate files, not as one transaction. [Store.LoadIdentity] reads ownership even when the mutable
-// runtime record is damaged. Record decoding requires one UTF-8 JSON object with every expected field present once;
-// unknown, missing, and duplicate fields are rejected.
+// [NewStore] resolves the root without creating it.
+// Reads and removal recheck the root and refuse a symlink introduced after construction.
+// [Store.Save] rejects changes to an existing identity.
+// identity.json and instance.json are replaced atomically as separate files, not as one transaction.
+// Ownership can be read even when the runtime record is damaged.
+// Records require UTF-8 JSON with every expected field present exactly once.
 //
 // [Store.Remove] removes VM records and generation inputs, never home contents.
 // [Store.PreserveHome] archives ownership metadata, not a copy of the home.
 // [Store.ForgetHome] removes only the matching archived identity.
-//
-// Read state.go for paths, records.go and instance.go for persistence, lock.go for contention, list.go for recovery views,
-// and homes.go for retained ownership.
 package state

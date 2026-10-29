@@ -1,9 +1,8 @@
 package modulegen
 
 import (
-	"archive/tar"
+	"archive/zip"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/limanix/client/internal/filesystem"
 	"github.com/limanix/client/internal/nixos/catalog"
@@ -70,8 +70,11 @@ func packLocal(ctx context.Context, source, version string) ([]byte, error) {
 		return nil, err
 	}
 	var buffer bytes.Buffer
-	compressed := gzip.NewWriter(&buffer)
-	writer := tar.NewWriter(compressed)
+	writer := zip.NewWriter(&buffer)
+	if err := writer.SetComment(catalog.Repository); err != nil {
+		return nil, err
+	}
+
 	for _, name := range []string{"LICENSE", "flake.lock", "interface.nix", "platform.nix", "catalog"} {
 		err = filepath.WalkDir(filepath.Join(source, name), func(path string, entry fs.DirEntry, failure error) error {
 			if failure != nil {
@@ -94,28 +97,53 @@ func packLocal(ctx context.Context, source, version string) ([]byte, error) {
 			if !info.Mode().IsRegular() {
 				return fmt.Errorf("%w: unsupported local source file %q", catalog.ErrArchive, relative)
 			}
-			input, err := filesystem.OpenRegular(path, unix.O_RDONLY, 0)
-			if err != nil {
-				return err
+			name := filepath.ToSlash(relative)
+			if !fs.ValidPath(name) || strings.Contains(name, `\`) {
+				return fmt.Errorf("%w: unsafe source path %q", catalog.ErrArchive, "modules-local/"+name)
 			}
-			header := &tar.Header{
-				Name:     "modules-local/" + filepath.ToSlash(relative),
-				Mode:     int64(info.Mode().Perm()),
-				Size:     info.Size(),
-				Typeflag: tar.TypeReg,
+			if module, ok := strings.CutPrefix(name, "catalog/"); ok {
+				name = "modules/" + module
+			} else if name != "LICENSE" && name != "flake.lock" && name != "interface.nix" && name != "platform.nix" {
+				return nil
 			}
-			if err := writer.WriteHeader(header); err != nil {
-				return errors.Join(err, input.Close())
-			}
-			_, copyErr := io.Copy(writer, input)
-			return errors.Join(copyErr, input.Close())
+			return writeLocalFile(writer, path, name, info)
 		})
 		if err != nil {
-			return nil, errors.Join(err, writer.Close(), compressed.Close())
+			return nil, errors.Join(err, writer.Close())
 		}
 	}
-	if err := errors.Join(writer.Close(), compressed.Close()); err != nil {
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	return pack(ctx, &buffer, version)
+	if err := finishArchive(writer, version); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+func writeLocalFile(writer *zip.Writer, path, name string, info fs.FileInfo) (failure error) {
+	input, err := filesystem.OpenRegular(path, unix.O_RDONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		failure = errors.Join(failure, input.Close())
+	}()
+
+	header := &zip.FileHeader{Name: name, Method: zip.Deflate}
+	header.SetMode(info.Mode().Perm())
+	output, err := writer.CreateHeader(header)
+	if err != nil {
+		return err
+	}
+
+	// Require the copied byte count to match the inspected size.
+	written, err := io.Copy(output, io.LimitReader(input, info.Size()+1))
+	if err != nil {
+		return err
+	}
+	if written != info.Size() {
+		return fmt.Errorf("source file %q changed size while being packaged", path)
+	}
+	return nil
 }

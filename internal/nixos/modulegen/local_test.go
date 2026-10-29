@@ -65,7 +65,7 @@ func TestLocalCatalogIsDeterministicAndContainsOnlyDistributableFiles(t *testing
 }
 
 func TestLocalCatalogRejectsSymlinksSpecialFilesAndCanceledWork(t *testing.T) {
-	for _, kind := range []string{"symlink", "fifo", "directory-symlink"} {
+	for _, kind := range []string{"symlink", "fifo", "directory-symlink", "unsafe-name"} {
 		t.Run(kind, func(t *testing.T) {
 			source := localFixture(t)
 			path := filepath.Join(source, "catalog", "modules", "tool", "unsafe")
@@ -84,6 +84,10 @@ func TestLocalCatalogRejectsSymlinksSpecialFilesAndCanceledWork(t *testing.T) {
 					t.Fatal(err)
 				}
 				source = link
+			case "unsafe-name":
+				if err := os.WriteFile(path+`\file.nix`, []byte("{}"), 0o600); err != nil {
+					t.Fatal(err)
+				}
 			}
 			if _, err := packLocal(context.Background(), source, "local"); !errors.Is(err, catalog.ErrArchive) {
 				t.Fatalf("unsupported source accepted: %v", err)
@@ -94,6 +98,66 @@ func TestLocalCatalogRejectsSymlinksSpecialFilesAndCanceledWork(t *testing.T) {
 	cancel()
 	if _, err := packLocal(ctx, localFixture(t), "local"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancellation lost: %v", err)
+	}
+}
+
+func TestLocalCatalogPreservesExecutableFiles(t *testing.T) {
+	source := localFixture(t)
+	filename := filepath.Join(source, "catalog", "modules", "tool", "check.sh")
+	content := []byte("#!/bin/sh\nexit 0\n")
+	if err := os.WriteFile(filename, content, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data, err := packLocal(context.Background(), source, "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const name = "modules/modules/tool/check.sh"
+	info, err := fs.Stat(archive, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Fatalf("permissions = %04o, want 0755", info.Mode().Perm())
+	}
+	actual, err := fs.ReadFile(archive, name)
+	if err != nil || !bytes.Equal(actual, content) {
+		t.Fatalf("file content = %q, error = %v", actual, err)
+	}
+}
+
+func TestLocalCatalogRejectsFilesThatChangeSize(t *testing.T) {
+	for _, test := range []struct{ name, content string }{
+		{"shrunk", ""},
+		{"grown", "longer content"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			filename := filepath.Join(t.TempDir(), "module.nix")
+			if err := os.WriteFile(filename, []byte("{}"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			info, err := os.Stat(filename)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filename, []byte(test.content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			var buffer bytes.Buffer
+			writer := zip.NewWriter(&buffer)
+			t.Cleanup(func() {
+				if err := writer.Close(); err != nil {
+					t.Error(err)
+				}
+			})
+			if err := writeLocalFile(writer, filename, "module.nix", info); err == nil {
+				t.Fatal("file size change was accepted")
+			}
+		})
 	}
 }
 

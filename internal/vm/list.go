@@ -6,11 +6,32 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/lima"
 	"github.com/limanix/client/internal/state"
 )
 
 const statusProbeConcurrency = 4
+
+// Fetch reads one saved VM and probes only its guest.
+func (m *Manager) Fetch(ctx context.Context, name domain.VMName) (Info, error) {
+	if err := ctx.Err(); err != nil {
+		return Info{}, err
+	}
+
+	entry, err := m.store.Fetch(name)
+	if err != nil {
+		return Info{}, err
+	}
+
+	instances, err := m.listBackend(ctx, []state.Entry{entry})
+	if err != nil {
+		return Info{}, err
+	}
+
+	info := m.instanceInfo(ctx, entry, instances)
+	return info, ctx.Err()
+}
 
 // FetchAll lists every saved VM, including damaged or interrupted records.
 func (m *Manager) FetchAll(ctx context.Context) ([]Info, error) {

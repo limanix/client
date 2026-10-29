@@ -16,7 +16,7 @@ type Client interface {
 
 // Guest uses a management connection to provision and access the regular guest account.
 type Guest struct {
-	// Stderr receives the build lines of an apply, so that standard output carries only results.
+	// Stderr receives build output; standard output is reserved for results.
 	Stderr io.Writer
 
 	// Warn receives problems that do not stop an apply, such as a nearly full disk.

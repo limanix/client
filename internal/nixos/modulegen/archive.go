@@ -93,16 +93,19 @@ func pack(ctx context.Context, source io.Reader, version string) (data []byte, f
 		return nil, fmt.Errorf("read source archive trailer: %w", err)
 	}
 
+	if err := finishArchive(writer, version); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+func finishArchive(writer *zip.Writer, version string) error {
 	output, err := writer.Create("version")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if _, err = io.WriteString(output, version+"\n"); err != nil {
-		return nil, err
+		return err
 	}
-	if err = writer.Close(); err != nil {
-		return nil, err
-	}
-
-	return buffer.Bytes(), nil
+	return writer.Close()
 }

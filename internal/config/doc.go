@@ -1,32 +1,13 @@
-// Package config owns the public TOML configuration contract, defaults, and generated reference.
+// Package config defines the TOML configuration, defaults, and generated reference.
+// Field tags keep parsing, validation, the example file, and the fields of [Reference] consistent.
+// The configuration schema is versioned separately from releases and state records.
 //
-// [Config] and its nested models describe user input. Their fields and tags are shared by parsing, validation,
-// commented TOML rendering, and the reference of [Reference]. Configuration schema versioning is independent
-// of the application release and the state-record schema.
+// [Parse] validates literal input without filesystem access.
+// [Load] resolves relative host paths from the real configuration file's directory.
+// Mount sources need not exist until VM preflight.
+// Environment values remain literal strings.
+// Module availability is checked by the module registry, after configuration validation.
 //
-// # Input pipeline
-//
-//	Parse: TOML → shape checks → defaults + decoding → Validate → Config
-//	Load:  file → Parse → resolve host paths from the real file directory
-//
-// [Parse] performs no filesystem access. Unknown fields, invalid types, and missing required entry fields are rejected
-// before defaults are applied. Omitted fields keep defaults: no mounts, environment or open ports, and the guest
-// architecture of the Limanix binary. Guest paths are normalized without inspecting the guest filesystem.
-//
-// [Load] follows the configuration file's resolved location when interpreting relative host paths and expands a leading tilde.
-// It does not require mount sources to exist; VM preflight checks them before allocating resources.
-// Environment values are literal data, not host-variable or shell expressions.
-//
-// # Validation and diagnostics
-//
-// [Validate] checks field values and relationships, including schema version, resource sizes, module identifiers,
-// reserved guest paths, and mount overlap. It does not query Lima or verify that a module is installed in the registry.
-//
-// [Error] identifies a field without printing its input value. An underlying cause may be available through Unwrap;
-// callers should not expose it as a replacement for the value-free public diagnostic.
-//
-// # Reading the implementation
-//
-// Start with models.go and [Default], then parser.go and schema.go for decoding, validate.go for policy, and load.go
-// for filesystem resolution. render.go and reference.go derive the example file and the reference fields from those same models.
+// [Error] identifies a field without exposing its value.
+// Its underlying cause may contain input and must not replace the public diagnostic.
 package config

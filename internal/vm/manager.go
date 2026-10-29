@@ -11,11 +11,10 @@ import (
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/filesystem"
-	"github.com/limanix/client/internal/guest"
 	"github.com/limanix/client/internal/lima"
 )
 
-// Manager coordinates application operations using explicitly supplied services.
+// Manager coordinates VM operations across host services.
 type Manager struct {
 	backend Backend
 	store   Store
@@ -26,13 +25,11 @@ type Manager struct {
 	hostUID     int
 	sshConfig   string
 
-	// dial opens the connection of a TCP network check from the Mac.
-	dial func(context.Context, string, string) (net.Conn, error)
-
-	// listen checks that a port on the Mac is free for the SSH port of a VM.
+	// dial and listen allow host network checks without opening real ports in tests.
+	dial   func(context.Context, string, string) (net.Conn, error)
 	listen func(string, string) (net.Listener, error)
 
-	// Warn receives the problems of a create or update that do not fail it.
+	// Warn receives failures that do not stop an operation.
 	Warn func(string, ...any)
 }
 
@@ -125,56 +122,4 @@ func (m *Manager) requireLima(ctx context.Context, identity domain.Identity) (li
 		Name:  identity.Name,
 		Cause: ErrBackendMissing,
 	}
-}
-
-func (m *Manager) applyGuest(ctx context.Context, instance domain.Instance, template string, running bool) error {
-	name := instance.Identity.LimaName()
-	if !running {
-		if err := m.backend.Edit(ctx, name, template); err != nil {
-			return err
-		}
-		if err := m.backend.Start(ctx, name); err != nil {
-			return err
-		}
-	}
-	if err := m.guest.Build(ctx, name, instance.Generation, instance.Identity.Arch); err != nil {
-		return err
-	}
-	if err := m.generations.selectCurrent(instance); err != nil {
-		return err
-	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := m.backend.Stop(ctx, name); err != nil {
-		return err
-	}
-	if err := m.backend.Edit(ctx, name, template); err != nil {
-		return err
-	}
-	if err := m.backend.Start(ctx, name); err != nil {
-		return err
-	}
-
-	return m.guest.Converge(ctx, name, instance.Generation)
-}
-
-// recordReady saves the VM as ready after a successful apply, or as failed after a failed one. A generation that runs
-// although lmxd could not finalize it yet is ready; the warning follows the record.
-func (m *Manager) recordReady(instance domain.Instance, applied error) (domain.Instance, error) {
-	unfinished, ok := errors.AsType[*guest.FinalizeError](applied)
-	if applied != nil && !ok {
-		return instance, m.recordFailure(instance, applied)
-	}
-
-	instance.MarkReady()
-	if err := m.store.Save(instance); err != nil {
-		return instance, err
-	}
-
-	if ok {
-		m.Warn("VM '%s' is ready, but lmx reported: %s", instance.Identity.Name, unfinished.Message)
-	}
-
-	return instance, nil
 }

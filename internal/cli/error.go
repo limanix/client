@@ -11,6 +11,11 @@ var (
 	errMissingConfig        = errors.New("required flag --config was not provided")
 	errMissingModuleCommand = errors.New("a modules subcommand is required")
 	errQuietJSON            = errors.New("--quiet cannot be combined with --json")
+	errMissingVMName        = errors.New("a VM name is required")
+	errDuplicateSession     = errors.New("--session may only be specified once")
+	errMissingSession       = errors.New("--session requires a session name")
+	errEmptySession         = errors.New("--session requires a nonempty session name")
+	errSessionCommand       = errors.New("--session cannot be combined with a guest command")
 )
 
 // exitError carries either a usage failure or an unmodified guest exit status.
@@ -19,7 +24,6 @@ type exitError struct {
 	err  error
 }
 
-// Error returns the underlying message, or an empty string for a status-only result.
 func (e *exitError) Error() string {
 	if e.err == nil {
 		return ""
@@ -28,7 +32,6 @@ func (e *exitError) Error() string {
 	return e.err.Error()
 }
 
-// Unwrap exposes the underlying error to errors.Is and errors.As.
 func (e *exitError) Unwrap() error {
 	return e.err
 }

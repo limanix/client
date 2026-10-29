@@ -1,25 +1,18 @@
-// Package catalog reads the standard NixOS module catalog packaged with Limanix.
+// Package catalog reads the NixOS module catalog embedded in Limanix.
 //
-// A catalog is one ZIP containing its release tag, upstream LICENSE, interface.nix, platform.nix, flake.lock, and module trees. Its ZIP comment identifies [Repository];
-// archives from another source are rejected. Module names come from modules/<name>; descriptions come from module.toml.
-// The exact modules/_shared directory contains shared Nix files and is retained without exposing a module selector.
-// Its direct .nix files declare shared schemas and infrastructure, except test.nix, which is a test export.
-// Nested shared files remain available for explicit imports and are not loaded automatically.
-// The module names capabilities, internal and pins are reserved for the option namespaces.
-// Optional versions contain unique numeric lines; a nonempty list requires a default from that list.
-// Without version lines, default must be absent. Version selectors use NAME-VERSION. Their entry points are versions/<version>.nix inside
-// the same module tree. NAME always selects default.nix; the module itself implements its default. Duplicate selectors are rejected.
-// No module identifiers or Nix implementations are declared in Go.
+// [Open] validates ZIP paths, file types, contents, metadata, and locked Nix inputs.
+// The archive must contain its release tag, LICENSE, interface.nix, platform.nix, flake.lock, and modules.
+// The ZIP comment must match [Repository].
+// These checks verify structure and integrity, not release authenticity.
 //
-// [Open] validates archive paths, file types, contents, the nixpkgs and nixos-lima pins, and metadata before exposing read-only module filesystems.
-// [Catalog.Nixpkgs] returns the catalog's declared GitHub input URL and self-contained locked node for the guest flake.
-// [Catalog.NixosLima] returns the nixos-lima input and the locked graph below it, which follows that nixpkgs pin.
-// [Catalog.Interface] returns the common NixOS option declarations imported even with no selected catalog modules.
-// [Catalog.Platform] returns the guest platform module: the disk layout and Lima integration that the base disk and every rebuilt guest share.
-// [ParseImage] validates a release's image.json, the base disk and SHA-256 of each guest system.
-// [Catalog.PublicDeclarations] identifies root shared schemas and infrastructure loaded in every configuration; it excludes test.nix.
-// [Catalog.Source] exposes the shared source tree independently of any module selection.
-// Catalogs without a regular interface.nix, a regular platform.nix or supported pins are rejected. The catalog reader neither
-// evaluates Nix nor accesses the network. The repository marker and release tag identify the downloaded source. These metadata
-// and ZIP integrity checks do not prove the authenticity of an upstream release.
+// Modules live under modules/<kind>/<name> and declare their metadata in module.toml.
+// Unversioned selectors use default.nix; versioned selectors use versions/<version>.nix.
+// Version lines must be unique, and a nonempty list requires a default from that list.
+// Duplicate selectors are rejected across all kinds.
+// Module implementations and version lists belong to the catalog.
+//
+// The _shared tree remains available to module imports without exposing a selector.
+// Its direct .nix files are public declarations, except test.nix.
+// [Catalog] returns copies of metadata and lock data and a read-only source filesystem.
+// This package does not evaluate Nix or access the network.
 package catalog

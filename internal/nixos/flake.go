@@ -50,15 +50,23 @@ func renderFlake(source *catalog.Catalog) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("render guest flake: %w", err)
 	}
 
+	lock, err := renderFlakeLock(nixpkgs, lima, nodes)
+	if err != nil {
+		return nil, nil, err
+	}
+	return rendered.Bytes(), lock, nil
+}
+
+func renderFlakeLock(nixpkgs json.RawMessage, lima catalog.Input, nodes map[string]json.RawMessage) ([]byte, error) {
 	for _, name := range []string{"nixpkgs", "root"} {
 		if _, taken := nodes[name]; taken {
-			return nil, nil, fmt.Errorf("render guest flake lock: the nixos-lima graph owns a node named %q", name)
+			return nil, fmt.Errorf("render guest flake lock: the nixos-lima graph owns a node named %q", name)
 		}
 	}
 	nodes["nixpkgs"] = nixpkgs
 	root, err := json.Marshal(map[string]map[string]string{"inputs": {"nixpkgs": "nixpkgs", "nixos-lima": lima.Node}})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	nodes["root"] = root
 	lock := struct {
@@ -68,7 +76,7 @@ func renderFlake(source *catalog.Catalog) ([]byte, []byte, error) {
 	}{nodes, "root", 7}
 	data, err := json.MarshalIndent(lock, "", "  ")
 	if err != nil {
-		return nil, nil, fmt.Errorf("render guest flake lock: %w", err)
+		return nil, fmt.Errorf("render guest flake lock: %w", err)
 	}
-	return rendered.Bytes(), append(data, '\n'), nil
+	return append(data, '\n'), nil
 }

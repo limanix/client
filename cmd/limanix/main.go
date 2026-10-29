@@ -14,16 +14,7 @@ import (
 )
 
 func main() {
-	os.Exit(
-		cli.Execute(
-			context.Background(),
-			os.Args[1:],
-			cli.IO{
-				In:  os.Stdin,
-				Out: os.Stdout,
-				Err: os.Stderr,
-			},
-			cli.Dependencies{},
-		),
-	)
+	streams := cli.IO{In: os.Stdin, Out: os.Stdout, Err: os.Stderr}
+	code := cli.Execute(context.Background(), os.Args[1:], streams, cli.Dependencies{})
+	os.Exit(code)
 }
