@@ -13,6 +13,7 @@ var (
 	ErrInvalidStatus      = errors.New("invalid lifecycle state")
 	ErrRecordEncoding     = errors.New("record is not valid UTF-8")
 	ErrRecordFields       = errors.New("unexpected record fields")
+	ErrRootComma          = errors.New("the LimaNix state folder cannot contain ','; set LIMANIX_HOME to another folder")
 )
 
 // OwnershipError retains a stable cause and identifies the rejected ownership change.

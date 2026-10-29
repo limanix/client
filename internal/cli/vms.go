@@ -73,7 +73,7 @@ func deleteCommand(dependencies Dependencies) *cobra.Command {
 
 			if asJSON {
 				result := deletedVM{Name: string(name)}
-				if !removeHome {
+				if !removeHome && home != "" {
 					result.Home = &home
 				}
 
@@ -84,7 +84,7 @@ func deleteCommand(dependencies Dependencies) *cobra.Command {
 				return err
 			}
 
-			if !removeHome {
+			if !removeHome && home != "" {
 				_, err = fmt.Fprintf(cmd.OutOrStdout(), "Preserved managed home: %s\n", home)
 			}
 

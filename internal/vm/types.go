@@ -19,7 +19,7 @@ type Info struct {
 	Disk     *domain.DiskUsage `json:"disk" doc:"bytes, free_bytes, inodes and free_inodes of the guest disk, or null when not read."`
 	Home     *string           `json:"home" doc:"Path of the managed home on the Mac; null when the identity record cannot be read."`
 	LimaName *string           `json:"lima_name" doc:"Name of the Lima instance; null when the identity record cannot be read."`
-	Error    *string           `json:"error" doc:"Saved error of the last operation, or null."`
+	Error    *string           `json:"error" doc:"Saved error of the last operation, or why the VM records cannot be read; null otherwise."`
 	Notice   string            `json:"notice,omitempty" doc:"What to do to make the guest answer. Present only when there is a notice."`
 
 	OperationStatus *domain.Status       `json:"state" doc:"As STATE; null when the operation record cannot be read."`

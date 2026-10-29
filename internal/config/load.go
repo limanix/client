@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/filesystem"
@@ -64,9 +65,9 @@ func readConfig(filename string) ([]byte, error) {
 }
 
 func resolveHostPaths(config *Config, parent string) error {
-	home, err := canonicalHostPath(config.Home.Root, parent)
+	home, err := resolvedHostPath(config.Home.Root, parent, "home.root")
 	if err != nil {
-		return wrapField("home.root", "host path cannot be resolved", err)
+		return err
 	}
 
 	if home == "/" {
@@ -76,9 +77,9 @@ func resolveHostPaths(config *Config, parent string) error {
 	config.Home.Root = home
 
 	if config.Shell.Dotfiles != "" {
-		dotfiles, err := canonicalHostPath(string(config.Shell.Dotfiles), parent)
+		dotfiles, err := resolvedHostPath(string(config.Shell.Dotfiles), parent, "shell.dotfiles")
 		if err != nil {
-			return wrapField("shell.dotfiles", "host path cannot be resolved", err)
+			return err
 		}
 
 		config.Shell.Dotfiles = domain.OptionalHostPath(dotfiles)
@@ -87,15 +88,29 @@ func resolveHostPaths(config *Config, parent string) error {
 	for index := range config.Mounts {
 		mount := &config.Mounts[index]
 
-		source, err := canonicalHostPath(mount.Source, parent)
+		source, err := resolvedHostPath(mount.Source, parent, fmt.Sprintf("mounts[%d].source", index))
 		if err != nil {
-			return wrapField(fmt.Sprintf("mounts[%d].source", index), "host path cannot be resolved", err)
+			return err
 		}
 
 		mount.Source = source
 	}
 
 	return nil
+}
+
+// Lima passes host paths unescaped to QEMU -virtfs options, where a comma starts the next option.
+func resolvedHostPath(value, parent, field string) (string, error) {
+	resolved, err := canonicalHostPath(value, parent)
+	if err != nil {
+		return "", wrapField(field, "host path cannot be resolved", err)
+	}
+
+	if strings.ContainsRune(resolved, ',') {
+		return "", fieldError(field, "host paths cannot contain ','")
+	}
+
+	return resolved, nil
 }
 
 func canonicalHostPath(value, parent string) (string, error) {

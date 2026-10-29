@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"slices"
 	"sort"
 	"strconv"
 
@@ -47,7 +48,18 @@ func (m *Manager) sshPort(ctx context.Context, actual lima.Instance) (int, func(
 			return 0, nil, err
 		}
 
-		return port, reservation.Close, nil
+		instances, err = m.backend.FetchAll(ctx)
+		if err != nil {
+			return 0, nil, errors.Join(err, reservation.Close())
+		}
+
+		if !slices.ContainsFunc(instances, func(instance lima.Instance) bool { return instance.SSHPort == port }) {
+			return port, reservation.Close, nil
+		}
+
+		if err = reservation.Close(); err != nil {
+			return 0, nil, err
+		}
 	}
 
 	return 0, nil, ErrNoSSHPort

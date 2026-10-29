@@ -9,6 +9,7 @@
 //	├─ modules/<name>/           imported trees managed by internal/modules
 //	├─ homes/<name>-<id>.json    ownership retained after VM deletion
 //	├─ locks/instances/<name>.lock
+//	├─ locks/ports/<port>.lock
 //	├─ locks/registry.lock
 //	└─ runtime/guestagents/      archives materialized by internal/bundle
 //

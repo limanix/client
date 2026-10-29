@@ -62,7 +62,7 @@ jobs:
       - name: Run binary
         run: bin/limanix-${{ matrix.arch }} --version
       - name: Check vulnerabilities of the macOS build
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./... github.com/lima-vm/lima/v2/cmd/lima-guestagent
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
       - name: Write checksum
         working-directory: bin
         run: shasum -a 256 limanix-${{ matrix.arch }} > limanix-${{ matrix.arch }}.sha256

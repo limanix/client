@@ -49,6 +49,10 @@ func (client *Client) launchPaths(ctx context.Context, architecture string) (lau
 
 // Cancellation stops the wait but not the host agent: the guest keeps booting, as after limactl start.
 func (client *Client) launch(ctx context.Context, inst *limatype.Instance, paths launchPaths) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	startup, cancel := context.WithCancel(instance.WithLaunchingShell(context.WithoutCancel(ctx)))
 	started := make(chan error, 1)
 

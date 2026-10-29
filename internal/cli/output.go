@@ -44,5 +44,5 @@ func writeVM(ctx context.Context, writer io.Writer, manager Manager, name domain
 
 type deletedVM struct {
 	Name string  `json:"name" doc:"VM name."`
-	Home *string `json:"home" doc:"Path of the managed home that delete kept, or null with --remove-home."`
+	Home *string `json:"home" doc:"Path of the managed home that delete kept, or null with --remove-home or when the VM identity could not be read."`
 }

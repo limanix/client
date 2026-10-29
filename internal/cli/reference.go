@@ -167,7 +167,7 @@ func operands(name string) []Arg {
 		return []Arg{vmName}
 	case "limanix shell":
 		return []Arg{vmName, operand("COMMAND ...", "strings", false,
-			"Guest command and its arguments, after `--`. They reach the guest unchanged, without a guest shell.")}
+			"Guest command and its arguments, after `--`. They reach the guest unchanged; no guest shell parses them.")}
 	case "limanix network check":
 		return []Arg{vmName, operand("PORT", "uint16", true, "Port number from 1 to 65535.")}
 	case "limanix modules add":

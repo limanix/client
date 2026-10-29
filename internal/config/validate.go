@@ -35,10 +35,6 @@ func Validate(config Config) error {
 		return fieldError("env.PATH", "is managed by NixOS: add commands with [nixos] packages")
 	}
 
-	if err := validateHostPaths(config); err != nil {
-		return err
-	}
-
 	if err := validatePorts(config.Network.Ports.TCP, "tcp"); err != nil {
 		return err
 	}
@@ -48,24 +44,6 @@ func Validate(config Config) error {
 	}
 
 	return validateMounts(config.User.Home, config.Mounts)
-}
-
-func validateHostPaths(config Config) error {
-	if strings.ContainsRune(config.Home.Root, ',') {
-		return fieldError("home.root", "host paths cannot contain ','")
-	}
-
-	if strings.ContainsRune(string(config.Shell.Dotfiles), ',') {
-		return fieldError("shell.dotfiles", "host paths cannot contain ','")
-	}
-
-	for index, mount := range config.Mounts {
-		if strings.ContainsRune(mount.Source, ',') {
-			return fieldError(fmt.Sprintf("mounts[%d].source", index), "host paths cannot contain ','")
-		}
-	}
-
-	return nil
 }
 
 func validatePorts(ports []int, protocol string) error {
