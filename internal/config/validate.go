@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/limanix/client/internal/domain"
@@ -129,4 +130,99 @@ func checkedGuestTarget(value domain.GuestPath, field string) (string, error) {
 
 func isWithin(candidate, root string) bool {
 	return candidate == root || strings.HasPrefix(candidate, root+"/")
+}
+
+func validateString(value reflect.Value) error {
+	text := value.String()
+
+	switch value.Interface().(type) {
+	case domain.VMName:
+		_, err := domain.NewVMName(text)
+		return err
+	case domain.Username:
+		_, err := domain.NewUsername(text)
+		return err
+	case domain.GuestPath:
+		_, err := domain.NewGuestPath(text)
+		return err
+	case domain.ModuleID:
+		_, err := domain.NewModuleID(text)
+		return err
+	case domain.PackageName:
+		_, err := domain.NewPackageName(text)
+		return err
+	case domain.ToolchainLine:
+		_, err := domain.NewToolchainLine(text)
+		return err
+	case domain.RustToolchain:
+		_, err := domain.NewRustToolchain(text)
+		return err
+	case domain.OptionalHostPath:
+		_, err := domain.NewOptionalHostPath(text)
+		return err
+	case domain.EnvName:
+		_, err := domain.NewEnvName(text)
+		return err
+	case domain.EnvValue:
+		_, err := domain.NewEnvValue(text)
+		return err
+	case domain.Architecture:
+		_, err := domain.NewArchitecture(text)
+		return err
+	default:
+		return domain.ValidateText(text, false)
+	}
+}
+
+func validateValue(value reflect.Value, field string) error {
+	if value.Type() == byteSizeType {
+		_, err := value.Interface().(domain.ByteSize).GiB()
+		if err != nil {
+			return wrapField(field, err.Error(), err)
+		}
+
+		return nil
+	}
+
+	switch value.Kind() {
+	case reflect.Struct:
+		for index := range value.NumField() {
+			var (
+				item  = value.Type().Field(index)
+				child = joinField(field, item.Tag.Get("toml"))
+			)
+
+			if choices := item.Tag.Get("choices"); choices != "" {
+				if !slices.Contains(strings.Split(choices, ","), value.Field(index).String()) {
+					return fieldError(child, "expected one of "+strings.ReplaceAll(choices, ",", ", "))
+				}
+			}
+
+			if err := validateValue(value.Field(index), child); err != nil {
+				return err
+			}
+		}
+	case reflect.String:
+		if err := validateString(value); err != nil {
+			return wrapField(field, err.Error(), err)
+		}
+	case reflect.Slice:
+		for index := range value.Len() {
+			if err := validateValue(value.Index(index), fmt.Sprintf("%s[%d]", field, index)); err != nil {
+				return err
+			}
+		}
+	case reflect.Map:
+		for _, key := range sortedMapKeys(value) {
+			if err := validateValue(key, field); err != nil {
+				return err
+			}
+
+			if err := validateValue(value.MapIndex(key), joinField(field, key.String())); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

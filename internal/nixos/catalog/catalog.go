@@ -1,18 +1,13 @@
 package catalog
 
 import (
-	"archive/zip"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/fs"
 	"path"
 	"regexp"
 	"slices"
-	"strings"
-
-	"github.com/limanix/client/internal/domain"
 )
 
 // Repository identifies the standard catalog source in download URLs and ZIP comments.
@@ -71,95 +66,6 @@ func ValidateVersion(version string) error {
 	return nil
 }
 
-// Open validates a complete catalog without extracting it to the host filesystem.
-func Open(data []byte) (*Catalog, error) {
-	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrArchive, err)
-	}
-
-	if archive.Comment != Repository {
-		return nil, fmt.Errorf("%w: got %q, expected %q", ErrRepository, archive.Comment, Repository)
-	}
-
-	if err = validateArchive(archive); err != nil {
-		return nil, err
-	}
-
-	version, err := fs.ReadFile(archive, "version")
-	if err != nil {
-		return nil, fmt.Errorf("%w: read version: %w", ErrArchive, err)
-	}
-
-	tag := strings.TrimSpace(string(version))
-	if err = ValidateVersion(tag); err != nil {
-		return nil, err
-	}
-
-	if _, err = fs.ReadFile(archive, "LICENSE"); err != nil {
-		return nil, fmt.Errorf("%w: read LICENSE: %w", ErrArchive, err)
-	}
-
-	interfaceInfo, err := fs.Stat(archive, "interface.nix")
-	if err != nil {
-		return nil, fmt.Errorf("%w: read interface.nix: %w", ErrArchive, err)
-	}
-	if !interfaceInfo.Mode().IsRegular() {
-		return nil, fmt.Errorf("%w: interface.nix must be a regular file", ErrArchive)
-	}
-	publicInterface, err := fs.ReadFile(archive, "interface.nix")
-	if err != nil {
-		return nil, fmt.Errorf("%w: read interface.nix: %w", ErrArchive, err)
-	}
-	if len(publicInterface) == 0 {
-		return nil, fmt.Errorf("%w: interface.nix must not be empty", ErrArchive)
-	}
-
-	platformInfo, err := fs.Stat(archive, "platform.nix")
-	if err != nil {
-		return nil, fmt.Errorf("%w: read platform.nix: %w", ErrArchive, err)
-	}
-	if !platformInfo.Mode().IsRegular() {
-		return nil, fmt.Errorf("%w: platform.nix must be a regular file", ErrArchive)
-	}
-	platform, err := fs.ReadFile(archive, "platform.nix")
-	if err != nil {
-		return nil, fmt.Errorf("%w: read platform.nix: %w", ErrArchive, err)
-	}
-	if len(platform) == 0 {
-		return nil, fmt.Errorf("%w: platform.nix must not be empty", ErrArchive)
-	}
-
-	pin, err := readNixpkgs(archive)
-	if err != nil {
-		return nil, err
-	}
-
-	lima, err := readNixosLima(archive)
-	if err != nil {
-		return nil, err
-	}
-
-	metadata, err := readModules(archive)
-	if err != nil {
-		return nil, err
-	}
-
-	source, err := fs.Sub(archive, "modules")
-	if err != nil {
-		return nil, fmt.Errorf("%w: read module sources: %w", ErrArchive, err)
-	}
-	declarations, err := readPublicDeclarations(source)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Catalog{
-		Version: tag, files: source, modules: metadata, nixpkgs: pin, nixosLima: lima,
-		publicInterface: publicInterface, platform: platform, publicDeclarations: declarations,
-	}, nil
-}
-
 // Nixpkgs returns the declared input URL and an independent copy of its locked node.
 func (catalog *Catalog) Nixpkgs() (url string, node []byte) {
 	return catalog.nixpkgs.url, bytes.Clone(catalog.nixpkgs.node)
@@ -213,104 +119,4 @@ func (catalog *Catalog) Module(name string) (Module, error) {
 	}
 
 	return Module{FS: catalog.files, EntryPoint: path.Join(selected.directory, selected.entryPoint)}, nil
-}
-
-// readModules indexes modules/<kind>/<name>; below modules/ there are only _shared, the kinds and regular files.
-func readModules(files fs.FS) (map[string]selection, error) {
-	entries, err := fs.ReadDir(files, "modules")
-	if err != nil {
-		return nil, fmt.Errorf("%w: read modules: %w", ErrMetadata, err)
-	}
-
-	result := make(map[string]selection)
-
-	for _, entry := range entries {
-		name := entry.Name()
-		if name == "_shared" {
-			if !entry.IsDir() {
-				return nil, fmt.Errorf("%w: _shared must be a directory", ErrMetadata)
-			}
-			continue
-		}
-		if entry.Type().IsRegular() {
-			continue
-		}
-		kind := Kind(name)
-		if !slices.Contains(Kinds, kind) || !entry.IsDir() {
-			return nil, fmt.Errorf("%w: expected _shared or a kind directory (shell, toolchains, modules), got %q", ErrMetadata, name)
-		}
-		if err = readKind(files, kind, result); err != nil {
-			return nil, err
-		}
-	}
-
-	if len(result) == 0 {
-		return nil, fmt.Errorf("%w: no modules found", ErrMetadata)
-	}
-
-	return result, nil
-}
-
-// readKind adds the selectors of one kind's modules; selectors are unique across kinds.
-func readKind(files fs.FS, kind Kind, result map[string]selection) error {
-	directory := path.Join("modules", string(kind))
-	entries, err := fs.ReadDir(files, directory)
-	if err != nil {
-		return fmt.Errorf("%w: read %s: %w", ErrMetadata, directory, err)
-	}
-
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.Type().IsRegular() {
-			continue
-		}
-		if name == "capabilities" || name == "internal" || name == "pins" || name == "_shared" {
-			return fmt.Errorf("%w: module name %q is reserved", ErrMetadata, name)
-		}
-		if _, err = domain.NewModuleName(name); err != nil || !entry.IsDir() {
-			return fmt.Errorf("%w: expected a module directory in %s, got %q", ErrMetadata, kind, name)
-		}
-
-		metadata, err := readMetadata(files, path.Join(directory, name))
-		if err != nil {
-			return fmt.Errorf("module %q: %w", name, err)
-		}
-
-		for selector, selected := range metadata.selections(kind, name) {
-			if _, exists := result[selector]; exists {
-				return fmt.Errorf("%w: duplicate selector %q", ErrMetadata, selector)
-			}
-
-			result[selector] = selected
-		}
-	}
-
-	return nil
-}
-
-// Direct Nix files declare public areas; test.nix belongs to the test ABI.
-func readPublicDeclarations(source fs.FS) ([]string, error) {
-	entries, err := fs.ReadDir(source, "_shared")
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("%w: read _shared declarations: %w", ErrMetadata, err)
-	}
-
-	var result []string
-	for _, entry := range entries {
-		name := entry.Name()
-		if name == "module.toml" {
-			return nil, fmt.Errorf("%w: _shared must not contain module.toml", ErrMetadata)
-		}
-		if name == "test.nix" || !strings.HasSuffix(name, ".nix") {
-			continue
-		}
-		if !entry.Type().IsRegular() {
-			return nil, fmt.Errorf("%w: public declaration %q must be a regular file", ErrMetadata, name)
-		}
-		result = append(result, path.Join("_shared", name))
-	}
-	return result, nil
 }

@@ -3,7 +3,10 @@ package guest_test
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"path/filepath"
+	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/limanix/client/internal/domain"
@@ -21,6 +24,8 @@ type statusListBackend struct {
 	instances   []lima.Instance
 	unreachable string
 	cancel      context.CancelFunc
+	probeMu     sync.Mutex
+	probes      []string
 }
 
 func (backend *statusListBackend) FetchAll(context.Context) ([]lima.Instance, error) {
@@ -28,6 +33,10 @@ func (backend *statusListBackend) FetchAll(context.Context) ([]lima.Instance, er
 }
 
 func (backend *statusListBackend) Run(ctx context.Context, name string, _ []string, _ bool) (string, error) {
+	backend.probeMu.Lock()
+	backend.probes = append(backend.probes, name)
+	backend.probeMu.Unlock()
+
 	if backend.cancel != nil {
 		backend.cancel()
 		return "", ctx.Err()
@@ -41,7 +50,8 @@ func (backend *statusListBackend) Run(ctx context.Context, name string, _ []stri
 	return `{"contract":1,"ok":true,"data":{"disk":null,"interfaces":[{"name":"enp0s1","mac":"52:55:55:aa:bb:cc","ipv4":["192.0.2.10"]}]}}`, nil
 }
 
-func TestVMListRetainsHealthyRowsAfterStatusProbeFailure(t *testing.T) {
+func statusListFixture(t *testing.T) (*vm.Manager, *statusListBackend) {
+	t.Helper()
 	store, err := state.NewStore(filepath.Join(t.TempDir(), "state"))
 	if err != nil {
 		t.Fatal(err)
@@ -70,20 +80,24 @@ func TestVMListRetainsHealthyRowsAfterStatusProbeFailure(t *testing.T) {
 			backend.unreachable = instance.Name
 		}
 	}
-	ctx := context.Background()
 	metadata, err := nixos.SystemModules()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	manager := vm.New(vm.Dependencies{
+	return vm.New(vm.Dependencies{
 		Modules: modules.NewRegistry(store, metadata),
 		Homes:   &managedhome.Manager{},
 		Guest:   guest.New(backend),
 		Backend: backend,
 		Store:   store,
 		HostUID: 501,
-	})
+	}), backend
+}
+
+func TestVMListRetainsHealthyRowsAfterStatusProbeFailure(t *testing.T) {
+	manager, backend := statusListFixture(t)
+	ctx := context.Background()
 	entries, err := manager.FetchAll(ctx)
 	if err != nil || len(entries) != 2 {
 		t.Fatalf("an unavailable guest blocked VM listing: entries=%v, error=%v", entries, err)
@@ -101,5 +115,46 @@ func TestVMListRetainsHealthyRowsAfterStatusProbeFailure(t *testing.T) {
 
 	if entries, err := manager.FetchAll(canceled); !errors.Is(err, context.Canceled) || entries != nil {
 		t.Fatalf("caller cancellation became a successful list: entries=%v, error=%v", entries, err)
+	}
+}
+
+func TestVMFetchOnlyProbesTarget(t *testing.T) {
+	manager, backend := statusListFixture(t)
+	ctx := context.Background()
+	entries, err := manager.FetchAll(ctx)
+	if err != nil || len(entries) != 2 || len(backend.probes) != 2 {
+		t.Fatalf("FetchAll probes = %v, error = %v", backend.probes, err)
+	}
+
+	backend.probes = nil
+	info, err := manager.Fetch(ctx, "b-healthy")
+	if err != nil || !reflect.DeepEqual(info, entries[1]) {
+		t.Fatalf("Fetch = %+v, %v; list row = %+v", info, err, entries[1])
+	}
+	if !reflect.DeepEqual(backend.probes, []string{backend.instances[1].Name}) {
+		t.Fatalf("Fetch probed unrelated guests: %v", backend.probes)
+	}
+
+	backend.probes = nil
+	backend.instances[1].Status = lima.Stopped
+	info, err = manager.Fetch(ctx, "b-healthy")
+	if err != nil || info.BackendStatus == nil || *info.BackendStatus != lima.Stopped || len(backend.probes) != 0 {
+		t.Fatalf("Fetch stopped target = %+v, %v; probes = %v", info, err, backend.probes)
+	}
+
+	backend.instances[1].Status = lima.Running
+	canceled, cancel := context.WithCancel(ctx)
+	defer cancel()
+	backend.cancel = cancel
+	if _, err := manager.Fetch(canceled, "b-healthy"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Fetch suppressed caller cancellation: %v", err)
+	}
+
+	backend.probes = nil
+	if _, err := manager.Fetch(canceled, "b-healthy"); !errors.Is(err, context.Canceled) || len(backend.probes) != 0 {
+		t.Fatalf("Fetch with cancelled context = %v; probes = %v", err, backend.probes)
+	}
+	if _, err := manager.Fetch(ctx, "missing"); !errors.Is(err, fs.ErrNotExist) || len(backend.probes) != 0 {
+		t.Fatalf("Fetch missing target = %v; probes = %v", err, backend.probes)
 	}
 }

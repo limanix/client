@@ -1,11 +1,10 @@
 // bundle-lmx embeds locally built lmx release archives in a development build of Limanix.
 //
-// With --source, it copies the archives that `task release/build` of an lmx checkout left in its dist directory into
-// internal/nixos/resources/lmx, with an lmx.json that names them; the generated flake then builds the guest's lmx from
-// them instead of downloading the pinned release. The version comes from the checkout's Cargo.toml, and each archive
-// must match the .sha256 file beside it.
+// --source reads release archives from the checkout's dist directory and verifies their .sha256 files.
+// It writes the archives and lmx.json to internal/nixos/resources/lmx for the generated guest flake.
+// The version comes from the checkout's Cargo.toml.
 //
-// Without --source, it removes that directory, so that a build uses the pinned release in resources/base/lmx.json.
+// Without --source, it removes local bundles and uses the release pinned in resources/base/lmx.json.
 package main
 
 import (

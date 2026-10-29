@@ -7,13 +7,13 @@ import (
 	"github.com/limanix/client/internal/domain"
 )
 
-// Choice is a module that the configuration chooses, with the field that chooses it.
+// Choice pairs a selected module with its configuration field for diagnostics.
 type Choice struct {
 	ID    domain.ModuleID
 	Field string
 }
 
-// Selection is what the configuration installs besides the platform.
+// Selection lists modules and packages added to the base guest system.
 type Selection struct {
 	// Modules lists the shell components, then the toolchains, then [nixos] modules in their order.
 	Modules []Choice
@@ -21,13 +21,11 @@ type Selection struct {
 	Packages []domain.PackageName
 }
 
-// presetModules are the shell components of each preset, before its editor and multiplexer.
 var presetModules = map[string][]string{
 	PresetTerminal: {"cli-tools", "zsh", "lazygit", "yazi"},
 	PresetMinimal:  {"cli-tools"},
 }
 
-// presetPackages are the packages that each preset installs.
 var presetPackages = map[string][]domain.PackageName{
 	PresetTerminal: {"gh"},
 }
@@ -48,9 +46,16 @@ var toolchains = []struct {
 	{"clang", "clang", true},
 }
 
-// Selection resolves the shell and the toolchains to catalog selectors without consulting the catalog; the module
-// registry checks that each one exists.
+// Selection resolves shell and toolchain choices to catalog selectors.
+// The module registry checks whether each selector exists.
 func (config Config) Selection() Selection {
+	return Selection{
+		Modules:  config.selectedModules(),
+		Packages: config.selectedPackages(),
+	}
+}
+
+func (config Config) selectedModules() []Choice {
 	var modules []Choice
 	add := func(selector, field string) {
 		modules = append(modules, Choice{ID: domain.ModuleID("lmx:" + selector), Field: field})
@@ -68,19 +73,24 @@ func (config Config) Selection() Selection {
 
 	for _, toolchain := range toolchains {
 		value := config.Toolchains.value(toolchain.key)
-		switch {
-		case value == "":
-		case toolchain.versioned:
-			add(toolchain.module+"-"+value, "toolchains."+toolchain.key)
-		default:
-			add(toolchain.module, "toolchains."+toolchain.key)
+		if value == "" {
+			continue
 		}
+		selector := toolchain.module
+		if toolchain.versioned {
+			selector += "-" + value
+		}
+		add(selector, "toolchains."+toolchain.key)
 	}
 
 	for index, id := range config.NixOS.Modules {
 		modules = append(modules, Choice{ID: id, Field: fmt.Sprintf("nixos.modules[%d]", index)})
 	}
 
+	return modules
+}
+
+func (config Config) selectedPackages() []domain.PackageName {
 	var packages []domain.PackageName
 	for _, name := range presetPackages[config.Shell.Preset] {
 		listed := slices.ContainsFunc(config.NixOS.Packages, func(other domain.PackageName) bool {
@@ -91,9 +101,7 @@ func (config Config) Selection() Selection {
 			packages = append(packages, name)
 		}
 	}
-	packages = append(packages, config.NixOS.Packages...)
-
-	return Selection{Modules: modules, Packages: packages}
+	return append(packages, config.NixOS.Packages...)
 }
 
 func (toolchains Toolchains) value(key string) string {

@@ -41,6 +41,7 @@ type fakeManager struct {
 	failure     error
 	shellStatus int
 	create      func(context.Context) (domain.Instance, error)
+	fetch       func(context.Context, domain.VMName) (vm.Info, error)
 	shell       func(context.Context) (int, error)
 }
 
@@ -60,6 +61,19 @@ func (manager *fakeManager) Update(_ context.Context, path string) (domain.Insta
 func (manager *fakeManager) FetchAll(context.Context) ([]vm.Info, error) {
 	manager.calls = append(manager.calls, managerCall{operation: "list"})
 	return manager.entries, manager.failure
+}
+
+func (manager *fakeManager) Fetch(ctx context.Context, name domain.VMName) (vm.Info, error) {
+	manager.calls = append(manager.calls, managerCall{operation: "fetch", name: name})
+	if manager.fetch != nil {
+		return manager.fetch(ctx, name)
+	}
+	for _, entry := range manager.entries {
+		if entry.Name == string(name) {
+			return entry, manager.failure
+		}
+	}
+	return vm.Info{}, errors.New("VM not found")
 }
 
 func (manager *fakeManager) Start(_ context.Context, name domain.VMName) error {

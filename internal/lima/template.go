@@ -154,7 +154,7 @@ func templateMounts(cfg config.Config, managedHome, runtimeDir string) []limatyp
 		})
 	}
 
-	// Writable, so that tools that rewrite their own settings change the files on the Mac.
+	// Tools may save their settings back to the host dotfiles.
 	if cfg.Shell.Dotfiles != "" {
 		mounts = append(mounts, limatype.Mount{
 			Location:   string(cfg.Shell.Dotfiles),

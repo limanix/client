@@ -56,7 +56,7 @@ type NixOS struct {
 
 // Theme selects the colors of the guest.
 type Theme struct {
-	Flavor string `toml:"flavor" json:"flavor" doc:"Colors of lmx and the catalog modules: system uses the terminal's own colors and background, so the guest follows the theme of your terminal; latte is a light Catppuccin flavor, and frappe, macchiato and mocha are dark ones." choices:"system,latte,frappe,macchiato,mocha"`
+	Flavor string `toml:"flavor" json:"flavor" doc:"Colors of lmx and the catalog modules. System uses the terminal's colors and background. Latte is a light Catppuccin flavor; frappe, macchiato and mocha are dark ones." choices:"system,latte,frappe,macchiato,mocha"`
 }
 
 // Ports declares inbound guest firewall rules by transport protocol.

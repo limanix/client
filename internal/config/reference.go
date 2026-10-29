@@ -9,6 +9,18 @@ import (
 	"github.com/limanix/client/internal/domain"
 )
 
+var (
+	markdownCellEscaper = strings.NewReplacer("|", "&#124;", "\n", " ", "\r", " ")
+	markdownCodeEscaper = strings.NewReplacer(
+		"`", "&#96;",
+		"*", "&#42;",
+		"_", "&#95;",
+		"[", "&#91;",
+		"]", "&#93;",
+		"\\", "&#92;",
+	)
+)
+
 // RenderReference returns Markdown field tables generated from types, tags and defaults.
 func RenderReference() (string, error) {
 	var output strings.Builder
@@ -69,17 +81,11 @@ func modelTypeName(model reflect.Type) string {
 }
 
 func escapeMarkdownCell(value string) string {
-	return strings.NewReplacer("|", "&#124;", "\n", " ", "\r", " ").Replace(html.EscapeString(value))
+	return markdownCellEscaper.Replace(html.EscapeString(value))
 }
 
 func markdownCode(value string) string {
-	value = escapeMarkdownCell(value)
-
-	for _, character := range "`*_[]\\" {
-		value = strings.ReplaceAll(value, string(character), fmt.Sprintf("&#%d;", character))
-	}
-
-	return "<code>" + value + "</code>"
+	return "<code>" + markdownCodeEscaper.Replace(escapeMarkdownCell(value)) + "</code>"
 }
 
 func referenceModel(output *strings.Builder, model reflect.Value, prefix string) error {

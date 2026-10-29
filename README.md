@@ -26,8 +26,8 @@
 `limanix`, the Mac side of [LimaNix](https://limanix.dev): it creates, updates
 and opens NixOS development VMs from one `limanix.toml`. Lima is built in, and
 each release bundles one [catalog](https://github.com/limanix/modules) release
-and pins one [`lmx`](https://github.com/limanix/lmx) release, so there is
-nothing else to install. It needs macOS 26 or newer and `ssh` in `PATH`.
+and pins one [`lmx`](https://github.com/limanix/lmx) release. It needs macOS 26
+or newer and `ssh` in `PATH`.
 
 ```text
 ┌──────────────┐  reads  ┌───────────────────────┐    SSH    ┌──────────────┐

@@ -1,55 +1,34 @@
-// Package guest builds generations through lmx, waits for their convergence, and opens development-user sessions.
+// Package guest builds generations through lmx, checks convergence, and opens development-user sessions.
 //
-// [Guest] uses a [Client] management connection supplied by internal/lima. It does not allocate host homes,
-// persist VM status, control the VM lifecycle, or construct flake inputs; those responsibilities belong to internal/vm, internal/state,
-// and internal/nixos. It reads version 1 of the lmx host contract: a command answers with one JSON envelope, and
-// the answer wins over the exit status. Copies of the host contract examples in testdata keep the
-// decoders honest.
+// [Guest] uses the management connection in [Client].
+// It reads version 1 of the lmx host contract; a valid JSON response takes precedence over the command's exit status.
+// Contract examples are kept in testdata.
 //
-// # Building and checking a generation
+// # Applying generations
 //
-//	lmx store reserve → stop the guest's lmx units
-//	             ↓
-//	nix build packages.<system>.lmx of the requested generation → /run/limanix-lmx
-//	             ↓
-//	run its lmxd as lmx-transient.service → lmx apply --follow
+// [Guest.Build] temporarily runs the lmxd packaged by the requested generation at /mnt/limanix/<generation>.
+// It builds the next system and installs its environment after a successful build.
+// Build output goes to Stderr; lmx warnings go to Warn.
+// A failed build attempts to restore the guest's own lmx.service.
 //
-// [Guest.Build] runs the lmxd packaged by the requested generation at /mnt/limanix/<generation>.
-// lmxd makes room in the store and builds that generation for the next boot, then installs its environment files.
-// The build reads the candidate environment without replacing the running system's files before it succeeds.
-// Build prints the build lines on Stderr and passes lmx warnings to Warn.
-// A build that fails on a full disk adds a [DiskError] with the usage lmx reported; a package build that runs out of room before lmx runs says that the disk is full.
+// Cancellation requests lmx apply cancel and waits for a confirmed outcome.
+// A confirmed successful apply remains successful after cancellation.
+// An unconfirmed stop is an error.
+// The VM manager selects the built generation, restarts the VM, and calls [Guest.Converge].
+// A [FinalizeError] means the generation runs but lmxd has not yet removed older generations.
+// Other convergence failures include the conditions last reported by lmxd.
 //
-// The VM manager starts the guest when needed, calls Build, selects current after success, and owns the stop, Lima edit and start.
-// It then calls [Guest.Converge], which waits for lmx status --wait converged.
-// A [FinalizeError] means that the generation runs, but lmxd could not remove the older generations yet and tries again later.
-// Any other end of the wait carries the conditions lmxd reported last.
+// # Status and checks
 //
-// After a build failure, Build attempts to stop the transient lmxd and start the guest's own lmx.service, if there is one.
-// The apply belongs to lmxd: cancellation runs lmx apply cancel; a confirmed successful apply still returns success, otherwise cancellation returns the context's error once lmx confirms the stop.
-// A stop that cannot be confirmed is an error; the VM manager checks cancellation separately before restarting.
+// [Guest.Reserve] asks lmxd to free store space and returns [DiskError] when the remaining space is low.
+// Build continues after reserve failures; the generation's lmxd tries again during apply.
+// A build failure may also include [DiskError] with the reported usage.
 //
-// # Disk and status
+// [Guest.Status] reads shared-network IPv4 and store usage within ten seconds.
+// Missing lmx produces an update notice; other failures leave the status empty.
+// The caller handles parent cancellation, and Client must support concurrent status requests.
+// [Guest.Doctor] and [Guest.NetCheck] return lmx check records unchanged within thirty seconds.
 //
-// Build calls [Guest.Reserve] before fetching the generation's sources.
-// lmxd collects unreferenced store paths below [domain.DiskCollectPercent] free, and Reserve returns a [DiskError] when less than [domain.DiskMinimumPercent] stays free.
-// Build continues after a low-disk result; the generation's lmxd makes room again during its apply.
-// Every other outcome, including a guest without lmx, is not an error.
-//
-// [Guest.Status] reads the address on Lima's shared network and the store disk usage with one bounded lmx status
-// call. A guest without lmx gets a notice to run limanix update; any other failure leaves the status empty. The
-// listing layer propagates cancellation of the parent operation. The client must support concurrent status calls.
-//
-// # Checks
-//
-// [Guest.Doctor] and [Guest.NetCheck] run lmx doctor and lmx net check within 30 seconds and return their [Check]
-// records unchanged. lmx exits with status 1 when a check failed, but its answer is still a success.
-//
-// # Sessions
-//
-// [Guest.Shell] changes to the development user's home and preserves literal command arguments and exit status.
-// An empty argument list opens a login shell. The management account and the development account are distinct.
-//
-// Read apply.go for the steps, follow.go for the build output and cancellation, lmx.go for the contract, status.go,
-// reserve.go, and check.go for the queries, and shell.go for user switching.
+// [Guest.Shell] uses the development user's home and preserves command arguments and exit status.
+// An empty command opens a login shell.
 package guest

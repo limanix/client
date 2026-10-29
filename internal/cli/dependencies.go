@@ -36,6 +36,7 @@ func (streams IO) withDefaults() IO {
 type Manager interface {
 	Create(context.Context, string) (domain.Instance, error)
 	Update(context.Context, string) (domain.Instance, error)
+	Fetch(context.Context, domain.VMName) (vm.Info, error)
 	FetchAll(context.Context) ([]vm.Info, error)
 	Start(context.Context, domain.VMName) error
 	Stop(context.Context, domain.VMName) error

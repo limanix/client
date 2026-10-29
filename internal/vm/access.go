@@ -16,8 +16,7 @@ const (
 	sshPortLast  = 49151
 )
 
-// sshPort keeps the port of a running VM or a free one, and otherwise gives the VM the first free port that no
-// other VM uses: a stopped VM whose port another program took moves on its next update.
+// A stopped VM may need a new port if another process took its previous one.
 func (m *Manager) sshPort(ctx context.Context, actual lima.Instance) (int, error) {
 	if actual.SSHPort > 0 && (actual.Status == lima.Running || m.free(actual.SSHPort)) {
 		return actual.SSHPort, nil
@@ -51,7 +50,7 @@ func (m *Manager) free(port int) bool {
 	return listener.Close() == nil
 }
 
-// refreshSSHConfig rewrites the SSH settings of all VMs for editors on the Mac; a failure only warns.
+// SSH configuration failures warn without failing the VM operation.
 func (m *Manager) refreshSSHConfig(ctx context.Context) {
 	if m.sshConfig == "" {
 		return

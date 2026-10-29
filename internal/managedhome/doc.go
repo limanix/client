@@ -1,16 +1,7 @@
-// Package managedhome manages exact host home allocations recorded in VM ownership.
+// Package managedhome manages the host home allocation recorded in a VM's identity.
+// The directory is home.root/<name>-<id>, separate from VM state and explicit mounts.
 //
-// [Manager] creates and removes the directory derived from domain.Identity: home.root/<name>-<id>.
-// This directory is mounted as the development user's home. It is separate from Limanix's state directory
-// and from user-supplied mount sources.
-//
-// # Ownership boundary
-//
-//	domain.Identity → checked root and exact allocation → Manager.Create / Remove
-//	       ↑
-//	state identity.json or a preserved-home ownership record
-//
-// [Manager.Create] makes a private empty directory. An existing allocation is never adopted, even when empty.
-// [Manager.Remove] treats an absent allocation as already removed and refuses a redirected or non-directory allocation.
+// Existing directories are never adopted, even when empty.
+// Removal accepts absence but refuses redirected paths and non-directories.
 // Guest-writable marker files are never used as ownership evidence.
 package managedhome
