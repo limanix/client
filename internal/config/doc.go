@@ -1,5 +1,5 @@
 // Package config defines the TOML configuration, defaults, and generated reference.
-// Field tags keep parsing, validation, examples, and reference tables consistent.
+// Field tags keep parsing, validation, the example file, and the fields of [Reference] consistent.
 // The configuration schema is versioned separately from releases and state records.
 //
 // [Parse] validates literal input without filesystem access.

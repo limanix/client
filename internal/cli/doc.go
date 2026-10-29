@@ -5,7 +5,8 @@
 //
 // [Command] constructs the Cobra tree without querying Lima or opening state.
 // [Dependencies] supplies lazy service factories, with defaults from internal/app.
-// [Reference] renders the same commands without executing them.
+// [BuildReference] walks the same commands and the configuration model, without executing them, into the [Reference]
+// that reference.json keeps for the LimaNix site.
 //
 // [Execute] returns an exit code rather than calling os.Exit.
 // Success returns 0, usage errors return 2, ordinary failures return 1, and canceled foreground operations return 130.

@@ -104,6 +104,24 @@ tasks:
           CONTAINER_ENVS: USER=limanix
           CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .image_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .lmx_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
 
+  reference/fix:
+    desc: Update reference.json from the commands and the configuration model
+    requires:
+      vars: [modules_version]
+    vars:
+      reference_command: |
+        go run ./cmd/bundle-modules --root . --version {{.modules_version | shellQuote}} {{with .modules_source_path}}--source {{. | shellQuote}}{{end}} {{with .image_source_path}}--image {{. | shellQuote}}{{end}}
+        go run ./cmd/bundle-lmx --root . {{with .lmx_source_path}}--source {{. | shellQuote}}{{end}}
+        go run -ldflags {{.build_flags | shellQuote}} ./cmd/bundle-socketvmnet --root .
+        go run ./cmd/bundle-guestagent --root .
+        exec env LIMANIX_UPDATE_REFERENCE=1 go test -count=1 -tags=osusergo -ldflags {{.build_flags | shellQuote}} -run TestReferenceJSON ./internal/cli
+    cmds:
+      - task: golang:exec
+        vars:
+          CMD: sh -eu -c {{.reference_command | shellQuote}}
+          CONTAINER_ENVS: USER=limanix
+          CONTAINER_VOLUMES: '{{with .modules_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .image_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}} {{with .lmx_source_path}}{{printf "%s:%s:ro" . . | shellQuote}}{{end}}'
+
   ci/nix/eval:
     desc: Evaluate the client/catalog pair; EVAL_ARCH and EVAL_MODULES select cases
     requires:
