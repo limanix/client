@@ -11,7 +11,7 @@ import (
 
 func modulesCommand(dependencies Dependencies) *cobra.Command {
 	catalog := &cobra.Command{
-		Use:   "modules",
+		Use:   "modules COMMAND",
 		Short: "Manage bundled and third-party NixOS modules.",
 
 		RunE: func(_ *cobra.Command, _ []string) error {

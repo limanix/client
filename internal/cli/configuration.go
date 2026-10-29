@@ -90,6 +90,7 @@ func createCommand(dependencies Dependencies) *cobra.Command {
 	}
 
 	command.Flags().StringVar(&path, "config", "", "Path to the VM configuration file (required).")
+	markRequired(command, "config")
 	command.Flags().BoolVar(&asJSON, "json", false, "Print the VM as machine-readable JSON.")
 	return command
 }
@@ -126,6 +127,7 @@ func updateCommand(dependencies Dependencies) *cobra.Command {
 	}
 
 	command.Flags().StringVar(&path, "config", "", "Path to the VM configuration file (required).")
+	markRequired(command, "config")
 	command.Flags().BoolVar(&asJSON, "json", false, "Print the VM as machine-readable JSON.")
 	return command
 }

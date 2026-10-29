@@ -48,10 +48,14 @@ func (m *Manager) Update(ctx context.Context, path string) (result domain.Instan
 		return result, err
 	}
 
-	port, err := m.sshPort(ctx, actual)
+	port, release, err := m.sshPort(ctx, actual)
 	if err != nil {
 		return result, err
 	}
+
+	defer func() {
+		err = errors.Join(err, release())
+	}()
 
 	result.BeginUpdate(generation)
 

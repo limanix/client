@@ -32,6 +32,16 @@ func (backend *statusListBackend) FetchAll(context.Context) ([]lima.Instance, er
 	return backend.instances, nil
 }
 
+func (backend *statusListBackend) Fetch(_ context.Context, name string) (lima.Instance, error) {
+	for _, instance := range backend.instances {
+		if instance.Name == name {
+			return instance, nil
+		}
+	}
+
+	return lima.Instance{}, fs.ErrNotExist
+}
+
 func (backend *statusListBackend) Run(ctx context.Context, name string, _ []string, _ bool) (string, error) {
 	backend.probeMu.Lock()
 	backend.probes = append(backend.probes, name)

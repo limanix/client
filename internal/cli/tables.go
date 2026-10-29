@@ -12,6 +12,17 @@ import (
 	"github.com/limanix/client/internal/vm"
 )
 
+var instanceColumns = []Item{
+	{ID: "NAME", What: "VM name."},
+	{ID: "STATUS", What: "Lima's power state, such as `Running` or `Stopped`. `Missing` when no Lima instance matches " +
+		"the saved VM, or its identity record cannot be read."},
+	{ID: "STATE", What: "The last LimaNix operation: `ready`, `error` or `interrupted`; `creating`, `updating` or " +
+		"`deleting` while one runs; `corrupt` when the operation record cannot be read."},
+	{ID: "ADDRESS", What: "The guest's IPv4 address on the shared network, or `-` when none was read."},
+	{ID: "DISK", What: "Used share of the guest disk, by bytes or, when they are scarcer, by inodes, such as " +
+		"`97% inodes`. `-` when the VM is stopped or did not answer."},
+}
+
 func writeInstances(output io.Writer, entries []vm.Info) error {
 	if len(entries) == 0 {
 		_, err := fmt.Fprintln(output, "No VMs managed by Limanix.")
@@ -21,8 +32,13 @@ func writeInstances(output io.Writer, entries []vm.Info) error {
 	// Notes would end tabwriter's aligned block. Insert them after formatting the rows.
 	var table bytes.Buffer
 
+	header := make([]string, 0, len(instanceColumns))
+	for _, column := range instanceColumns {
+		header = append(header, column.ID)
+	}
+
 	writer := tabwriter.NewWriter(&table, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(writer, "NAME\tSTATUS\tSTATE\tADDRESS\tDISK"); err != nil {
+	if _, err := fmt.Fprintln(writer, strings.Join(header, "\t")); err != nil {
 		return err
 	}
 

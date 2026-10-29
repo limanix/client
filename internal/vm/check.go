@@ -13,7 +13,6 @@ import (
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/guest"
 	"github.com/limanix/client/internal/lima"
-	"github.com/limanix/client/internal/state"
 )
 
 // connectTimeout bounds the connection that a TCP network check tries from the Mac.
@@ -59,7 +58,8 @@ func (id CheckID) What() string {
 	case CheckGuest:
 		return "Takes the place of the guest checks when the guest gives no answer."
 	case CheckConnect:
-		return "The Mac connects to the address and port within 3 seconds. Only for a TCP port."
+		return fmt.Sprintf("The Mac connects to the address and port within %d seconds. Only for a TCP port.",
+			int(connectTimeout/time.Second))
 	default:
 		return ""
 	}
@@ -68,10 +68,10 @@ func (id CheckID) What() string {
 // Report lists the checks of a VM in order: the host's, the guest's, then for TCP the connection from the Mac. Port
 // and Protocol belong to a network check.
 type Report struct {
-	Name     string        `json:"name"`
-	Port     uint16        `json:"port,omitempty"`
-	Protocol Protocol      `json:"protocol,omitempty"`
-	Checks   []guest.Check `json:"checks"`
+	Name     string        `json:"name" doc:"VM name."`
+	Port     uint16        `json:"port,omitempty" doc:"Checked port."`
+	Protocol Protocol      `json:"protocol,omitempty" doc:"tcp or udp."`
+	Checks   []guest.Check `json:"checks" doc:"The checks in the order they ran."`
 }
 
 // Failed reports whether a check failed; a warning does not fail a report.
@@ -128,17 +128,11 @@ func (m *Manager) NetworkCheck(ctx context.Context, name domain.VMName, port uin
 // the guest reported no address. The guest answers lmx commands when the VM runs, no other command changes it, and the
 // guest has lmx.
 func (m *Manager) inspect(ctx context.Context, report *Report, noAddress guest.Check) (Info, bool, error) {
-	entry, err := m.store.Fetch(domain.VMName(report.Name))
+	info, err := m.fetchInfo(ctx, domain.VMName(report.Name))
 	if err != nil {
 		return Info{}, false, err
 	}
 
-	instances, err := m.listBackend(ctx, []state.Entry{entry})
-	if err != nil {
-		return Info{}, false, err
-	}
-
-	info := m.instanceInfo(ctx, entry, instances)
 	report.Checks = append(report.Checks, vmCheck(report.Name, info))
 
 	if info.BackendStatus == nil || *info.BackendStatus != lima.Running || busy(info) {

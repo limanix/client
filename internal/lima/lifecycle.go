@@ -81,6 +81,10 @@ func (client *Client) Stop(ctx context.Context, name string) (failure error) {
 		return err
 	}
 
+	if inst.Status == limatype.StatusStopped {
+		return nil
+	}
+
 	return withNetworkLock(ctx, func() error {
 		if err = client.native.stop(ctx, inst, false); err != nil {
 			return err
