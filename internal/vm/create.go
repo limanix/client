@@ -21,6 +21,10 @@ func (m *Manager) Create(ctx context.Context, path string) (result domain.Instan
 		return result, err
 	}
 
+	if err = m.requireNew(cfg.Name); err != nil {
+		return result, err
+	}
+
 	if err = m.preflight(ctx, cfg); err != nil {
 		return result, err
 	}
@@ -34,14 +38,7 @@ func (m *Manager) Create(ctx context.Context, path string) (result domain.Instan
 		err = errors.Join(err, lock.Close())
 	}()
 
-	if err = m.store.RequireAbsent(cfg.Name); err != nil {
-		if errors.Is(err, fs.ErrExist) {
-			err = &InstanceError{
-				Name:  cfg.Name,
-				Cause: ErrAlreadyExists,
-			}
-		}
-
+	if err = m.requireNew(cfg.Name); err != nil {
 		return result, err
 	}
 
@@ -74,6 +71,15 @@ func (m *Manager) Create(ctx context.Context, path string) (result domain.Instan
 	}
 
 	return result, err
+}
+
+func (m *Manager) requireNew(name domain.VMName) error {
+	err := m.store.RequireAbsent(name)
+	if errors.Is(err, fs.ErrExist) {
+		return &InstanceError{Name: name, Cause: ErrAlreadyExists}
+	}
+
+	return err
 }
 
 func newInstance(cfg config.Config) (domain.Instance, error) {

@@ -87,7 +87,7 @@
         },
         {
           "id": "error",
-          "what": "Saved error of the last operation, or null."
+          "what": "Saved error of the last operation, or why the VM records cannot be read; null otherwise."
         },
         {
           "id": "notice",
@@ -167,7 +167,7 @@
         },
         {
           "id": "home",
-          "what": "Path of the managed home that delete kept, or null with --remove-home."
+          "what": "Path of the managed home that delete kept, or null with --remove-home or when the VM identity could not be read."
         }
       ]
     },
@@ -361,7 +361,7 @@
         },
         {
           "id": "error",
-          "what": "Saved error of the last operation, or null."
+          "what": "Saved error of the last operation, or why the VM records cannot be read; null otherwise."
         },
         {
           "id": "notice",
@@ -650,7 +650,7 @@
           "required": false,
           "default": null,
           "values": [],
-          "about": "Guest command and its arguments, after `--`. They reach the guest unchanged, without a guest shell.",
+          "about": "Guest command and its arguments, after `--`. They reach the guest unchanged; no guest shell parses them.",
           "details": null
         },
         {
@@ -724,7 +724,7 @@
         },
         {
           "id": "error",
-          "what": "Saved error of the last operation, or null."
+          "what": "Saved error of the last operation, or why the VM records cannot be read; null otherwise."
         },
         {
           "id": "notice",
@@ -799,7 +799,7 @@
         },
         {
           "id": "error",
-          "what": "Saved error of the last operation, or null."
+          "what": "Saved error of the last operation, or why the VM records cannot be read; null otherwise."
         },
         {
           "id": "notice",
@@ -874,7 +874,7 @@
         },
         {
           "id": "error",
-          "what": "Saved error of the last operation, or null."
+          "what": "Saved error of the last operation, or why the VM records cannot be read; null otherwise."
         },
         {
           "id": "notice",
@@ -910,7 +910,7 @@
     },
     {
       "status": 130,
-      "what": "The command was interrupted: Ctrl-C, `SIGTERM`, or a closed terminal."
+      "what": "The command was interrupted with Ctrl-C, `SIGTERM` or a closed terminal; `limanix shell` passes Ctrl-C to the guest."
     },
     {
       "status": null,

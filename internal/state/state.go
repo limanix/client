@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/filesystem"
@@ -17,8 +18,18 @@ type Store struct {
 	root string
 }
 
-// DefaultRoot returns the platform state location or LIMANIX_HOME override.
+// DefaultRoot returns the platform state location or LIMANIX_HOME override. Lima passes the generations folder below
+// it unescaped to QEMU, where a comma starts the next option.
 func DefaultRoot() (string, error) {
+	root, err := platformRoot()
+	if err == nil && strings.ContainsRune(root, ',') {
+		return "", fmt.Errorf("%w: %s", ErrRootComma, root)
+	}
+
+	return root, err
+}
+
+func platformRoot() (string, error) {
 	if override := os.Getenv("LIMANIX_HOME"); override != "" {
 		return filesystem.Resolve(override)
 	}

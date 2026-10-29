@@ -178,7 +178,7 @@ func TestBuildFailureReturnsTheGuestToItsOwnLMXD(t *testing.T) {
 		answer string
 		disk   *DiskError
 	}{
-		{name: "build", answer: line(t, "apply-build-failed.json")},
+		{name: "build", answer: line(t, "apply-build-failed.json"), disk: &DiskError{Usage: domain.DiskUsage{Bytes: 17179869184, FreeBytes: 268435456, Inodes: 1048576, FreeInodes: 52428}}},
 		{name: "full disk", answer: full, disk: &DiskError{Usage: domain.DiskUsage{Bytes: 100, FreeBytes: 2, Inodes: 10, FreeInodes: 5}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -66,6 +66,11 @@ func commandContext(ctx context.Context, command string) (context.Context, conte
 		}
 
 	default:
-		return signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+		signals := []os.Signal{os.Interrupt, syscall.SIGTERM}
+		if !signal.Ignored(syscall.SIGHUP) {
+			signals = append(signals, syscall.SIGHUP)
+		}
+
+		return signal.NotifyContext(ctx, signals...)
 	}
 }

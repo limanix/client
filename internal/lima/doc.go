@@ -20,7 +20,8 @@
 // # Execution
 //
 // Start, stop, and delete serialize network transitions for Limanix processes sharing LIMA_HOME.
-// The lock includes image preparation and startup and ends before guest provisioning.
+// The lock includes image preparation and startup and ends before guest provisioning, or when cancellation stops the
+// wait while the guest keeps booting.
 // It does not coordinate external limactl processes or separate Lima homes.
 // Separate homes can share socket and PID paths; one home's reconciler can stop another home's network helper.
 // Lima starts helpers on demand and stops them after the last user.

@@ -42,7 +42,8 @@ var exitStatuses = []ExitStatus{
 		"after printing every check, when one failed."},
 	{Status: exitCode(2), What: "Usage error, such as an unknown command, a missing argument, a missing `--config`, " +
 		"or `-q` with `--json`."},
-	{Status: exitCode(130), What: "The command was interrupted: Ctrl-C, `SIGTERM`, or a closed terminal."},
+	{Status: exitCode(130), What: "The command was interrupted with Ctrl-C, `SIGTERM` or a closed terminal; " +
+		"`limanix shell` passes Ctrl-C to the guest."},
 	{What: "`limanix shell` exits with the status of the guest command or shell."},
 }
 
