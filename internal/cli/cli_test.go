@@ -143,11 +143,19 @@ func TestHelpVersionAndReferenceDoNotInitializeHostServices(t *testing.T) {
 	if status != 0 || output != buildinfo.Version+"\n" || diagnostics != "" {
 		t.Fatalf("version failed: %d %q %q", status, output, diagnostics)
 	}
-	reference := Reference()
-	if strings.Contains(reference, "hostagent") || strings.Contains(reference, "--debug") {
+	built, err := BuildReference()
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(built.Commands)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reference := string(encoded)
+	if strings.Contains(reference, "hostagent") || strings.Contains(reference, "vmnet-install") || strings.Contains(reference, "--debug") {
 		t.Fatal("internal Lima subprocess interface entered the public reference")
 	}
-	for _, fragment := range []string{"`limanix create`", "--config", "`limanix update`", "`limanix modules add`", "--remove-home", "shell NAME [--session SESSION | -- COMMAND ...]"} {
+	for _, fragment := range []string{`"limanix create"`, `"--config"`, `"limanix update"`, `"limanix modules add"`, `"--remove-home"`, "shell NAME [--session SESSION | -- COMMAND ...]"} {
 		if !strings.Contains(reference, fragment) {
 			t.Fatalf("actual CLI missing from reference: %s", fragment)
 		}
