@@ -53,11 +53,11 @@ uses.
 
 | Task | Does |
 | -- | -- |
-| `task ci/golang/test modules_version=v5` | Go tests with the race detector |
+| `task ci/golang/test modules_version=v11` | Go tests with the race detector |
 | `task ci/golang/lint`, `ci/golang/fmt`, `ci/golang/audit` | Lint, formatting and known vulnerabilities |
-| `task ci/nix/eval modules_version=v5` | Evaluates the generated NixOS flake for every catalog selector |
-| `task release/build modules_version=v5` | Builds ad-hoc signed `bin/limanix-arm64` and `bin/limanix-amd64` natively |
-| `task reference/fix modules_version=v5` | Updates `reference.json`, the commands and `limanix.toml` keys that the LimaNix site reads; a test fails when it is out of date |
+| `task ci/nix/eval modules_version=v11` | Evaluates the generated NixOS flake for every catalog selector |
+| `task release/build modules_version=v11` | Builds ad-hoc signed `bin/limanix-arm64` and `bin/limanix-amd64` natively |
+| `task reference/fix modules_version=v11` | Updates `reference.json`, the commands and `limanix.toml` keys that the LimaNix site reads; a test fails when it is out of date |
 
 `modules_source=../modules` bundles a local catalog checkout, and
 `lmx_source=../lmx` the archives that `task release/build` left in
