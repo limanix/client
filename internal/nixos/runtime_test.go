@@ -184,7 +184,7 @@ func TestRuntimeMetadataPreservesSelectedModulesWithoutEnvironment(t *testing.T)
 		t.Fatal(err)
 	}
 	selected := []domain.ModuleID{
-		"lmx:cli-tools", "lmx:zsh", "lmx:lazygit", "lmx:yazi", "lmx:astronvim", "lmx:tmux", "lmx:docker", "lmx:docker",
+		"lmx:cli-tools", "lmx:zsh", "lmx:lazygit", "lmx:yazi", "lmx:pure", "lmx:astronvim", "lmx:tmux", "lmx:docker", "lmx:docker",
 	}
 	if !reflect.DeepEqual(runtime.SelectedModules, selected) || strings.Contains(string(data), "never-in-workspace-metadata") {
 		t.Fatalf("workspace metadata changed: %s", data)
@@ -254,7 +254,7 @@ func TestRuntimeCarriesShellAndToolchains(t *testing.T) {
 	}
 
 	runtime := read(config.Default())
-	if runtime.Shell.Prompt == nil || *runtime.Shell.Prompt != "pure" || runtime.Shell.Dotfiles != nil || runtime.Toolchains.Rust != nil {
+	if runtime.Shell.Dotfiles != nil || runtime.Toolchains.Rust != nil {
 		t.Fatalf("defaults: %+v %+v", runtime.Shell, runtime.Toolchains)
 	}
 
@@ -265,7 +265,7 @@ func TestRuntimeCarriesShellAndToolchains(t *testing.T) {
 	}
 	cfg.Toolchains = config.Toolchains{Rust: "nightly-2026-10-01", Go: "1.27"}
 	runtime = read(cfg)
-	if runtime.Shell.Prompt != nil || runtime.Shell.Dotfiles == nil || *runtime.Shell.Dotfiles != config.DotfilesTarget ||
+	if runtime.Shell.Dotfiles == nil || *runtime.Shell.Dotfiles != config.DotfilesTarget ||
 		runtime.Toolchains.Rust == nil || *runtime.Toolchains.Rust != "nightly-2026-10-01" {
 		t.Fatalf("minimal with dotfiles and Rust: %+v %+v", runtime.Shell, runtime.Toolchains)
 	}

@@ -69,6 +69,7 @@ func TestCatalogRejectsMissingNonRegularOrEmptyPlatform(t *testing.T) {
 				"flake.lock":                       nixpkgsFixture(t),
 				"interface.nix":                    []byte("{ options = {}; }\n"),
 				"modules/modules/tool/module.toml": []byte("description = 'Tool'\n"),
+				"modules/_shared/themes.toml":      []byte("[example]\n"),
 				"modules/modules/tool/default.nix": []byte("{}\n"),
 			}
 			for path, data := range files {

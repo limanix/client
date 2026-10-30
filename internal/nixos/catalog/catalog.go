@@ -36,6 +36,8 @@ type Entry struct {
 	Module      string
 	Line        string
 	Description string
+	// Shells lists the shells a prompt runs in; it is empty for a module that is not a prompt.
+	Shells []string
 }
 
 // Catalog retains validated archive contents and an independent metadata index.
@@ -44,6 +46,7 @@ type Catalog struct {
 
 	files              fs.FS
 	modules            map[string]selection
+	themes             []string
 	nixpkgs            nixpkgsPin
 	nixosLima          limaPin
 	publicInterface    []byte
@@ -109,6 +112,11 @@ func (catalog *Catalog) Modules() map[string]Entry {
 	}
 
 	return result
+}
+
+// Themes returns the names of the catalog's themes, sorted; system, the terminal's colors, is not among them.
+func (catalog *Catalog) Themes() []string {
+	return slices.Clone(catalog.themes)
 }
 
 // Module resolves a local selector while retaining sibling modules for Nix imports.

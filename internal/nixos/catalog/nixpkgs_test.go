@@ -202,6 +202,7 @@ func catalogArchiveWithInterface(t *testing.T, lock []byte, interfacePath string
 		"LICENSE":                          []byte("test license\n"),
 		"platform.nix":                     []byte("{ services.lima.enable = true; }\n"),
 		"modules/modules/tool/module.toml": []byte("description = 'Tool'\n"),
+		"modules/_shared/themes.toml":      []byte("[example]\n"),
 		"modules/modules/tool/default.nix": []byte("{}\n"),
 	}
 	if lock != nil {

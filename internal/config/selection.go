@@ -11,6 +11,8 @@ import (
 type Choice struct {
 	ID    domain.ModuleID
 	Field string
+	// Shell is the shell a prompt must run in, the shell of the preset; empty for other modules.
+	Shell string
 }
 
 // Selection lists modules and packages added to the base guest system.
@@ -24,6 +26,12 @@ type Selection struct {
 var presetModules = map[string][]string{
 	PresetTerminal: {"cli-tools", "zsh", "lazygit", "yazi"},
 	PresetMinimal:  {"cli-tools"},
+}
+
+// presetShells names the login shell of each preset, the shell a prompt must run in.
+var presetShells = map[string]string{
+	PresetTerminal: "zsh",
+	PresetMinimal:  "bash",
 }
 
 var presetPackages = map[string][]domain.PackageName{
@@ -63,6 +71,13 @@ func (config Config) selectedModules() []Choice {
 
 	for _, name := range presetModules[config.Shell.Preset] {
 		add(name, "shell.preset")
+	}
+	if config.Shell.Prompt != None {
+		modules = append(modules, Choice{
+			ID:    domain.ModuleID("lmx:" + config.Shell.Prompt),
+			Field: "shell.prompt",
+			Shell: presetShells[config.Shell.Preset],
+		})
 	}
 	if config.Shell.Editor != None {
 		add(config.Shell.Editor, "shell.editor")

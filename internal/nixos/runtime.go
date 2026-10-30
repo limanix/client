@@ -29,8 +29,6 @@ type runtimeTheme struct {
 
 // runtimeShell carries the shell settings that modules read; null where the chosen shell has no such setting.
 type runtimeShell struct {
-	// Prompt of Zsh, null without the terminal preset.
-	Prompt *string `json:"prompt"`
 	// Dotfiles is the guest mount of shell.dotfiles, null without it.
 	Dotfiles *string `json:"dotfiles"`
 }
@@ -64,9 +62,6 @@ func writeRuntime(filename string, cfg config.Config, generation string, imports
 	}
 
 	var shell runtimeShell
-	if cfg.Shell.Preset == config.PresetTerminal {
-		shell.Prompt = &cfg.Shell.Prompt
-	}
 	if cfg.Shell.Dotfiles != "" {
 		shell.Dotfiles = new(config.DotfilesTarget)
 	}

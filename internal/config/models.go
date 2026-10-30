@@ -29,7 +29,7 @@ type Home struct {
 // Shell chooses the interactive environment of the development account from the catalog's shell components.
 type Shell struct {
 	Preset      string                  `toml:"preset" json:"preset" doc:"Shell preset: terminal is Zsh with Oh My Zsh, the CLI tools, Lazygit, Yazi and the GitHub CLI; minimal is Bash with the CLI tools." choices:"terminal,minimal"`
-	Prompt      string                  `toml:"prompt" json:"prompt" doc:"Zsh prompt of the terminal preset; none leaves the prompt to your startup files. The minimal preset has no prompt to choose: there it defaults to and must be none." choices:"pure,starship,none"`
+	Prompt      string                  `toml:"prompt" json:"prompt" doc:"Prompt: the name of one of the catalog's prompts, such as pure, or none, which leaves the prompt to your startup files. The prompt must run in the preset's shell, Zsh for terminal and Bash for minimal. Defaults to pure with the terminal preset and to none with minimal."`
 	Editor      string                  `toml:"editor" json:"editor" doc:"Editor: astronvim is Neovim configured with language servers for the chosen toolchains, neovim is plain Neovim. Defaults to none with the minimal preset." choices:"astronvim,neovim,none"`
 	Multiplexer string                  `toml:"multiplexer" json:"multiplexer" doc:"Terminal multiplexer, which also provides the sessions of limanix shell --session. Defaults to none with the minimal preset." choices:"tmux,none"`
 	Dotfiles    domain.OptionalHostPath `toml:"dotfiles" json:"dotfiles" doc:"Host directory of your dotfiles, mounted read-write at /mnt/dotfiles: each new shell links its top-level dot-entries and the entries of its .config into the home, leaving existing files alone. Empty mounts none." example:"~/dotfiles"`
@@ -56,7 +56,7 @@ type NixOS struct {
 
 // Theme selects the colors of the guest.
 type Theme struct {
-	Name string `toml:"name" json:"name" doc:"Colors of lmx and the catalog modules. System uses the terminal's colors and background. Every other theme gives each module the same palette, and the editor its own colorscheme; solarized-light and github-light are light, the others dark." choices:"system,catppuccin-mocha,tokyo-night,dracula,nord,gruvbox-dark,rose-pine,kanagawa-wave,everforest-dark,solarized-light,github-light"`
+	Name string `toml:"name" json:"name" doc:"Colors of lmx and the catalog modules: system, the terminal's colors and background, or the name of one of the catalog's themes, such as tokyo-night. Every theme other than system gives each module the same palette, and the editor its own colorscheme."`
 }
 
 // Ports declares inbound guest firewall rules by transport protocol.
@@ -86,6 +86,9 @@ const (
 
 // None switches a shell component off.
 const None = "none"
+
+// SystemTheme draws the guest in the terminal's own colors.
+const SystemTheme = "system"
 
 // DotfilesTarget is where the guest mounts shell.dotfiles.
 const DotfilesTarget = "/mnt/dotfiles"
@@ -136,7 +139,7 @@ func Default() Config {
 			Packages: []domain.PackageName{},
 		},
 		Theme: Theme{
-			Name: "system",
+			Name: SystemTheme,
 		},
 		Network: Network{
 			Mode: "shared",

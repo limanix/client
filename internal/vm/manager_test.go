@@ -1261,11 +1261,15 @@ func testManager(t *testing.T, store *state.Store, backend testBackend) *Manager
 	if err != nil {
 		t.Fatal(err)
 	}
+	themes, err := nixos.SystemThemes()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return New(Dependencies{
 		Store:   store,
 		Backend: backend,
-		Modules: modules.NewRegistry(store, metadata),
+		Modules: modules.NewRegistry(store, metadata, themes),
 		Homes:   &testHomes{},
 		Guest:   guest.New(backend),
 		HostUID: 501,

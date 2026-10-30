@@ -24,6 +24,7 @@ func TestLocalSourceCommandPublishesCurrentCheckoutWithoutDownload(t *testing.T)
 		"platform.nix":                     []byte("{ services.lima.enable = true; }\n"),
 		"catalog/modules/tool/default.nix": []byte("{}\n"),
 		"catalog/modules/tool/module.toml": []byte("description = 'Tool'\n"),
+		"catalog/_shared/themes.toml":      []byte("[example]\n"),
 	} {
 		filename := filepath.Join(source, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(filename), 0o700); err != nil {

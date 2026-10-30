@@ -135,7 +135,7 @@ func TestSemanticBoundaries(t *testing.T) {
 		{"[home]\nroot='/'", "home.root"},
 		{"[home]\nroot='/opt/..'", "home.root"},
 		{"[network]\nmode='bridged'", "network.mode"},
-		{"[theme]\nname='latte'", "theme.name"},
+		{"[theme]\nname='Latte'", "theme.name"},
 		{"[theme]\nname=''", "theme.name"},
 		{"[network.ports]\ntcp=[0]", "network.ports.tcp[0]"},
 		{"[network.ports]\nudp=[65536]", "network.ports.udp[0]"},
