@@ -72,7 +72,7 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
 					selection.configure(&cfg)
 				}
 				if selection.thirdParty {
-					cfg.Theme.Flavor = "latte"
+					cfg.Theme.Name = "solarized-light"
 					cfg.Shell.Dotfiles = domain.OptionalHostPath(t.TempDir())
 					cfg.NixOS.Modules = []domain.ModuleID{"third-party:capability"}
 					cfg.NixOS.Packages = []domain.PackageName{"tree", "tree", "python3Packages.ipython", "terraform", "unstable:cowsay"}
@@ -147,8 +147,8 @@ func TestGeneratedFlakeEvaluation(t *testing.T) {
         && builtins.elem "users" config.users.users.eval-user.extraGroups
         && settings.network.ports == { tcp = [ 22 8080 9000 9001 9002 ]; udp = [ ]; }
         && settings.health.units == [ "sshd.service" "lima-guestagent.service" "lmx.socket" ]
-        && settings.theme.flavor == "latte" && settings.theme.palette.base == "#eff1f5"
-        && builtins.length (builtins.attrNames settings.theme.palette) == 26
+        && settings.theme.name == "solarized-light" && settings.theme.palette.background == "#fdf6e3"
+        && builtins.length (builtins.attrNames settings.theme.palette) == 18
         && settings.session.providers == config.limanix.session.providers
         && builtins.all (path: lib.hasPrefix "/nix/store/" path) (builtins.attrValues tools)
         && settings.tools.sudo == "/run/wrappers/bin/sudo";

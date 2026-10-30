@@ -37,7 +37,7 @@ func TestRuntimeCarriesTheGeneration(t *testing.T) {
 	if err = json.Unmarshal(data, &runtime); err != nil {
 		t.Fatal(err)
 	}
-	if runtime.Generation != testGeneration || runtime.Theme.Flavor != "system" {
+	if runtime.Generation != testGeneration || runtime.Theme.Name != "system" {
 		t.Fatalf("generation or theme missing from runtime: %s", data)
 	}
 }

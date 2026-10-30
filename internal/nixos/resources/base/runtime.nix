@@ -17,8 +17,8 @@ in
       inherit (runtime.user) name home;
     };
 
-    # The user's flavor; modules only read the theme.
-    lmx.capabilities.theme.flavor = runtime.theme.flavor;
+    # The user's theme; modules only read it.
+    lmx.capabilities.theme.name = runtime.theme.name;
 
     networking.hostName = runtime.name;
     networking.firewall.allowedTCPPorts = runtime.ports.tcp;

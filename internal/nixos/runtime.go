@@ -24,7 +24,7 @@ type runtimeDisk struct {
 }
 
 type runtimeTheme struct {
-	Flavor string `json:"flavor"`
+	Name string `json:"name"`
 }
 
 // runtimeShell carries the shell settings that modules read; null where the chosen shell has no such setting.
@@ -93,7 +93,7 @@ func writeRuntime(filename string, cfg config.Config, generation string, imports
 			MinimumPercent: domain.DiskMinimumPercent,
 		},
 		Ports:           cfg.Network.Ports,
-		Theme:           runtimeTheme{Flavor: cfg.Theme.Flavor},
+		Theme:           runtimeTheme{Name: cfg.Theme.Name},
 		Shell:           shell,
 		Toolchains:      toolchains,
 		Modules:         imports,
