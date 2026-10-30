@@ -56,7 +56,7 @@ type NixOS struct {
 
 // Theme selects the colors of the guest.
 type Theme struct {
-	Flavor string `toml:"flavor" json:"flavor" doc:"Colors of lmx and the catalog modules. System uses the terminal's colors and background. Latte is a light Catppuccin flavor; frappe, macchiato and mocha are dark ones." choices:"system,latte,frappe,macchiato,mocha"`
+	Name string `toml:"name" json:"name" doc:"Colors of lmx and the catalog modules. System uses the terminal's colors and background. Every other theme gives each module the same palette, and the editor its own colorscheme; solarized-light and github-light are light, the others dark." choices:"system,catppuccin-mocha,tokyo-night,dracula,nord,gruvbox-dark,rose-pine,kanagawa-wave,everforest-dark,solarized-light,github-light"`
 }
 
 // Ports declares inbound guest firewall rules by transport protocol.
@@ -136,7 +136,7 @@ func Default() Config {
 			Packages: []domain.PackageName{},
 		},
 		Theme: Theme{
-			Flavor: "system",
+			Name: "system",
 		},
 		Network: Network{
 			Mode: "shared",

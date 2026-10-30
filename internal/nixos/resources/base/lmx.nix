@@ -104,11 +104,11 @@ let
       tcp = ports "TCP";
       udp = ports "UDP";
     };
-    # lmx 0.1 rejects unknown fields, so the terminal colors appear only with the system flavor.
+    # lmx 0.1 rejects unknown fields, so the terminal colors appear only with the system theme.
     theme = {
-      inherit (theme) flavor palette;
+      inherit (theme) name palette;
     }
-    // lib.optionalAttrs (theme.flavor == "system") { inherit (theme) ansi; };
+    // lib.optionalAttrs (theme.name == "system") { inherit (theme) ansi; };
     session = {
       command =
         if config.limanix.session.command == null then null else toString config.limanix.session.command;

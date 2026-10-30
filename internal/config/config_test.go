@@ -39,12 +39,12 @@ func TestDefaultRoundTripAndIndependentCollections(t *testing.T) {
 }
 
 func TestPartialTablesAndExplicitEmptyCollections(t *testing.T) {
-	parsed, err := Parse([]byte("name = 'rust-box-2'\nmounts = []\n[resources]\narch = 'amd64'\ncpu = 2\n[nixos]\nmodules = []\n[theme]\nflavor = 'latte'\n[network.ports]\ntcp = []\nudp = [1,65535]\n[env]\n"))
+	parsed, err := Parse([]byte("name = 'rust-box-2'\nmounts = []\n[resources]\narch = 'amd64'\ncpu = 2\n[nixos]\nmodules = []\n[theme]\nname = 'tokyo-night'\n[network.ports]\ntcp = []\nudp = [1,65535]\n[env]\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.Theme.Flavor != "latte" || Default().Theme.Flavor != "system" {
-		t.Fatalf("theme flavor: %#v", parsed.Theme)
+	if parsed.Theme.Name != "tokyo-night" || Default().Theme.Name != "system" {
+		t.Fatalf("theme name: %#v", parsed.Theme)
 	}
 	if parsed.Resources.Arch != domain.AMD64 || parsed.Resources.CPU != 2 || parsed.Resources.Mem != Default().Resources.Mem {
 		t.Fatalf("partial resources lost defaults: %#v", parsed.Resources)
@@ -135,8 +135,8 @@ func TestSemanticBoundaries(t *testing.T) {
 		{"[home]\nroot='/'", "home.root"},
 		{"[home]\nroot='/opt/..'", "home.root"},
 		{"[network]\nmode='bridged'", "network.mode"},
-		{"[theme]\nflavor='dracula'", "theme.flavor"},
-		{"[theme]\nflavor=''", "theme.flavor"},
+		{"[theme]\nname='latte'", "theme.name"},
+		{"[theme]\nname=''", "theme.name"},
 		{"[network.ports]\ntcp=[0]", "network.ports.tcp[0]"},
 		{"[network.ports]\nudp=[65536]", "network.ports.udp[0]"},
 		{"[nixos]\nmodules=['./rust.nix']", "nixos.modules[0]"},

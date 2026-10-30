@@ -402,7 +402,7 @@ func TestUserCommandPreservesArgumentsInRealShell(t *testing.T) {
 	}
 	shell, printf, pwd := executable("sh"), executable("printf"), executable("pwd")
 	values := []string{"space $value 'double\" end", "", "line one\nline two", "* ; : # `printf unintended`", `\backslash\`, "unicode ✓"}
-	command := userCommand("dev", append([]string{printf, `%s\000`}, values...))
+	command := userCommand("dev", "", append([]string{printf, `%s\000`}, values...))
 	index := slices.Index(command, "-c")
 	if index < 0 {
 		t.Fatal("missing fixed shell script")
@@ -419,7 +419,7 @@ func TestUserCommandPreservesArgumentsInRealShell(t *testing.T) {
 		encoded, _ := json.Marshal(actual)
 		t.Fatalf("guest arguments were reinterpreted: %s", encoded)
 	}
-	command = userCommand("dev", []string{pwd})
+	command = userCommand("dev", "", []string{pwd})
 	index = slices.Index(command, "-c")
 	process = exec.Command(shell, append([]string{"-c"}, command[index+1:]...)...)
 	process.Env = []string{"HOME=" + directory, "PATH=/usr/bin:/bin"}
@@ -444,6 +444,7 @@ func TestUserCommandPreservesArgumentsInRealShell(t *testing.T) {
 }
 
 func TestInteractiveLoginOnceAndStatusPreserved(t *testing.T) {
+	t.Setenv("COLORTERM", "")
 	client := &fakeClient{shellStatus: 7}
 	status, err := New(client).Shell(context.Background(), "sandbox", "dev", nil)
 	if err != nil || status != 7 {
