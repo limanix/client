@@ -3,6 +3,7 @@ package catalog
 import (
 	"errors"
 	"io/fs"
+	"reflect"
 	"testing"
 	"testing/fstest"
 )
@@ -209,7 +210,7 @@ func TestModulesLiveBelowTheirKind(t *testing.T) {
 		"go-1.26": {Entry{Kind: KindToolchains, Module: "go", Line: "1.26", Description: "Go (version: 1.26)"}, "toolchains/go/versions/1.26.nix"},
 		"docker":  {Entry{Kind: KindModules, Module: "docker", Description: "Docker"}, "modules/docker/default.nix"},
 	} {
-		if got := stored.Modules()[selector]; got != want.entry {
+		if got := stored.Modules()[selector]; !reflect.DeepEqual(got, want.entry) {
 			t.Fatalf("%s: entry %#v", selector, got)
 		}
 		selected, err := stored.Module(selector)

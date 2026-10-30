@@ -23,9 +23,9 @@ let
       toString (90 + color - 8);
 in
 {
-  # Keep the base prompt available without requiring a prompt or shell module.
-  programs.bash.promptInit = lib.mkIf (!config.programs.starship.enable) (
-    lib.mkDefault ''
+  # The base prompt of Bash; a prompt module's own initialization takes precedence.
+  programs.bash.promptInit = lib.mkOverride 1100 (
+    ''
       if [ -n "''${NO_COLOR:-}" ] || [ "''${TERM:-dumb}" = dumb ]; then
         PS1='\u@\h \w \$ '
       else

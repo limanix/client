@@ -86,6 +86,7 @@ func catalogWithPin(t *testing.T, pin string) *catalog.Catalog {
 		"platform.nix":                     "{ services.lima.enable = true; }",
 		"modules/modules/test/default.nix": "{}",
 		"modules/modules/test/module.toml": "description = 'Test'",
+		"modules/_shared/themes.toml":      "[example]",
 		"flake.lock":                       string(lock),
 	}
 	for name, data := range files {

@@ -76,6 +76,10 @@ func (m *Manager) preflight(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
+	if err := m.generations.modules.CheckTheme(cfg.Theme.Name); err != nil {
+		return err
+	}
+
 	if err := m.backend.Preflight(ctx, cfg); err != nil {
 		return err
 	}

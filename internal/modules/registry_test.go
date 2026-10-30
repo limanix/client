@@ -35,7 +35,7 @@ func registryFixture(t *testing.T, root string) *Registry {
 		"docker": {Kind: catalog.KindModules, Module: "docker", Description: "Docker"},
 		"rust":   {Kind: catalog.KindToolchains, Module: "rust", Description: "Rust"},
 		"neovim": {Kind: catalog.KindShell, Module: "neovim", Description: "Neovim"},
-	})
+	}, nil)
 }
 
 // selected lists ids as [nixos] modules chooses them.
@@ -72,7 +72,7 @@ func TestVersionSelectionDoesNotCreateState(t *testing.T) {
 		"docker-27": {Kind: catalog.KindModules, Module: "docker", Line: "27", Description: "Docker 27"},
 		"docker-28": {Kind: catalog.KindModules, Module: "docker", Line: "28", Description: "Docker 28"},
 		"postgres":  {Kind: catalog.KindModules, Module: "postgres", Description: "PostgreSQL"},
-	})
+	}, nil)
 	for _, choices := range [][]config.Choice{
 		selected("lmx:docker", "lmx:docker-27", "lmx:docker-28"),
 		selected("lmx:docker-27", "lmx:docker-27"),
@@ -430,7 +430,7 @@ func TestNixOSModulesChooseOnlyModulesOfKindModules(t *testing.T) {
 		"rust":    {Kind: catalog.KindToolchains, Module: "rust"},
 		"tmux":    {Kind: catalog.KindShell, Module: "tmux"},
 		"zsh":     {Kind: catalog.KindShell, Module: "zsh"},
-	})
+	}, nil)
 	ctx := context.Background()
 	for id, want := range map[domain.ModuleID]string{
 		"lmx:go":     `nixos.modules[0]: lmx:go is a toolchain; choose its version in [toolchains], such as go = "1.10"`,

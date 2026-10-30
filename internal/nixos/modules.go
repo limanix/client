@@ -22,6 +22,16 @@ func SystemModules() (map[string]catalog.Entry, error) {
 	return catalog.Modules(), nil
 }
 
+// SystemThemes returns the names of the bundled catalog's themes.
+func SystemThemes() ([]string, error) {
+	catalog, err := systemCatalog()
+	if err != nil {
+		return nil, err
+	}
+
+	return catalog.Themes(), nil
+}
+
 func validateSources(sources []modules.Source) error {
 	for _, source := range sources {
 		if _, err := domain.NewModuleID(string(source.ID)); err != nil {

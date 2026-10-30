@@ -23,8 +23,10 @@ func Validate(config Config) error {
 		return fieldError("resources.cpu", "must be positive")
 	case path.Clean(config.Home.Root) == "/":
 		return fieldError("home.root", "the host root directory is not allowed")
-	case config.Shell.Preset == PresetMinimal && config.Shell.Prompt != None:
-		return fieldError("shell.prompt", "a prompt needs the terminal preset, which has Zsh; the minimal preset uses Bash")
+	case config.Shell.Prompt != None && !catalogName(config.Shell.Prompt):
+		return fieldError("shell.prompt", `expected none or the name of a catalog prompt, such as "pure"`)
+	case config.Theme.Name != SystemTheme && !catalogName(config.Theme.Name):
+		return fieldError("theme.name", `expected system or the name of a catalog theme, such as "tokyo-night"`)
 	case config.Toolchains.Maven != "" && config.Toolchains.Java == "":
 		return fieldError("toolchains.maven", `needs a JDK: add java to [toolchains], such as java = "21"`)
 	case config.Toolchains.Gradle != "" && config.Toolchains.Java == "":
@@ -44,6 +46,12 @@ func Validate(config Config) error {
 	}
 
 	return validateMounts(config.User.Home, config.Mounts)
+}
+
+// catalogName reports whether a value can name a catalog prompt or theme; the catalog decides whether it does.
+func catalogName(value string) bool {
+	_, err := domain.NewModuleName(value)
+	return err == nil
 }
 
 func validatePorts(ports []int, protocol string) error {

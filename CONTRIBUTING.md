@@ -45,7 +45,7 @@ docs.limanix.dev; a test fails when it is out of date.
 | -- | -- |
 | A catalog option or capability the platform modules use | Release the catalog first: pull requests and releases of the client build with the newest published catalog |
 | The configuration that `lmx` reads | Release `lmx`, then move the pin in `internal/nixos/resources/base/lmx.json` together with the platform modules that write it |
-| A new theme | Release the catalog that adds it, then add its name to the choices of `[theme] name` in `internal/config/models.go` |
+| A new theme or prompt | Release the catalog that adds it: the client takes the names of themes and prompts, and the shells each prompt runs in, from the bundled catalog |
 
 A tag `v<version>` on `main` releases the client with the newest catalog, and
 every catalog release publishes the client releases that support it again with

@@ -65,6 +65,11 @@ func Open(data []byte) (*Catalog, error) {
 		return nil, err
 	}
 
+	themes, err := readThemes(archive)
+	if err != nil {
+		return nil, err
+	}
+
 	source, err := fs.Sub(archive, "modules")
 	if err != nil {
 		return nil, fmt.Errorf("%w: read module sources: %w", ErrArchive, err)
@@ -78,6 +83,7 @@ func Open(data []byte) (*Catalog, error) {
 		Version:            tag,
 		files:              source,
 		modules:            metadata,
+		themes:             themes,
 		nixpkgs:            pin,
 		nixosLima:          lima,
 		publicInterface:    publicInterface,

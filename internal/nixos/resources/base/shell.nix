@@ -5,12 +5,7 @@ let
   runtime = builtins.fromJSON (builtins.readFile ./runtime.json);
 in
 {
-  config = lib.mkMerge [
-    (lib.optionalAttrs (runtime.shell.prompt != null) {
-      lmx.zsh.prompt = runtime.shell.prompt;
-    })
-    (lib.optionalAttrs (runtime.toolchains.rust != null) {
-      lmx.rust.toolchain = runtime.toolchains.rust;
-    })
-  ];
+  config = lib.optionalAttrs (runtime.toolchains.rust != null) {
+    lmx.rust.toolchain = runtime.toolchains.rust;
+  };
 }

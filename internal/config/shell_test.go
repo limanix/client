@@ -48,9 +48,8 @@ func TestMinimalShellSwitchesOffWhatItDoesNotName(t *testing.T) {
 
 func TestShellAndToolchainDiagnostics(t *testing.T) {
 	for document, want := range map[string]string{
-		"[shell]\npreset = 'minimal'\nprompt = 'pure'\n":            "shell.prompt: a prompt needs the terminal preset",
 		"[shell]\npreset = 'fancy'\n":                               "shell.preset: expected one of terminal, minimal",
-		"[shell]\nprompt = 'oh-my-posh'\n":                          "shell.prompt: expected one of pure, starship, none",
+		"[shell]\nprompt = 'Oh My Posh'\n":                          "shell.prompt: expected none or the name of a catalog prompt",
 		"[shell]\neditor = 'vim'\n":                                 "shell.editor: expected one of astronvim, neovim, none",
 		"[shell]\ndotfiles = 3\n":                                   "shell.dotfiles: expected a string",
 		"[toolchains]\ngo = '1.x'\n":                                "toolchains.go: expected a version line",
@@ -109,6 +108,7 @@ func TestSelectionOfTheShellAndToolchains(t *testing.T) {
 		{ID: "lmx:zsh", Field: "shell.preset"},
 		{ID: "lmx:lazygit", Field: "shell.preset"},
 		{ID: "lmx:yazi", Field: "shell.preset"},
+		{ID: "lmx:pure", Field: "shell.prompt", Shell: "zsh"},
 		{ID: "lmx:astronvim", Field: "shell.editor"},
 		{ID: "lmx:tmux", Field: "shell.multiplexer"},
 		{ID: "lmx:go-1.27", Field: "toolchains.go"},

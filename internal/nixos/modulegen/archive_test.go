@@ -96,6 +96,7 @@ func catalogFiles(t *testing.T) map[string][]byte {
 		"interface.nix":                    []byte("{ options = {}; }\n"),
 		"platform.nix":                     []byte("{ services.lima.enable = true; }\n"),
 		"catalog/modules/tool/module.toml": []byte("description = 'Tool'\n"),
+		"catalog/_shared/themes.toml":      []byte("[example]\n"),
 		"catalog/modules/tool/default.nix": []byte("{}\n"),
 	}
 }

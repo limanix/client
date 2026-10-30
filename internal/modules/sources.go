@@ -3,8 +3,10 @@ package modules
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/limanix/client/internal/config"
@@ -45,6 +47,19 @@ func (r *Registry) Check(ctx context.Context, choices []config.Choice) error {
 	return ctx.Err()
 }
 
+// CheckTheme reports a [theme] name that the bundled catalog does not offer.
+func (r *Registry) CheckTheme(name string) error {
+	if name == config.SystemTheme || slices.Contains(r.themes, name) {
+		return nil
+	}
+
+	return &config.Error{
+		Field:   "theme.name",
+		Message: fmt.Sprintf("the bundled catalog has no theme %q; choose system or one of %s", name, strings.Join(r.themes, ", ")),
+		Cause:   ErrUnknownTheme,
+	}
+}
+
 // Sources holds a shared registry lock while resolving selected source trees.
 func (r *Registry) Sources(ctx context.Context, choices []config.Choice) (*SourceSet, error) {
 	lock, err := r.store.RegistryLock(ctx, true, state.RegistryLockTimeout)
@@ -83,6 +98,10 @@ func (r *Registry) source(choice config.Choice) (Source, error) {
 				return Source{}, r.unknownLine(choice, key)
 			}
 
+			if choice.Field == "shell.prompt" {
+				return Source{}, r.unknownPrompt(choice)
+			}
+
 			return Source{}, &Error{
 				ID:  id,
 				Err: ErrUnknownSystem,
@@ -91,6 +110,12 @@ func (r *Registry) source(choice config.Choice) (Source, error) {
 
 		if strings.HasPrefix(choice.Field, "nixos.modules") && entry.Kind != catalog.KindModules {
 			return Source{}, r.otherKind(choice, entry)
+		}
+
+		if choice.Field == "shell.prompt" {
+			if err := r.checkPrompt(choice, entry); err != nil {
+				return Source{}, err
+			}
 		}
 
 		return source, nil

@@ -16,10 +16,19 @@ import (
 
 // metadata declares optional version selectors; package sources remain entirely in Nix.
 type metadata struct {
-	Description string   `toml:"description"`
-	Default     *string  `toml:"default"`
-	Versions    []string `toml:"versions"`
+	Description string          `toml:"description"`
+	Default     *string         `toml:"default"`
+	Versions    []string        `toml:"versions"`
+	Prompt      *promptMetadata `toml:"prompt"`
 }
+
+// promptMetadata marks a shell component as a prompt and names the shells it runs in.
+type promptMetadata struct {
+	Shells []string `toml:"shells"`
+}
+
+// PromptShells lists the shells a prompt may run in.
+var PromptShells = []string{"bash", "zsh"}
 
 // selection binds a public local identifier to files under one physical module directory.
 type selection struct {
@@ -73,6 +82,22 @@ func (metadata metadata) validate() error {
 		return fmt.Errorf("%w: description must not be empty", ErrMetadata)
 	}
 
+	if metadata.Prompt != nil {
+		if len(metadata.Prompt.Shells) == 0 {
+			return fmt.Errorf("%w: prompt shells must not be empty", ErrMetadata)
+		}
+
+		for index, shell := range metadata.Prompt.Shells {
+			if !slices.Contains(PromptShells, shell) {
+				return fmt.Errorf("%w: prompt shell %q is neither bash nor zsh", ErrMetadata, shell)
+			}
+
+			if slices.Contains(metadata.Prompt.Shells[:index], shell) {
+				return fmt.Errorf("%w: duplicate prompt shell %q", ErrMetadata, shell)
+			}
+		}
+	}
+
 	if len(metadata.Versions) == 0 {
 		if metadata.Default != nil {
 			return fmt.Errorf("%w: default requires a nonempty versions list", ErrMetadata)
@@ -106,7 +131,7 @@ func (metadata metadata) selections(kind Kind, name string) map[string]selection
 	base := selection{
 		directory:  directory,
 		entryPoint: "default.nix",
-		entry:      Entry{Kind: kind, Module: name, Description: metadata.Description},
+		entry:      Entry{Kind: kind, Module: name, Description: metadata.Description, Shells: metadata.shells()},
 	}
 	if metadata.Default != nil {
 		base.entry.Description += " (default: " + *metadata.Default + ")"
@@ -122,11 +147,20 @@ func (metadata metadata) selections(kind Kind, name string) map[string]selection
 				Module:      name,
 				Line:        version,
 				Description: metadata.Description + " (version: " + version + ")",
+				Shells:      metadata.shells(),
 			},
 		}
 	}
 
 	return result
+}
+
+func (metadata metadata) shells() []string {
+	if metadata.Prompt == nil {
+		return nil
+	}
+
+	return slices.Clone(metadata.Prompt.Shells)
 }
 
 func versionEntry(version string) string {
@@ -194,6 +228,10 @@ func readKind(files fs.FS, kind Kind, result map[string]selection) error {
 			return fmt.Errorf("module %q: %w", name, err)
 		}
 
+		if metadata.Prompt != nil && kind != KindShell {
+			return fmt.Errorf("module %q: %w: only a shell component declares prompt shells", name, ErrMetadata)
+		}
+
 		for selector, selected := range metadata.selections(kind, name) {
 			if _, exists := result[selector]; exists {
 				return fmt.Errorf("%w: duplicate selector %q", ErrMetadata, selector)
@@ -204,6 +242,37 @@ func readKind(files fs.FS, kind Kind, result map[string]selection) error {
 	}
 
 	return nil
+}
+
+// readThemes returns the names of the catalog's themes, the tables of _shared/themes.toml.
+func readThemes(files fs.FS) ([]string, error) {
+	const name = "modules/_shared/themes.toml"
+
+	data, err := readRequiredModule(files, name)
+	if err != nil {
+		return nil, err
+	}
+
+	var tables map[string]any
+	if err = toml.Unmarshal(data, &tables); err != nil {
+		return nil, fmt.Errorf("%w: %s: %w", ErrMetadata, name, err)
+	}
+
+	themes := make([]string, 0, len(tables))
+	for theme := range tables {
+		if _, err = domain.NewModuleName(theme); err != nil || theme == "system" {
+			return nil, fmt.Errorf("%w: %s: invalid theme name %q", ErrMetadata, name, theme)
+		}
+
+		themes = append(themes, theme)
+	}
+
+	if len(themes) == 0 {
+		return nil, fmt.Errorf("%w: %s declares no themes", ErrMetadata, name)
+	}
+
+	slices.Sort(themes)
+	return themes, nil
 }
 
 // Direct Nix files declare public areas; test.nix belongs to the test ABI.

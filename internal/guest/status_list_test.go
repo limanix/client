@@ -94,9 +94,13 @@ func statusListFixture(t *testing.T) (*vm.Manager, *statusListBackend) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	themes, err := nixos.SystemThemes()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return vm.New(vm.Dependencies{
-		Modules: modules.NewRegistry(store, metadata),
+		Modules: modules.NewRegistry(store, metadata, themes),
 		Homes:   &managedhome.Manager{},
 		Guest:   guest.New(backend),
 		Backend: backend,

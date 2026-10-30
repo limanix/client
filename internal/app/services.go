@@ -105,5 +105,10 @@ func (s *Services) Registry() (*modules.Registry, error) {
 		return nil, err
 	}
 
-	return modules.NewRegistry(store, metadata), nil
+	themes, err := nixos.SystemThemes()
+	if err != nil {
+		return nil, err
+	}
+
+	return modules.NewRegistry(store, metadata, themes), nil
 }
