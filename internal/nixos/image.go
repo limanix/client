@@ -23,14 +23,9 @@ func BaseImage(architecture domain.Architecture) (Image, error) {
 		return Image{}, err
 	}
 
-	data, err := resources.ReadFile("resources/image.json")
+	manifest, err := imageManifest()
 	if err != nil {
 		return Image{}, err
-	}
-
-	manifest, err := catalog.ParseImage(data, "")
-	if err != nil {
-		return Image{}, fmt.Errorf("read base image manifest: %w", err)
 	}
 
 	disk, found := manifest.Systems[arch+"-linux"]
@@ -39,4 +34,33 @@ func BaseImage(architecture domain.Architecture) (Image, error) {
 	}
 
 	return Image{Location: disk.URL, SHA256: disk.SHA256}, nil
+}
+
+// BaseImageLocations lists the disks of all guest systems in the bundled catalog release.
+func BaseImageLocations() ([]string, error) {
+	manifest, err := imageManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	locations := make([]string, 0, len(manifest.Systems))
+	for _, disk := range manifest.Systems {
+		locations = append(locations, disk.URL)
+	}
+
+	return locations, nil
+}
+
+func imageManifest() (catalog.Image, error) {
+	data, err := resources.ReadFile("resources/image.json")
+	if err != nil {
+		return catalog.Image{}, err
+	}
+
+	manifest, err := catalog.ParseImage(data, "")
+	if err != nil {
+		return catalog.Image{}, fmt.Errorf("read base image manifest: %w", err)
+	}
+
+	return manifest, nil
 }

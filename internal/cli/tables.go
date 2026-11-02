@@ -118,6 +118,54 @@ func diskUsage(usage *domain.DiskUsage) string {
 	return fmt.Sprintf("%d%%", percent)
 }
 
+var keptHomeColumns = []Item{
+	{ID: "NAME", What: "Name of the kept home, which `limanix homes remove` takes: the VM's name and its ID."},
+	{ID: "SIZE", What: "Space that its files take on the disk, or `-` when the folder is gone."},
+	{ID: "CREATED", What: "The day the VM was created."},
+	{ID: "PATH", What: "Path of the home on the Mac."},
+}
+
+func writeKeptHomes(output io.Writer, entries []vm.KeptHome) error {
+	if len(entries) == 0 {
+		_, err := fmt.Fprintln(output, "No kept homes.")
+		return err
+	}
+
+	writer := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
+	if _, err := fmt.Fprintln(writer, "NAME\tSIZE\tCREATED\tPATH"); err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		created, _, _ := strings.Cut(entry.CreatedAt, "T")
+		if _, err := fmt.Fprintf(writer, "%s\t%s\t%s\t%s\n", entry.Name, homeSize(entry.Size), created, entry.Home); err != nil {
+			return err
+		}
+	}
+
+	return writer.Flush()
+}
+
+func homeSize(size *int64) string {
+	if size == nil {
+		return "-"
+	}
+
+	units := []string{"B", "KiB", "MiB", "GiB", "TiB"}
+	value, unit := float64(*size), 0
+
+	for value >= 1024 && unit < len(units)-1 {
+		value /= 1024
+		unit++
+	}
+
+	if unit == 0 {
+		return fmt.Sprintf("%d B", *size)
+	}
+
+	return fmt.Sprintf("%.1f %s", value, units[unit])
+}
+
 func writeModules(output io.Writer, entries []modules.Info) error {
 	writer := tabwriter.NewWriter(output, 0, 4, 2, ' ', 0)
 

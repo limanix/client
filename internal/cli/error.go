@@ -10,6 +10,8 @@ import (
 var (
 	errMissingConfig        = errors.New("required flag --config was not provided")
 	errMissingModuleCommand = errors.New("a modules subcommand is required")
+	errMissingHomeCommand   = errors.New("a homes subcommand is required")
+	errHomeSelection        = errors.New("name the homes to remove or pass --all, not both")
 	errQuietJSON            = errors.New("--quiet cannot be combined with --json")
 	errMissingVMName        = errors.New("a VM name is required")
 	errDuplicateSession     = errors.New("--session may only be specified once")

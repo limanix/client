@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/filesystem"
@@ -86,6 +87,77 @@ func (s *Store) ForgetHome(identity domain.Identity) error {
 	}
 
 	return os.Remove(destination)
+}
+
+// KeptHomes lists the homes that deletion preserved, each as <name>-<id>.
+func (s *Store) KeptHomes() ([]string, error) {
+	if err := filesystem.CheckDirectory(s.root); err != nil {
+		return nil, err
+	}
+
+	directory := filepath.Join(s.root, "homes")
+	if err := filesystem.CheckDirectory(directory); err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(directory)
+	if errors.Is(err, fs.ErrNotExist) {
+		return []string{}, nil
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("cannot list kept homes: %w", err)
+	}
+
+	names := make([]string, 0, len(entries))
+
+	for _, entry := range entries {
+		if name, ok := strings.CutSuffix(entry.Name(), ".json"); ok {
+			names = append(names, name)
+		}
+	}
+
+	return names, nil
+}
+
+// KeptHome reads the identity that deletion preserved for one home.
+func (s *Store) KeptHome(home string) (domain.Identity, error) {
+	index := strings.LastIndexByte(home, '-')
+	if index < 0 || !domain.ValidIdentifier(home[index+1:]) {
+		return domain.Identity{}, fmt.Errorf("%w: %q", ErrHomeName, home)
+	}
+
+	name, err := domain.NewVMName(home[:index])
+	if err != nil {
+		return domain.Identity{}, fmt.Errorf("%w: %q", ErrHomeName, home)
+	}
+
+	if err = filesystem.CheckDirectory(s.root); err != nil {
+		return domain.Identity{}, err
+	}
+
+	directory := filepath.Join(s.root, "homes")
+	if err = filesystem.CheckDirectory(directory); err != nil {
+		return domain.Identity{}, err
+	}
+
+	identity, err := readHomeIdentity(filepath.Join(directory, home+".json"), name)
+	if errors.Is(err, fs.ErrNotExist) {
+		return domain.Identity{}, fmt.Errorf("no kept home %q: %w", home, err)
+	}
+
+	if err != nil {
+		return domain.Identity{}, fmt.Errorf("cannot read kept home %q: %w", home, err)
+	}
+
+	if identity.ID != home[index+1:] {
+		return domain.Identity{}, &OwnershipError{
+			Cause:   ErrIdentityConflict,
+			Message: fmt.Sprintf("kept home %q differs from its record", home),
+		}
+	}
+
+	return identity, nil
 }
 
 func readHomeIdentity(path string, name domain.VMName) (domain.Identity, error) {

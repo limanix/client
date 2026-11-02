@@ -179,6 +179,9 @@ func operands(name string) []Arg {
 		}
 	case "limanix modules remove":
 		return []Arg{operand("NAME", "string", true, "Name of an imported module, without `third-party:`.")}
+	case "limanix homes remove":
+		return []Arg{operand("NAME ...", "strings", false, "Names of kept homes, as `limanix homes list` prints them. "+
+			"Required without `--all`.")}
 	case "limanix first-config":
 		return []Arg{operand("PATH", "string", false,
 			"Existing directory to write `limanix.toml` into; the current directory when omitted.")}
@@ -211,17 +214,22 @@ func output(name string) []string {
 		return []string{"Imported third-party:NAME."}
 	case "limanix modules remove":
 		return []string{"Removed third-party:NAME from the catalog."}
+	case "limanix homes remove":
+		return []string{"Removed NAME."}
 	default:
 		return []string{}
 	}
 }
 
 func columns(name string) []Item {
-	if name == "limanix list" {
+	switch name {
+	case "limanix list":
 		return instanceColumns
+	case "limanix homes list":
+		return keptHomeColumns
+	default:
+		return []Item{}
 	}
-
-	return []Item{}
 }
 
 func jsonOutput(name string) []Item {
@@ -236,6 +244,8 @@ func jsonOutput(name string) []Item {
 		return jsonFields(reflect.TypeFor[vm.Report](), "")
 	case "limanix modules list":
 		return jsonFields(reflect.TypeFor[modules.Info](), "")
+	case "limanix homes list":
+		return jsonFields(reflect.TypeFor[vm.KeptHome](), "")
 	default:
 		return []Item{}
 	}

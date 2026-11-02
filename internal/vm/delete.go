@@ -47,6 +47,7 @@ func (m *Manager) Delete(ctx context.Context, name domain.VMName, force, removeH
 	}
 
 	m.refreshSSHConfig(ctx)
+	m.pruneImages(ctx)
 
 	return identity.Home, nil
 }
@@ -74,6 +75,7 @@ func (m *Manager) deleteUnidentified(ctx context.Context, name domain.VMName, fo
 
 	m.Warn("VM '%s' had no readable identity (%v); its managed home was left on the Mac", name, cause)
 	m.refreshSSHConfig(ctx)
+	m.pruneImages(ctx)
 
 	return nil
 }
@@ -124,4 +126,10 @@ func (m *Manager) releaseHome(identity domain.Identity, remove bool) error {
 	}
 
 	return m.store.ForgetHome(identity)
+}
+
+func (m *Manager) pruneImages(ctx context.Context) {
+	if err := m.backend.PruneImages(ctx); err != nil {
+		m.Warn("the cached base disks of other releases were not removed: %v", err)
+	}
 }
