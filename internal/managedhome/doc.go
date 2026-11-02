@@ -2,6 +2,6 @@
 // The directory is home.root/<name>-<id>, separate from VM state and explicit mounts.
 //
 // Existing directories are never adopted, even when empty.
-// Removal accepts absence but refuses redirected paths and non-directories.
+// Removal accepts absence but refuses redirected paths and non-directories; sizing refuses redirected paths too.
 // Guest-writable marker files are never used as ownership evidence.
 package managedhome

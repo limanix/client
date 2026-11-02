@@ -23,4 +23,5 @@
 // [Store.Remove] removes VM records and generation inputs, never home contents.
 // [Store.PreserveHome] archives ownership metadata, not a copy of the home.
 // [Store.ForgetHome] removes only the matching archived identity.
+// [Store.KeptHomes] and [Store.KeptHome] read the archived identities back.
 package state

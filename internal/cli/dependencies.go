@@ -41,6 +41,8 @@ type Manager interface {
 	Start(context.Context, domain.VMName) error
 	Stop(context.Context, domain.VMName) error
 	Delete(context.Context, domain.VMName, bool, bool) (string, error)
+	KeptHomes(context.Context) ([]vm.KeptHome, error)
+	RemoveHome(context.Context, string) error
 	Shell(context.Context, domain.VMName, []string) (int, error)
 	Doctor(context.Context, domain.VMName) (vm.Report, error)
 	NetworkCheck(context.Context, domain.VMName, uint16, vm.Protocol) (vm.Report, error)

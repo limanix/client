@@ -91,6 +91,14 @@ func (manager *fakeManager) Delete(_ context.Context, name domain.VMName, force,
 	return "/managed/home", manager.failure
 }
 
+func (manager *fakeManager) KeptHomes(context.Context) ([]vm.KeptHome, error) {
+	return nil, manager.failure
+}
+
+func (manager *fakeManager) RemoveHome(context.Context, string) error {
+	return manager.failure
+}
+
 func (manager *fakeManager) Shell(ctx context.Context, name domain.VMName, args []string) (int, error) {
 	manager.calls = append(manager.calls, managerCall{operation: "shell", name: name, args: args})
 	if manager.shell != nil {

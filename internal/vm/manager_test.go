@@ -212,6 +212,10 @@ func (f *fakeBackend) Edit(_ context.Context, name, template string) error {
 	return nil
 }
 
+func (f *fakeBackend) PruneImages(context.Context) error {
+	return nil
+}
+
 func (f *fakeBackend) UserKey(context.Context) (lima.UserKey, error) {
 	return lima.UserKey{Public: testUserKey, PrivateFile: "/lima/_config/user"}, nil
 }
@@ -1248,6 +1252,10 @@ func (h *testHomes) Remove(identity domain.Identity) error {
 		return h.remove(identity)
 	}
 	return (&managedhome.Manager{}).Remove(identity)
+}
+
+func (h *testHomes) Size(ctx context.Context, identity domain.Identity) (int64, error) {
+	return (&managedhome.Manager{}).Size(ctx, identity)
 }
 
 type testBackend interface {

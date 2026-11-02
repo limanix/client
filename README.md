@@ -44,6 +44,7 @@ or newer and `ssh` in `PATH`.
 | `limanix update --config limanix.toml` | Applies a changed file and restarts the VM |
 | `limanix list`, `doctor`, `network check` | Shows the VMs and checks a VM or one of its ports |
 | `limanix stop`, `start`, `delete` | Stops, starts or deletes a VM; its home stays on the Mac |
+| `limanix homes list`, `homes remove` | Shows and removes the homes of deleted VMs |
 
 ## Development
 

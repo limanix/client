@@ -288,6 +288,117 @@
       "json": []
     },
     {
+      "name": "limanix homes",
+      "usage": "limanix homes COMMAND",
+      "about": "List and remove the managed homes that limanix delete kept.",
+      "details": null,
+      "args": [],
+      "checks": [],
+      "output": [],
+      "columns": [],
+      "json": []
+    },
+    {
+      "name": "limanix homes list",
+      "usage": "limanix homes list [flags]",
+      "about": "List kept homes and the space they take.",
+      "details": null,
+      "args": [
+        {
+          "name": "--json",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print machine-readable JSON.",
+          "details": null
+        },
+        {
+          "name": "--quiet",
+          "short": "-q",
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Print only home names, one per line.",
+          "details": null
+        }
+      ],
+      "checks": [],
+      "output": [],
+      "columns": [
+        {
+          "id": "NAME",
+          "what": "Name of the kept home, which `limanix homes remove` takes: the VM's name and its ID."
+        },
+        {
+          "id": "SIZE",
+          "what": "Space that its files take on the disk, or `-` when the folder is gone."
+        },
+        {
+          "id": "CREATED",
+          "what": "The day the VM was created."
+        },
+        {
+          "id": "PATH",
+          "what": "Path of the home on the Mac."
+        }
+      ],
+      "json": [
+        {
+          "id": "name",
+          "what": "As NAME."
+        },
+        {
+          "id": "home",
+          "what": "As PATH."
+        },
+        {
+          "id": "created_at",
+          "what": "When the VM was created, in RFC 3339."
+        },
+        {
+          "id": "size",
+          "what": "Bytes that its files take on the disk, or null when the folder is gone."
+        }
+      ]
+    },
+    {
+      "name": "limanix homes remove",
+      "usage": "limanix homes remove [NAME ...] [flags]",
+      "about": "Remove kept homes and all their files.",
+      "details": null,
+      "args": [
+        {
+          "name": "NAME ...",
+          "short": null,
+          "value": "strings",
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Names of kept homes, as `limanix homes list` prints them. Required without `--all`.",
+          "details": null
+        },
+        {
+          "name": "--all",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Remove every kept home instead of the named ones.",
+          "details": null
+        }
+      ],
+      "checks": [],
+      "output": [
+        "Removed NAME."
+      ],
+      "columns": [],
+      "json": []
+    },
+    {
       "name": "limanix list",
       "usage": "limanix list [flags]",
       "about": "List VMs managed by Limanix.",

@@ -55,6 +55,7 @@ func Command(streams IO, dependencies Dependencies) *cobra.Command {
 		startCommand(dependencies),
 		stopCommand(dependencies),
 		deleteCommand(dependencies),
+		homesCommand(dependencies),
 		shellCommand(dependencies),
 		doctorCommand(dependencies),
 		modulesCommand(dependencies),

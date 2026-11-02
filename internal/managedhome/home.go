@@ -1,11 +1,13 @@
 package managedhome
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/limanix/client/internal/domain"
 	"github.com/limanix/client/internal/filesystem"
@@ -59,6 +61,43 @@ func (*Manager) Remove(identity domain.Identity) error {
 	}
 
 	return nil
+}
+
+// Size sums the disk blocks of a home's files and skips what it cannot read. A missing home fails with fs.ErrNotExist.
+func (*Manager) Size(ctx context.Context, identity domain.Identity) (int64, error) {
+	_, home, err := checkedPaths(identity)
+	if err != nil {
+		return 0, err
+	}
+
+	if _, err = os.Lstat(home); err != nil {
+		return 0, err
+	}
+
+	var size int64
+
+	err = filepath.WalkDir(home, func(_ string, entry fs.DirEntry, walkErr error) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		if walkErr != nil {
+			return nil
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			return nil
+		}
+
+		if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+			size += stat.Blocks * 512
+		}
+
+		return nil
+	})
+
+	return size, err
 }
 
 func removeAll(home string) error {

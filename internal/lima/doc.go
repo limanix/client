@@ -26,6 +26,8 @@
 // Separate homes can share socket and PID paths; one home's reconciler can stop another home's network helper.
 // Lima starts helpers on demand and stops them after the last user.
 //
+// [Client.PruneImages] holds the same lock, so it cannot remove a cached disk while another Limanix process prepares it.
+//
 // [Client.Run] preserves cancellation and bounded stderr in [CommandError].
 // Captured output is returned even when the command fails; [Client.Stream] writes output as it arrives.
 // [Client.Shell] inherits terminal streams and preserves the remote exit status.

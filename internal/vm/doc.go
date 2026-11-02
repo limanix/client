@@ -26,8 +26,10 @@
 //
 // Delete holds the VM lock and reads identity independently of runtime state.
 // It removes the backend, preserves or removes the managed home, then removes VM records.
+// It then prunes cached base disks of other catalog releases; pruning failures warn without failing the deletion.
 // Force does not imply home removal.
 // Persisted failures contain recovery guidance; detailed errors return to the caller.
+// [Manager.KeptHomes] and [Manager.RemoveHome] reach the homes that deletion preserved.
 //
 // # Queries
 //

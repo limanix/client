@@ -23,6 +23,7 @@ type Backend interface {
 	Start(context.Context, string) error
 	Stop(context.Context, string) error
 	Delete(context.Context, string, bool) error
+	PruneImages(context.Context) error
 	Edit(context.Context, string, string) error
 	UserKey(context.Context) (lima.UserKey, error)
 }
@@ -45,12 +46,15 @@ type Store interface {
 	GenerationDir(domain.Instance) (string, error)
 	PreserveHome(domain.Identity) (string, error)
 	ForgetHome(domain.Identity) error
+	KeptHomes() ([]string, error)
+	KeptHome(string) (domain.Identity, error)
 }
 
 // Homes manages the exact home allocation described by a persisted identity.
 type Homes interface {
 	Create(domain.Identity) (string, error)
 	Remove(domain.Identity) error
+	Size(context.Context, domain.Identity) (int64, error)
 }
 
 // Guest applies a prepared generation, checks the guest, and opens the development user's session.
