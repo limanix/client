@@ -1,27 +1,27 @@
-name: Build binaries
+name: Native macOS builds
 
 on:
   workflow_call:
     inputs:
       modules-tag:
-        description: Explicit module catalog tag to bundle.
+        description: Module catalog tag to bundle.
         required: true
         type: string
       commit-sha:
-        description: Client source commit SHA.
+        description: Commit SHA.
         required: false
         type: string
       release-tag:
-        description: Version embedded in the binaries.
+        description: Binaries version.
         required: false
         type: string
       artifact-name:
-        description: Prefix for binary artifact names.
+        description: Prefix for binary names.
         required: false
         type: string
     outputs:
       artifact-name:
-        description: Prefix for built binary artifact names.
+        description: Prefix for built binary names.
         value: ${{ jobs.build.outputs.artifact-name }}
 
 permissions:
@@ -29,17 +29,18 @@ permissions:
 
 jobs:
   build:
-    name: ${{ matrix.arch }}
+    name: ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: arm64
             runner: macos-26
+            name: macOS build - Apple Silicon (arm64)
           - arch: amd64
             runner: macos-26-intel
+            name: macOS build - Intel (amd64)
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
     outputs:
       artifact-name: ${{ inputs.artifact-name }}
     steps:
@@ -51,7 +52,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
-      - name: Build binary
+      - name: Build and sign macOS binary
         uses: mr-chelyshkin/actions/task-run@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
         with:
           task: release/build
@@ -59,9 +60,9 @@ jobs:
             modules_version=${{ inputs.modules-tag }}
             TARGET_ARCH=${{ matrix.arch }}
             RELEASE_TAG=${{ inputs.release-tag }}
-      - name: Run binary
+      - name: Verify binary starts
         run: bin/limanix-${{ matrix.arch }} --version
-      - name: Check vulnerabilities of the macOS build
+      - name: Scan macOS Go code for vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
       - name: Write checksum
         working-directory: bin
@@ -76,3 +77,20 @@ jobs:
             bin/limanix-${{ matrix.arch }}.sha256
           if-no-files-found: error
           overwrite: true
+      - name: Summarize macOS build
+        if: always()
+        env:
+          BUILD_NAME: ${{ matrix.name }}
+          BUILD_PLATFORM: ${{ runner.os }} / ${{ runner.arch }}
+          BUILD_STATUS: ${{ job.status }}
+          TARGET_ARCH: ${{ matrix.arch }}
+          CLIENT_REF: ${{ inputs.commit-sha || github.sha }}
+          CATALOG_TAG: ${{ inputs.modules-tag }}
+        run: |
+          source_sha=$(git rev-parse --verify HEAD 2>/dev/null || printf '%s' "$CLIENT_REF")
+          {
+            printf '### %s\n\n' "$BUILD_NAME"
+            printf 'Build and ad-hoc sign the macOS client, verify it starts, and scan macOS Go code for known vulnerabilities.\n\n'
+            printf 'Task: `release/build TARGET_ARCH=%s` | Platform: %s | Status: %s\n\n' "$TARGET_ARCH" "$BUILD_PLATFORM" "$BUILD_STATUS"
+            printf 'Client source: `%s` | Selected catalog: `%s`\n' "$source_sha" "$CATALOG_TAG"
+          } >> "$GITHUB_STEP_SUMMARY"

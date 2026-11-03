@@ -16,7 +16,6 @@ jobs:
   markdown:
     name: Markdown formatting
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -26,11 +25,11 @@ jobs:
           task: ci/markdown/fmt
 
   modules:
+    name: Published catalog
     uses: ./.github/workflows/_metadata.yml
-    with:
-      profile: pr
 
   go:
+    name: Go checks
     needs: modules
     uses: ./.github/workflows/_checks.yml
     permissions:
@@ -39,6 +38,7 @@ jobs:
       modules-tag: ${{ needs.modules.outputs.modules-tag }}
 
   build:
+    name: macOS builds
     needs: modules
     uses: ./.github/workflows/_build.yml
     permissions:
@@ -47,17 +47,16 @@ jobs:
       modules-tag: ${{ needs.modules.outputs.modules-tag }}
 
   contract:
+    name: Generated NixOS
     needs: modules
     uses: ./.github/workflows/_eval.yml
     with:
       modules-tag: ${{ needs.modules.outputs.modules-tag }}
-      evaluation-matrix: ${{ needs.modules.outputs.matrix }}
 
   gate:
     if: always()
     needs: [markdown, modules, go, build, contract]
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
     permissions:
       contents: read
     steps:

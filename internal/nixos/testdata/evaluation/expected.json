@@ -1,0 +1,3 @@
+{
+  "modules": ["lmx:cli-tools", "lmx:fixture", "third-party:capability"]
+}

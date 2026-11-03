@@ -14,8 +14,6 @@ permissions:
 jobs:
   modules:
     uses: ./.github/workflows/_metadata.yml
-    with:
-      commit-sha: ${{ github.sha }}
 
   release:
     needs: modules
@@ -24,6 +22,5 @@ jobs:
       commit-sha: ${{ github.sha }}
       release-tag: ${{ github.ref_name }}
       modules-tag: ${{ needs.modules.outputs.modules-tag }}
-      evaluation-matrix: ${{ needs.modules.outputs.matrix }}
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

@@ -1,16 +1,12 @@
-name: Client and catalog contract
+name: NixOS generation
 
 on:
   workflow_call:
     inputs:
       modules-tag:
-        description: Exact catalog tag to evaluate.
+        description: Catalog used by the default VM smoke check.
         type: string
         required: true
-      evaluation-matrix:
-        description: Complete matrix from the pair metadata job; empty plans it here.
-        type: string
-        default: ''
       commit-sha:
         description: Client source to evaluate.
         type: string
@@ -20,22 +16,19 @@ permissions:
   contents: read
 
 jobs:
-  plan:
-    if: inputs.evaluation-matrix == ''
-    uses: ./.github/workflows/_metadata.yml
-    with:
-      modules-tag: ${{ inputs.modules-tag }}
-      commit-sha: ${{ inputs.commit-sha }}
-
   evaluate:
-    name: ${{ matrix.arch || 'both' }} / ${{ matrix.id }}
-    needs: plan
-    if: ${{ always() && !cancelled() && (inputs.evaluation-matrix != '' || needs.plan.result == 'success') }}
+    name: Generated NixOS — ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(inputs.evaluation-matrix || needs.plan.outputs.matrix) }}
+      matrix:
+        include:
+          - arch: amd64
+            name: AMD64
+            runner: ubuntu-24.04
+          - arch: arm64
+            name: ARM64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,26 +40,43 @@ jobs:
           path: |
             .cache/go
             .cache/nix
-          key: pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}-${{ inputs.modules-tag }}-${{ matrix.id }}-${{ github.sha }}
+          key: nixos-v2-${{ runner.arch }}-${{ hashFiles('go.sum') }}-${{ inputs.modules-tag }}-${{ github.sha }}
           restore-keys: |
-            pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}-${{ inputs.modules-tag }}-${{ matrix.id }}-
-            pair-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}-
+            nixos-v2-${{ runner.arch }}-${{ hashFiles('go.sum') }}-${{ inputs.modules-tag }}-
+            nixos-v2-${{ runner.arch }}-${{ hashFiles('go.sum') }}-
       - name: Prepare Nix cache permissions
         run: |
           mkdir -p .cache/nix
           sudo chown -R 0:0 .cache/nix
-      - name: Evaluate generated guest flakes
-        timeout-minutes: 40
+      - name: Check client fixtures and default VM configuration
         uses: mr-chelyshkin/actions/task-run@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
         with:
           task: ci/nix/eval
           args: |
             modules_version=${{ inputs.modules-tag }}
             EVAL_ARCH=${{ matrix.arch }}
-            EVAL_MODULES=${{ matrix.cases }}
       - name: Restore Nix cache ownership
         if: always()
         run: |
           if [ -d .cache/nix ]; then
             sudo chown -R "$(id -u):$(id -g)" .cache/nix
           fi
+      - name: Summarize NixOS generation checks
+        if: always()
+        env:
+          CHECK_STATUS: ${{ job.status }}
+          CLIENT_REF: ${{ inputs.commit-sha || github.sha }}
+          CATALOG_TAG: ${{ inputs.modules-tag }}
+          GUEST_ARCH: ${{ matrix.name }}
+          GUEST_ARCH_ID: ${{ matrix.arch }}
+        run: |
+          source_sha=$(git rev-parse --verify HEAD 2>/dev/null || printf '%s' "$CLIENT_REF")
+          {
+            printf '## NixOS generation — %s\n\n' "$GUEST_ARCH"
+            printf 'Runs the selected client revision’s generated-configuration tests.\n\n'
+            printf 'Current tests cover synthetic client fixtures and config.Default() with the published catalog. This is Nix evaluation, without building or booting a VM. Older client releases run their own test scenarios.\n\n'
+            printf -- '- Task: `ci/nix/eval EVAL_ARCH=%s`\n' "$GUEST_ARCH_ID"
+            printf -- '- Client commit: `%s`\n' "$source_sha"
+            printf -- '- Catalog: `%s`\n' "$CATALOG_TAG"
+            printf -- '- Status: `%s`\n' "$CHECK_STATUS"
+          } >> "$GITHUB_STEP_SUMMARY"

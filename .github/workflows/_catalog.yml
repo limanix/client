@@ -1,0 +1,98 @@
+name: Catalog compatibility
+
+on:
+  workflow_call:
+    inputs:
+      modules-tag:
+        description: Published catalog to compose with the client platform.
+        type: string
+        required: true
+      commit-sha:
+        description: Client source commit to validate before publish.
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: Catalog compatibility — ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            name: AMD64
+            runner: ubuntu-24.04
+          - arch: arm64
+            name: ARM64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Check out the client being published
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit-sha }}
+          persist-credentials: false
+      - name: Check out the validation harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .cache/catalog-check
+          persist-credentials: false
+      - name: Install the catalog test in the selected client source
+        run: |
+          cp .cache/catalog-check/internal/nixos/catalog_compatibility_eval_test.go \
+            internal/nixos/catalog_compatibility_eval_test.go
+      - name: Restore compiler and Nix source caches
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            .cache/go
+            .cache/nix
+          key: catalog-v1-${{ runner.arch }}-${{ hashFiles('go.sum') }}-${{ inputs.modules-tag }}-${{ github.workflow_sha }}
+          restore-keys: |
+            catalog-v1-${{ runner.arch }}-${{ hashFiles('go.sum') }}-${{ inputs.modules-tag }}-
+            catalog-v1-${{ runner.arch }}-${{ hashFiles('go.sum') }}-
+      - name: Prepare Nix cache permissions
+        run: |
+          mkdir -p .cache/nix
+          sudo chown -R 0:0 .cache/nix
+      - name: Evaluate every catalog entry with the selected client
+        uses: mr-chelyshkin/actions/task-run@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
+        with:
+          working-directory: .cache/catalog-check
+          task: ci/nix/catalog
+          args: |
+            modules_version=${{ inputs.modules-tag }}
+            PROJECT_ROOT=${{ github.workspace }}
+            EVAL_ARCH=${{ matrix.arch }}
+      - name: Restore Nix cache ownership
+        if: always()
+        run: |
+          if [ -d .cache/nix ]; then
+            sudo chown -R "$(id -u):$(id -g)" .cache/nix
+          fi
+      - name: Summarize catalog compatibility
+        if: always()
+        env:
+          CHECK_STATUS: ${{ job.status }}
+          CLIENT_REF: ${{ inputs.commit-sha }}
+          CATALOG_TAG: ${{ inputs.modules-tag }}
+          HARNESS_REF: ${{ github.workflow_sha }}
+          GUEST_ARCH: ${{ matrix.name }}
+          GUEST_ARCH_ID: ${{ matrix.arch }}
+        run: |
+          source_sha=$(git rev-parse --verify HEAD 2>/dev/null || printf '%s' "$CLIENT_REF")
+          {
+            printf '## Catalog compatibility - %s\n\n' "$GUEST_ARCH"
+            printf 'Composes every public catalog entrypoint with the selected client’s generated NixOS platform. Entries come from the catalog, without a fixed module list. Each entry and guest architecture appears in the test log.\n\n'
+            printf 'This checks Nix evaluation, without building or booting a VM. TOML selection and combinations of optional modules are outside this check.\n\n'
+            printf -- '- Task: `ci/nix/catalog EVAL_ARCH=%s`\n' "$GUEST_ARCH_ID"
+            printf -- '- Guest architecture: `%s`\n' "$GUEST_ARCH"
+            printf -- '- Client commit: `%s`\n' "$source_sha"
+            printf -- '- Catalog: `%s`\n' "$CATALOG_TAG"
+            printf -- '- Validation harness: `%s`\n' "$HARNESS_REF"
+            printf -- '- Status: `%s`\n' "$CHECK_STATUS"
+          } >> "$GITHUB_STEP_SUMMARY"
