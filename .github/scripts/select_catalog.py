@@ -16,6 +16,7 @@ CATALOG_REPOSITORY = "limanix/modules"
 def published_tags(pages: list[list[dict]]) -> set[str]:
     if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
         raise ValueError("Expected paginated catalog release records")
+
     tags = set()
     for page in pages:
         for release in page:
@@ -31,6 +32,7 @@ def published_tags(pages: list[list[dict]]) -> set[str]:
                 and published_at.strip()
             ):
                 tags.add(tag)
+
     return tags
 
 
@@ -53,6 +55,7 @@ def select_catalog(
 ) -> tuple[str, str]:
     if requested_tag and not CATALOG_TAG.fullmatch(requested_tag):
         raise ValueError("An exact catalog tag such as v1 is required")
+
     tags = published_tags(releases)
     if requested_tag:
         if requested_tag not in tags:
@@ -62,12 +65,14 @@ def select_catalog(
         if not tags:
             raise ValueError("No published catalog release is available")
         tag = max(tags, key=lambda value: int(value[1:]))
+
     actual_root = Path(catalog_git(modules_root, "rev-parse", "--show-toplevel"))
     if actual_root.resolve() != modules_root.resolve():
         raise ValueError("The catalog checkout must be a repository root")
     commit = catalog_git(
         modules_root, "rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}"
     )
+
     if not re.fullmatch(r"[0-9a-f]{40,64}", commit):
         raise ValueError("The catalog tag must resolve to an exact commit")
     return tag, commit
@@ -78,8 +83,10 @@ def main() -> None:
     parser.add_argument("--modules-root", type=Path, required=True)
     parser.add_argument("--modules-tag", default="")
     args = parser.parse_args()
+
     if args.modules_tag and not CATALOG_TAG.fullmatch(args.modules_tag):
         raise ValueError("An exact catalog tag such as v1 is required")
+
     response = subprocess.check_output(
         [
             "gh",

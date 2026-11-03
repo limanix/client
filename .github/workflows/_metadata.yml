@@ -1,25 +1,15 @@
-name: Select client and catalog pair
+name: Select published catalog
 
 on:
   workflow_call:
     inputs:
       modules-tag:
-        description: Catalog tag, or empty to select the latest published catalog.
+        description: Catalog tag, or empty to select published catalog.
         type: string
         default: ''
-      commit-sha:
-        description: Client source used by the contract test.
-        type: string
-        default: ''
-      profile:
-        description: Full release coverage by default; pr selects representative client shapes.
-        type: string
-        default: full
     outputs:
       modules-tag:
         value: ${{ jobs.metadata.outputs.modules-tag }}
-      matrix:
-        value: ${{ jobs.metadata.outputs.matrix }}
 
 permissions:
   contents: read
@@ -27,14 +17,11 @@ permissions:
 jobs:
   metadata:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
     outputs:
-      modules-tag: ${{ steps.plan.outputs.modules-tag }}
-      matrix: ${{ steps.plan.outputs.matrix }}
+      modules-tag: ${{ steps.catalog.outputs.modules-tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,15 +37,13 @@ jobs:
         run: >-
           python3 -B .github/scripts/select_catalog.py --modules-root .cache/modules
           --modules-tag "$MODULES_TAG" >> "$GITHUB_OUTPUT"
-      - name: Test pair planning
-        run: python3 -B -m unittest discover -s .github/scripts
-      - name: Plan stage coverage
-        id: plan
+      - name: Summarize selected catalog
         env:
-          MODULES_TAG: ${{ steps.catalog.outputs.modules-tag }}
-          CLIENT_SHA: ${{ inputs.commit-sha || github.sha }}
-          EVAL_PROFILE: ${{ inputs.profile }}
-        run: >-
-          python3 -B .github/scripts/plan_eval.py --modules-root .cache/modules
-          --modules-tag "$MODULES_TAG" --commit-sha "$CLIENT_SHA"
-          --profile "$EVAL_PROFILE" >> "$GITHUB_OUTPUT"
+          CATALOG_TAG: ${{ steps.catalog.outputs.modules-tag }}
+          CATALOG_SHA: ${{ steps.catalog.outputs.catalog-commit-sha }}
+        run: |
+          {
+            printf '## Published catalog\n\n'
+            printf -- '- Release: `%s`\n' "$CATALOG_TAG"
+            printf -- '- Catalog commit: `%s`\n' "$CATALOG_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"

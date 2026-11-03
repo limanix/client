@@ -1,85 +1,48 @@
 [![Release](https://img.shields.io/github/v/release/limanix/client)](https://github.com/limanix/client/releases)
 [![License: Apache-2.0](https://img.shields.io/github/license/limanix/client?label=license)](LICENSE)
 
-<p align="center">
-  <img src=".github/assets/readme-header.png"
-       alt="LimaNix"
-       width="100%">
-</p>
+<div align="center">
+<img src=".github/assets/readme-header.png" alt="LimaNix" width="100%">
 
 <p align="center">
-  <a href="https://docs.limanix.dev"><b>Docs</b></a>
-  &nbsp;|&nbsp;
-  <a href="https://docs.limanix.dev/install"><b>Install</b></a>
-  &nbsp;|&nbsp;
-  <a href="https://docs.limanix.dev/quick-start"><b>Quick start</b></a>
-  &nbsp;|&nbsp;
-  <a href="https://docs.limanix.dev/reference/cli"><b>CLI reference</b></a>
-  &nbsp;|&nbsp;
-  <a href="https://docs.limanix.dev/architecture"><b>How it works</b></a>
-  &nbsp;|&nbsp;
-  <a href="https://github.com/limanix/client/releases"><b>Releases</b></a>
+<a href="https://docs.limanix.dev/quick-start"><code>→ Get started</code></a>
+<a href="https://docs.limanix.dev/"><code>Documentation</code></a>
+<a href="https://docs.limanix.dev/contributing/"><code>Contributing</code></a>
 </p>
 
-<hr>
+<p align="center"><sub>macOS 26 or newer | Apple Silicon and Intel</sub></p>
+</div>
 
-`limanix`, the Mac side of [LimaNix](https://limanix.dev): it creates, updates
-and opens NixOS development VMs from one `limanix.toml`. Lima is built in, and
-each release bundles one [catalog](https://github.com/limanix/modules) release
-and pins one [`lmx`](https://github.com/limanix/lmx) release. It needs macOS 26
-or newer and `ssh` in `PATH`.
+## macOS client
 
-```text
-┌──────────────┐  reads  ┌───────────────────────┐    SSH    ┌──────────────┐
-│ limanix.toml │ ──────> │     limanix (Mac)     │ ────────> │  VM (NixOS)  │
-│  your file   │         │ Lima + catalog inside │   mounts  │  lmx, tools  │
-└──────────────┘         └───────────────────────┘           └──────────────┘
-```
+`limanix`, the command-line client for [LimaNix](https://limanix.dev). Create
+and manage NixOS development VMs from one `limanix.toml`, with Lima built in.
 
-| Command | What it does |
-| -- | -- |
-| `limanix first-config` | Writes a `limanix.toml` to start from |
-| `limanix create --config limanix.toml` | Creates the VM and builds its system |
-| `limanix shell example-box` | Opens a shell in the VM; `--session` keeps a named one |
-| `limanix update --config limanix.toml` | Applies a changed file and restarts the VM |
-| `limanix list`, `doctor`, `network check` | Shows the VMs and checks a VM or one of its ports |
-| `limanix stop`, `start`, `delete` | Stops, starts or deletes a VM; its home stays on the Mac |
-| `limanix homes list`, `homes remove` | Shows and removes the homes of deleted VMs |
+- **Configure your environment.** Choose VM resources, shell components,
+  language toolchains and services in `limanix.toml`.
+- **Manage VMs.** Create, update, start and stop environments. Deleting a VM
+  preserves its managed home on the Mac by default.
+- **Work in the guest.** Open a shell, run commands or attach to a named
+  persistent session when a session provider is configured.
+- **Diagnose problems.** Check VM health with `doctor` and guest port
+  connectivity with `network check`.
+
+Follow the [quick start](https://docs.limanix.dev/quick-start), then explore the
+[CLI reference](https://docs.limanix.dev/reference/cli) and
+[configuration reference](https://docs.limanix.dev/reference/config). Download
+the client from [GitHub Releases](https://github.com/limanix/client/releases).
 
 ## Development
 
-You need [Task](https://taskfile.dev) 3.53.1 or newer and Docker; native builds
-also need Go and the Xcode Command Line Tools. Checks run in the containers CI
-uses.
+> Requires [Task](https://taskfile.dev) 3.53.1+ and Docker. Native builds also
+> require Go and the Xcode Command Line Tools.
 
-| Task | Does |
-| -- | -- |
-| `task ci/golang/test modules_version=v12` | Go tests with the race detector |
-| `task ci/golang/lint`, `ci/golang/fmt`, `ci/golang/audit` | Lint, formatting and known vulnerabilities |
-| `task ci/nix/eval modules_version=v12` | Evaluates the generated NixOS flake for every catalog selector |
-| `task release/build modules_version=v12` | Builds ad-hoc signed `bin/limanix-arm64` and `bin/limanix-amd64` natively |
-| `task reference/fix modules_version=v12` | Updates `reference.json`, the commands and `limanix.toml` keys that the LimaNix site reads; a test fails when it is out of date |
+Run Go tests with `task ci/golang/test modules_version="<catalog-tag>"`; use
+`task -l` to list checks and build commands.
 
-`modules_source=../modules` bundles a local catalog checkout, and
-`lmx_source=../lmx` the archives that `task release/build` left in
-`../lmx/dist`, instead of the published releases.
-
-| Embedded resource | Pinned in | Prepared by |
-| -- | -- | -- |
-| Module catalog and base disk | `modules_version`, or `modules_source` | `cmd/bundle-modules` |
-| Lima guest agents | Lima in `go.mod` | `cmd/bundle-guestagent` |
-| `socket_vmnet` | `Taskfile.yml` | `cmd/bundle-socketvmnet` |
-| `lmx` | `internal/nixos/resources/base/lmx.json`; the VM downloads it, or `lmx_source` embeds local archives | `cmd/bundle-lmx` |
-
-A tag `v<version>` on `main` releases the client with the newest catalog, and
-every catalog release publishes the client releases that support it again with
-that catalog.
+Check Markdown with `task ci/markdown/fmt`; format it with `task markdown/fix`.
 
 ## Contributing
 
-Follow [CONTRIBUTING.md](CONTRIBUTING.md) for the work in this repository and
-the
-[organization guide](https://github.com/limanix/.github/blob/main/CONTRIBUTING.md)
-for issues and release labels. Use
-[Issues](https://github.com/limanix/client/issues) for questions, bug reports
-and feature requests. Licensed under [Apache 2.0](LICENSE).
+See the [contribution guide](https://docs.limanix.dev/contributing/) for issues,
+pull requests and releases.

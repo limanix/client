@@ -1,10 +1,10 @@
-name: Client checks
+name: Go checks
 
 on:
   workflow_call:
     inputs:
       modules-tag:
-        description: Exact catalog tag used by the test fixture.
+        description: Catalog tag used by the test fixture.
         type: string
         required: true
       commit-sha:
@@ -17,13 +17,24 @@ permissions:
 
 jobs:
   check:
-    name: ${{ matrix.task }}
+    name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ matrix.task == 'ci/golang/test' && 45 || 20 }}
     strategy:
       fail-fast: false
       matrix:
-        task: [ci/golang/fmt, ci/golang/lint, ci/golang/test, ci/golang/audit]
+        include:
+          - task: ci/golang/fmt
+            name: Go formatting
+            purpose: Check formatting in cmd/ and internal/.
+          - task: ci/golang/lint
+            name: Go lint
+            purpose: Run Go lint checks.
+          - task: ci/golang/test
+            name: Go tests — race detector
+            purpose: Run Go tests with the race detector.
+          - task: ci/golang/audit
+            name: Go vulnerability scan
+            purpose: Scan Go code.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -45,9 +56,25 @@ jobs:
             internal/bundle/resources/*.gz
             internal/bundle/resources/manifest.json
           key: guest-agent-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'Taskfile.yml', 'internal/bundle/generator/**', 'internal/bundle/vmnetgen/**') }}
-      - name: Run check
-        timeout-minutes: ${{ matrix.task == 'ci/golang/test' && 40 || 15 }}
+      - name: ${{ matrix.name }}
         uses: mr-chelyshkin/actions/task-run@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
         with:
           task: ${{ matrix.task }}
           args: modules_version=${{ inputs.modules-tag }}
+      - name: Summarize Go check
+        if: always()
+        env:
+          CHECK_NAME: ${{ matrix.name }}
+          CHECK_PURPOSE: ${{ matrix.purpose }}
+          CHECK_TASK: ${{ matrix.task }}
+          CHECK_PLATFORM: ${{ runner.os }} / ${{ runner.arch }}
+          CHECK_STATUS: ${{ job.status }}
+          CLIENT_REF: ${{ inputs.commit-sha || github.sha }}
+          CATALOG_TAG: ${{ inputs.modules-tag }}
+        run: |
+          source_sha=$(git rev-parse --verify HEAD 2>/dev/null || printf '%s' "$CLIENT_REF")
+          {
+            printf '### %s\n\n%s\n\n' "$CHECK_NAME" "$CHECK_PURPOSE"
+            printf 'Task: `%s` | Platform: %s | Status: %s\n\n' "$CHECK_TASK" "$CHECK_PLATFORM" "$CHECK_STATUS"
+            printf 'Client source: `%s` | Selected catalog: `%s`\n' "$source_sha" "$CATALOG_TAG"
+          } >> "$GITHUB_STEP_SUMMARY"
