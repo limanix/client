@@ -28,7 +28,7 @@ vars:
   lmx_source: '{{.lmx_source | default ""}}'
   lmx_source_path: '{{with .lmx_source}}{{if isAbs .}}{{clean .}}{{else}}{{joinPath $.ROOT_DIR . | clean}}{{end}}{{end}}'
 
-  markdown_paths: README.md .github/workflows/README.md
+  markdown_paths: README.md
   macos_version: '26.0'
 
   socket_vmnet:
