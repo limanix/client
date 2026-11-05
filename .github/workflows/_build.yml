@@ -53,7 +53,7 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
       - name: Build and sign macOS binary
-        uses: mr-chelyshkin/actions/task-run@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
+        uses: mr-chelyshkin/actions/task-run@772ed02edbc40cbc539a507e0f55972da7cc7c8e # v3
         with:
           task: release/build
           args: |
