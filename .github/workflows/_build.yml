@@ -19,6 +19,27 @@ on:
         description: Prefix for binary names.
         required: false
         type: string
+      notarize:
+        description: Developer ID certificate.
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      APPLE_CERTIFICATE_P12:
+        description: Developer ID Application certificate.
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        description: Password of the .p12 file.
+        required: false
+      APPLE_NOTARY_KEY:
+        description: App Store Connect API key.
+        required: false
+      APPLE_NOTARY_KEY_ID:
+        description: Key ID of the App Store Connect API key.
+        required: false
+      APPLE_NOTARY_ISSUER_ID:
+        description: Issuer ID of the App Store Connect team.
+        required: false
     outputs:
       artifact-name:
         description: Prefix for built binary names.
@@ -52,7 +73,37 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
-      - name: Build and sign macOS binary
+      - name: Import signing certificate
+        id: signing
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          NOTARIZE: ${{ inputs.notarize }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE_P12" ]; then
+            if [ "$NOTARIZE" = true ]; then
+              echo "::error::The APPLE_CERTIFICATE_P12 secret is required to build a release."
+              exit 1
+            fi
+            echo "::notice::No signing certificate is available; the binary keeps its ad-hoc signature."
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password=$(uuidgen)
+          printf '%s' "$APPLE_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain"
+          identity=$(security find-identity -v -p codesigning "$keychain" | awk -F'"' '/Developer ID Application/ { print $2; exit }')
+          if [ -z "$identity" ]; then
+            echo "::error::The certificate holds no valid Developer ID Application identity."
+            exit 1
+          fi
+          printf 'identity=%s\n' "$identity" >> "$GITHUB_OUTPUT"
+      - name: Build macOS binary
         uses: mr-chelyshkin/actions/task-run@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
         with:
           task: release/build
@@ -60,8 +111,35 @@ jobs:
             modules_version=${{ inputs.modules-tag }}
             TARGET_ARCH=${{ matrix.arch }}
             RELEASE_TAG=${{ inputs.release-tag }}
+      - name: Sign macOS binary
+        if: steps.signing.outputs.identity != ''
+        env:
+          SIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
+        run: |
+          codesign --force --sign "$SIGN_IDENTITY" --options runtime --timestamp \
+            --entitlements .github/assets/vz.entitlements bin/limanix-${{ matrix.arch }}
+          codesign --verify --strict --verbose=2 bin/limanix-${{ matrix.arch }}
       - name: Verify binary starts
         run: bin/limanix-${{ matrix.arch }} --version
+      - name: Notarize macOS binary
+        if: inputs.notarize
+        env:
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          key="$RUNNER_TEMP/notary-key.p8"
+          archive="$RUNNER_TEMP/limanix-${{ matrix.arch }}.zip"
+          printf '%s' "$APPLE_NOTARY_KEY" > "$key"
+          ditto -c -k --keepParent bin/limanix-${{ matrix.arch }} "$archive"
+          auth=(--key "$key" --key-id "$APPLE_NOTARY_KEY_ID" --issuer "$APPLE_NOTARY_ISSUER_ID")
+          result=$(xcrun notarytool submit "$archive" "${auth[@]}" --wait --timeout 1h --output-format json) || true
+          printf '%s\n' "$result"
+          status=$(plutil -extract status raw -o - - <<< "$result" || true)
+          if [ "$status" != Accepted ]; then
+            xcrun notarytool log "$(plutil -extract id raw -o - - <<< "$result")" "${auth[@]}"
+            exit 1
+          fi
       - name: Scan macOS Go code for vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
       - name: Write checksum
@@ -90,7 +168,7 @@ jobs:
           source_sha=$(git rev-parse --verify HEAD 2>/dev/null || printf '%s' "$CLIENT_REF")
           {
             printf '### %s\n\n' "$BUILD_NAME"
-            printf 'Build and ad-hoc sign the macOS client, verify it starts, and scan macOS Go code for known vulnerabilities.\n\n'
+            printf 'Build and sign the macOS client (Developer ID when the certificate is available, ad-hoc otherwise), notarize it for releases, verify it starts, and scan macOS Go code for known vulnerabilities.\n\n'
             printf 'Task: `release/build TARGET_ARCH=%s` | Platform: %s | Status: %s\n\n' "$TARGET_ARCH" "$BUILD_PLATFORM" "$BUILD_STATUS"
             printf 'Client source: `%s` | Selected catalog: `%s`\n' "$source_sha" "$CATALOG_TAG"
           } >> "$GITHUB_STEP_SUMMARY"
