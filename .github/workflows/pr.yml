@@ -45,6 +45,9 @@ jobs:
       contents: read
     with:
       modules-tag: ${{ needs.modules.outputs.modules-tag }}
+    secrets:
+      APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
   contract:
     name: Generated NixOS

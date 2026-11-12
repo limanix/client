@@ -18,6 +18,16 @@ on:
     secrets:
       RELEASE_APP_PRIVATE_KEY:
         required: true
+      APPLE_CERTIFICATE_P12:
+        required: true
+      APPLE_CERTIFICATE_PASSWORD:
+        required: true
+      APPLE_NOTARY_KEY:
+        required: true
+      APPLE_NOTARY_KEY_ID:
+        required: true
+      APPLE_NOTARY_ISSUER_ID:
+        required: true
 
 permissions:
   contents: read
@@ -52,6 +62,13 @@ jobs:
       release-tag: ${{ inputs.release-tag }}
       modules-tag: ${{ inputs.modules-tag }}
       commit-sha: ${{ inputs.commit-sha }}
+      notarize: true
+    secrets:
+      APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+      APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+      APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
 
   publish:
     name: Create GitHub release
