@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Require every publication check
-        uses: mr-chelyshkin/actions/job-results-check@577ea5b38e0b2ad2bffe7977574fda5e59657a60 # v2
+        uses: mr-chelyshkin/actions/job-results-check@772ed02edbc40cbc539a507e0f55972da7cc7c8e # v3
         with:
           results: ${{ toJSON(needs) }}
       - name: Download binaries
