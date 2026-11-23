@@ -32,7 +32,7 @@ func checkSudoers(ctx context.Context, cfg networks.Config) error {
 		return err
 	}
 
-	expected, err := networks.Sudoers()
+	expected, err := cfg.Sudoers()
 	if err != nil {
 		return err
 	}
@@ -53,11 +53,12 @@ func installSudoers(ctx context.Context, cfg networks.Config, diagnostics io.Wri
 		failure = errors.Join(failure, os.RemoveAll(directory))
 	}()
 
-	if err = loadSnapshot(directory, cfg); err != nil {
+	loaded, err := loadSnapshot(directory, cfg)
+	if err != nil {
 		return err
 	}
 
-	rules, err := networks.Sudoers()
+	rules, err := loaded.Sudoers()
 	if err != nil {
 		return err
 	}
@@ -89,28 +90,28 @@ func installSudoers(ctx context.Context, cfg networks.Config, diagnostics io.Wri
 	return filesystem.WriteFileAtomic(sudoersPath, []byte(rules), 0o644)
 }
 
-func loadSnapshot(directory string, cfg networks.Config) error {
+func loadSnapshot(directory string, cfg networks.Config) (networks.Config, error) {
 	data, err := json.Marshal(cfg)
 	if err != nil {
-		return err
+		return networks.Config{}, err
 	}
 
 	configDirectory := filepath.Join(directory, "_config")
 	if err = os.Mkdir(configDirectory, 0o700); err != nil {
-		return err
+		return networks.Config{}, err
 	}
 	if err = os.WriteFile(filepath.Join(configDirectory, "networks.yaml"), data, 0o600); err != nil {
-		return err
+		return networks.Config{}, err
 	}
 	if err = os.Setenv("LIMA_HOME", directory); err != nil {
-		return err
+		return networks.Config{}, err
 	}
 
 	loaded, err := networks.LoadConfig()
 	if err != nil {
-		return err
+		return networks.Config{}, err
 	}
-	return loaded.Validate()
+	return loaded, loaded.Validate()
 }
 
 func backupSudoers(diagnostics io.Writer) (failure error) {
