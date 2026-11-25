@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -79,27 +80,49 @@ func TestAgentSSHUsesPinnedDirectConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// -G prints the options OpenSSH will use, without making a connection.
-	output, err := exec.CommandContext(t.Context(), command.Path, append([]string{"-G"}, command.Args[1:]...)...).CombinedOutput()
-	if err != nil {
-		t.Fatalf("read OpenSSH options: %v\n%s", err, output)
+	args := command.Args[1:]
+	if len(args) < 2 || !slices.Equal(args[:2], []string{"-F", os.DevNull}) {
+		t.Fatalf("SSH command must ignore host configuration: %q", args)
 	}
-	config := "\n" + string(output)
-	for _, line := range []string{
-		"user another-dev", "forwardagent yes", "hostkeyalias " + host,
-		"userknownhostsfile " + pin, "globalknownhostsfile none",
+	options := make(map[string][]string)
+	for i := 2; i+1 < len(args) && args[i] == "-o"; i += 2 {
+		name, value, ok := strings.Cut(args[i+1], "=")
+		if !ok {
+			t.Fatalf("invalid SSH option: %q", args[i+1])
+		}
+		name = strings.ToLower(name)
+		options[name] = append(options[name], value)
+	}
+	for name, want := range map[string][]string{
+		"user":                  {"another-dev"},
+		"forwardagent":          {"yes"},
+		"stricthostkeychecking": {"yes"},
+		"hostkeyalias":          {host},
+		"userknownhostsfile":    {`"` + pin + `"`},
+		"globalknownhostsfile":  {"none"},
+		"updatehostkeys":        {"no"},
+		"controlmaster":         nil,
+		"controlpath":           nil,
+		"controlpersist":        nil,
 	} {
-		if !strings.Contains(config, "\n"+line+"\n") {
-			t.Errorf("SSH config lacks %q", line)
+		if got := options[name]; !slices.Equal(got, want) {
+			t.Errorf("SSH option %s = %q, want %q", name, got, want)
 		}
 	}
-	if !strings.Contains(config, "\nstricthostkeychecking true\n") && !strings.Contains(config, "\nstricthostkeychecking yes\n") {
-		t.Fatalf("SSH host key checking is not strict: %s", config)
-	}
-	if !strings.Contains(config, "\nupdatehostkeys false\n") && !strings.Contains(config, "\nupdatehostkeys no\n") {
-		t.Fatalf("SSH can update the pinned host key: %s", config)
-	}
-	if strings.Contains(config, "\ncontrolpath ") {
-		t.Fatalf("SSH reuses a control connection: %s", config)
-	}
+
+	t.Run("OpenSSH parses the known hosts path", func(t *testing.T) {
+		// Some CI containers run with a UID that has no passwd entry. The argument checks above still run there.
+		probe := exec.CommandContext(t.Context(), command.Path, append([]string{"-G"}, args...)...)
+		probe.Env = append(os.Environ(), "LC_ALL=C")
+		output, err := probe.CombinedOutput()
+		if err != nil {
+			if strings.Contains(string(output), "No user exists for uid ") {
+				t.Skip(strings.TrimSpace(string(output)))
+			}
+			t.Fatalf("read OpenSSH options: %v\n%s", err, output)
+		}
+		if !strings.Contains("\n"+string(output), "\nuserknownhostsfile "+pin+"\n") {
+			t.Fatalf("OpenSSH did not parse the pinned file path: %s", output)
+		}
+	})
 }
