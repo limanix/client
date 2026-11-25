@@ -168,6 +168,9 @@ func operands(name string) []Arg {
 	case "limanix shell":
 		return []Arg{vmName, operand("COMMAND ...", "strings", false,
 			"Guest command and its arguments, after `--`. They reach the guest unchanged; no guest shell parses them.")}
+	case "limanix forward":
+		return []Arg{vmName, operand("PORT ...", "strings", false, "VM port, or `LOCAL:REMOTE` to use another port on the Mac. "+
+			"Without a port, every port that a program in the VM listens on is forwarded while it listens.")}
 	case "limanix network check":
 		return []Arg{vmName, operand("PORT", "uint16", true, "Port number from 1 to 65535.")}
 	case "limanix modules add":
@@ -216,6 +219,12 @@ func output(name string) []string {
 		return []string{"Removed third-party:NAME from the catalog."}
 	case "limanix homes remove":
 		return []string{"Removed NAME."}
+	case "limanix forward":
+		return []string{
+			"Forwarding ports of NAME to localhost. Press Ctrl-C to stop.",
+			"localhost:PORT -> VM port PORT",
+			"localhost:PORT closed",
+		}
 	default:
 		return []string{}
 	}

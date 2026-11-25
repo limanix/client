@@ -27,6 +27,7 @@ import (
 	"github.com/limanix/client/internal/modules"
 	"github.com/limanix/client/internal/nixos"
 	"github.com/limanix/client/internal/state"
+	"golang.org/x/crypto/ssh"
 )
 
 type backendCall struct {
@@ -218,6 +219,10 @@ func (f *fakeBackend) PruneImages(context.Context) error {
 
 func (f *fakeBackend) UserKey(context.Context) (lima.UserKey, error) {
 	return lima.UserKey{Public: testUserKey, PrivateFile: "/lima/_config/user"}, nil
+}
+
+func (f *fakeBackend) Dial(context.Context, string) (*ssh.Client, error) {
+	return nil, errors.New("SSH is not available in tests")
 }
 
 func (f *fakeBackend) Run(_ context.Context, name string, args []string, _ bool) (string, error) {

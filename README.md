@@ -24,6 +24,7 @@ and manage NixOS development VMs from one `limanix.toml`, with Lima built in.
   preserves its managed home on the Mac by default.
 - **Work in the guest.** Open a shell, run commands or attach to a named
   persistent session when a session provider is configured.
+- **Reach services.** Bring VM ports to `localhost` on the Mac with `forward`.
 - **Diagnose problems.** Check VM health with `doctor` and guest port
   connectivity with `network check`.
 
