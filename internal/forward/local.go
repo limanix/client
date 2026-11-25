@@ -3,6 +3,8 @@ package forward
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"os/exec"
@@ -14,7 +16,10 @@ import (
 	"time"
 )
 
-const netstatTimeout = 5 * time.Second
+const (
+	netstatTimeout = 5 * time.Second
+	netstatHeader  = "Local Address"
+)
 
 // inUse tells whether a program on the Mac may already own the port, without connecting to it: a connection would be
 // accepted by a program that waits for one, such as a server that serves a single client.
@@ -56,31 +61,73 @@ func bindExclusive(network, address string) error {
 }
 
 // localListens tells whether a program on the Mac listens on the port, on any address. When that cannot be told,
-// the port counts as taken.
+// the port counts as taken: a table that is empty or partial must not pass for one without the listener.
 func localListens(port uint16) bool {
+	var (
+		listening bool
+		err       error
+	)
+
 	if runtime.GOOS == "darwin" {
-		ctx, cancel := context.WithTimeout(context.Background(), netstatTimeout)
-		defer cancel()
-
-		output, err := exec.CommandContext(ctx, "netstat", "-an", "-p", "tcp").Output()
-
-		return err != nil || netstatListens(string(output), port)
+		listening, err = netstatListening("netstat", port)
+	} else {
+		listening, err = procListening(port, "/proc/net/tcp", "/proc/net/tcp6")
 	}
 
+	return err != nil || listening
+}
+
+// netstatListening runs `netstat -an -p tcp` of macOS. Its table has a header line, and netstat may exit with 0 and
+// report a problem on stderr after printing nothing or a part of the table, which is no answer.
+func netstatListening(command string, port uint16) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), netstatTimeout)
+	defer cancel()
+
+	var stderr strings.Builder
+
+	netstat := exec.CommandContext(ctx, command, "-an", "-p", "tcp")
+	netstat.Stderr = &stderr
+
+	output, err := netstat.Output()
+	if err != nil {
+		return false, err
+	}
+
+	if reason := strings.TrimSpace(stderr.String()); reason != "" {
+		return false, fmt.Errorf("netstat reported: %s", reason)
+	}
+
+	if !strings.Contains(string(output), netstatHeader) {
+		return false, errors.New("netstat printed no socket table")
+	}
+
+	return netstatListens(string(output), port), nil
+}
+
+// procListening reads the socket tables of Linux. Without IPv6 there is no tcp6 table, but one that cannot be read is
+// an error.
+func procListening(port uint16, tcp, tcp6 string) (bool, error) {
 	var tables strings.Builder
 
-	for _, name := range []string{"/proc/net/tcp", "/proc/net/tcp6"} {
-		// IPv6 may be off, which leaves no tcp6 table.
-		if table, err := os.ReadFile(name); err == nil {
-			tables.Write(table)
-		} else if name == "/proc/net/tcp" {
-			return true
+	for _, name := range []string{tcp, tcp6} {
+		table, err := os.ReadFile(name)
+
+		switch {
+		case errors.Is(err, fs.ErrNotExist) && name == tcp6:
+			continue
+		case err != nil:
+			return false, err
 		}
+
+		tables.Write(table)
 	}
 
 	sockets, err := parseSockets(tables.String())
+	if err != nil {
+		return false, err
+	}
 
-	return err != nil || slices.ContainsFunc(sockets, func(s socket) bool { return s.port == port })
+	return slices.ContainsFunc(sockets, func(s socket) bool { return s.port == port }), nil
 }
 
 // netstatListens reads `netstat -an -p tcp` of macOS, whose lines end with the state and show the local address as
