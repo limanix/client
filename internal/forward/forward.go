@@ -118,8 +118,17 @@ func Run(ctx context.Context, client *ssh.Client, ports []Port, out io.Writer) e
 }
 
 func (f *forwarder) fixed(ctx context.Context, ports []Port) error {
+	// A program may listen on one address of the VM only, and "localhost" does not reach it. The first poll comes
+	// before the tunnels are announced, so that a client that connects as soon as it reads the message reaches the
+	// address that the program listens on. Until the program listens, and when a poll fails, a tunnel keeps its address.
+	listening := f.listening()
+
 	for _, port := range ports {
 		target := net.JoinHostPort("localhost", strconv.Itoa(int(port.Remote)))
+		if targets, ok := listening[port.Remote]; ok {
+			target = targets[0]
+		}
+
 		if err := f.open(port.Remote, port.Local, target, false); err != nil {
 			return err
 		}
@@ -129,24 +138,30 @@ func (f *forwarder) fixed(ctx context.Context, ports []Port) error {
 	defer ticker.Stop()
 
 	for {
-		// A program may listen on one address of the VM only, and "localhost" does not reach it. Until the program
-		// listens, and when the poll fails, the tunnel keeps the address it has.
-		if sockets, err := f.sockets(); err == nil {
-			listening := listeningTargets(sockets)
-
-			for _, t := range f.tunnels {
-				if targets, ok := listening[t.remote]; ok {
-					t.retarget(targets)
-				}
-			}
-		}
-
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
 		}
+
+		listening = f.listening()
+
+		for _, t := range f.tunnels {
+			if targets, ok := listening[t.remote]; ok {
+				t.retarget(targets)
+			}
+		}
 	}
+}
+
+// listening polls the VM for the addresses that its programs listen on, and returns none when the poll fails.
+func (f *forwarder) listening() map[uint16][]string {
+	sockets, err := f.sockets()
+	if err != nil {
+		return nil
+	}
+
+	return listeningTargets(sockets)
 }
 
 func (f *forwarder) discover(ctx context.Context) error {
