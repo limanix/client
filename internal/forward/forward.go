@@ -82,7 +82,8 @@ type forwarder struct {
 }
 
 // Run forwards ports until ctx ends or the connection is lost. Without ports, it forwards every port that a program
-// in the VM listens on while it listens, to the same port on the Mac or the next free one.
+// in the VM listens on while it listens, to the same port on the Mac or the next free one. It returns why it stopped:
+// the cause of ctx, such as context.Canceled for an interrupt, or ErrConnectionLost.
 func Run(ctx context.Context, client *ssh.Client, ports []Port, out io.Writer) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
@@ -109,11 +110,8 @@ func Run(ctx context.Context, client *ssh.Client, ports []Port, out io.Writer) e
 		return err
 	}
 
-	if cause := context.Cause(ctx); !errors.Is(cause, context.Canceled) {
-		return cause
-	}
-
-	return nil
+	// Both modes return nil only when ctx ends, with context.Canceled for an interrupt, as other commands report it.
+	return context.Cause(ctx)
 }
 
 func (f *forwarder) fixed(ctx context.Context, ports []Port) error {
