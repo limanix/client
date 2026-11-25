@@ -124,9 +124,28 @@ func (f *forwarder) fixed(ctx context.Context, ports []Port) error {
 		}
 	}
 
-	<-ctx.Done()
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
 
-	return nil
+	for {
+		// A program may listen on one address of the VM only, and "localhost" does not reach it. Until the program
+		// listens, and when the poll fails, the tunnel keeps the address it has.
+		if sockets, err := f.sockets(); err == nil {
+			listening := listeningTargets(sockets)
+
+			for _, t := range f.tunnels {
+				if targets, ok := listening[t.remote]; ok {
+					t.retarget(targets)
+				}
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+		}
+	}
 }
 
 func (f *forwarder) discover(ctx context.Context) error {
@@ -196,17 +215,24 @@ func (f *forwarder) sockets() ([]socket, error) {
 	return parseSockets(string(output))
 }
 
-func (f *forwarder) sync(sockets []socket) error {
+// listeningTargets maps each port that a program in the VM listens on to the addresses to connect to.
+func listeningTargets(sockets []socket) map[uint16][]string {
 	targets := map[uint16][]string{}
 
 	for _, s := range sockets {
-		if slices.Contains(systemPorts, s.port) {
-			continue
-		}
-
 		if target := s.target(); !slices.Contains(targets[s.port], target) {
 			targets[s.port] = append(targets[s.port], target)
 		}
+	}
+
+	return targets
+}
+
+func (f *forwarder) sync(sockets []socket) error {
+	targets := listeningTargets(sockets)
+
+	for _, port := range systemPorts {
+		delete(targets, port)
 	}
 
 	if f.refused == nil {
