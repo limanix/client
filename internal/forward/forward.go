@@ -11,6 +11,7 @@ import (
 	"net"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -23,6 +24,7 @@ const (
 	probeTimeout    = 200 * time.Millisecond
 	spareLocalPorts = 100
 	socketTables    = "/run/current-system/sw/bin/cat /proc/net/tcp /proc/net/tcp6"
+	tableHeader     = "local_address"
 )
 
 var systemPorts = []uint16{22, 53}
@@ -127,17 +129,30 @@ func (f *forwarder) discover(ctx context.Context) error {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
+	polled, failing := false, false
+
 	for {
 		sockets, err := f.sockets()
-		if err != nil {
-			if ctx.Err() != nil {
-				return nil
+
+		var exit *ssh.ExitError
+
+		switch {
+		case err == nil:
+			polled, failing = true, false
+
+			if err = f.sync(sockets); err != nil {
+				return err
+			}
+		case ctx.Err() != nil:
+			return nil
+		case polled && errors.As(err, &exit):
+			// A failed poll says nothing about the services, so the open ports stay until a poll succeeds.
+			if !failing {
+				_, _ = fmt.Fprintf(f.out, "%v; keeping the open ports and trying again\n", err)
 			}
 
-			return err
-		}
-
-		if err = f.sync(sockets); err != nil {
+			failing = true
+		default:
 			return err
 		}
 
@@ -149,6 +164,8 @@ func (f *forwarder) discover(ctx context.Context) error {
 	}
 }
 
+// sockets lists the listening sockets of the VM. A failed command is an error, never an empty list: an empty list means
+// that nothing listens, and makes sync close every tunnel.
 func (f *forwarder) sockets() ([]socket, error) {
 	session, err := f.client.NewSession()
 	if err != nil {
@@ -156,11 +173,20 @@ func (f *forwarder) sockets() ([]socket, error) {
 	}
 	defer func() { _ = session.Close() }()
 
+	var stderr strings.Builder
+
+	session.Stderr = &stderr
+
 	output, err := session.Output(socketTables)
 
+	// Without /proc/net/tcp6, i.e. with IPv6 off, cat prints the IPv4 table and still exits with 1.
 	var exit *ssh.ExitError
-	if err != nil && !errors.As(err, &exit) {
-		return nil, err
+	if err != nil && !(errors.As(err, &exit) && strings.Contains(string(output), tableHeader)) {
+		if reason := strings.TrimSpace(stderr.String()); reason != "" {
+			err = fmt.Errorf("%w: %s", err, reason)
+		}
+
+		return nil, fmt.Errorf("read the sockets of the VM: %w", err)
 	}
 
 	return parseSockets(string(output))
