@@ -20,8 +20,8 @@ import (
 
 const dialTimeout = 10 * time.Second
 
-// Dial opens an SSH connection to a running VM as its management user, with Lima's key and without a host key check,
-// as the ssh command of Shell does for the VM's local SSH port.
+// Dial opens an SSH connection to a running VM as its management user, with Lima's key and the host key that Lima
+// pinned, as the ssh command of Shell does for the VM's local SSH port.
 func (client *Client) Dial(ctx context.Context, name string) (connection *ssh.Client, failure error) {
 	defer func() {
 		failure = wrapOperation("SSH", failure)
@@ -68,7 +68,40 @@ func (client *Client) Dial(ctx context.Context, name string) (connection *ssh.Cl
 		Timeout:           dialTimeout,
 	}
 
-	return ssh.Dial("tcp", net.JoinHostPort(inst.SSHAddress, strconv.Itoa(inst.SSHLocalPort)), config)
+	return dialSSH(ctx, net.JoinHostPort(inst.SSHAddress, strconv.Itoa(inst.SSHLocalPort)), config)
+}
+
+// dialSSH connects and completes the SSH handshake within config.Timeout, and gives up when ctx ends. ssh.Dial bounds
+// only the TCP connection, so a server that accepts it and then stays silent would block it, whatever ctx says.
+func dialSSH(ctx context.Context, address string, config *ssh.ClientConfig) (*ssh.Client, error) {
+	dialer := net.Dialer{Timeout: config.Timeout}
+
+	connection, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		return nil, err
+	}
+
+	stop := context.AfterFunc(ctx, func() { _ = connection.Close() })
+
+	if config.Timeout > 0 {
+		_ = connection.SetDeadline(time.Now().Add(config.Timeout))
+	}
+
+	conn, channels, requests, err := ssh.NewClientConn(connection, address, config)
+
+	if !stop() || err != nil {
+		_ = connection.Close()
+
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		return nil, err
+	}
+
+	_ = connection.SetDeadline(time.Time{})
+
+	return ssh.NewClient(conn, channels, requests), nil
 }
 
 // pinnedHostKeyCheck verifies the host key against the key that Lima pinned in ssh.known_hosts on the first boot, as
