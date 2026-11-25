@@ -32,6 +32,9 @@ type Manager struct {
 
 	// Warn receives failures that do not stop an operation.
 	Warn func(string, ...any)
+
+	// Notice receives what an operation did on the host that the configuration did not spell out.
+	Notice func(string, ...any)
 }
 
 // New creates a lifecycle manager without inspecting the host or creating state.
@@ -60,6 +63,7 @@ func New(deps Dependencies) *Manager {
 		dial:        (&net.Dialer{Timeout: connectTimeout}).DialContext,
 		listen:      net.Listen,
 		Warn:        log.New(os.Stderr, "limanix: warning: ", 0).Printf,
+		Notice:      log.New(os.Stderr, "limanix: ", 0).Printf,
 	}
 }
 
@@ -84,9 +88,14 @@ func (m *Manager) preflight(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	for _, mount := range cfg.Mounts {
+	// A read-only mount shares something that is already there, so a missing source is a mistake, not a folder to make.
+	for index, mount := range cfg.Mounts {
+		if mount.Mode != "ro" {
+			continue
+		}
+
 		if _, err := filesystem.RequireDirectory(mount.Source); err != nil {
-			return err
+			return fmt.Errorf("mounts[%d].source: %w", index, err)
 		}
 	}
 
@@ -121,4 +130,26 @@ func (m *Manager) requireLima(ctx context.Context, identity domain.Identity) (li
 	}
 
 	return instance, err
+}
+
+// createMountSources makes the missing source folders of read-write mounts, parents included, and says which it made:
+// a mistyped path would otherwise share an empty folder without a word.
+func (m *Manager) createMountSources(cfg config.Config) error {
+	for index, mount := range cfg.Mounts {
+		if mount.Mode == "ro" {
+			continue
+		}
+
+		_, statErr := os.Stat(mount.Source)
+
+		if err := os.MkdirAll(mount.Source, 0o700); err != nil {
+			return fmt.Errorf("mounts[%d].source: %w", index, err)
+		}
+
+		if errors.Is(statErr, fs.ErrNotExist) {
+			m.Notice("created %s for mounts[%d].source", mount.Source, index)
+		}
+	}
+
+	return nil
 }

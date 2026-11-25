@@ -85,6 +85,10 @@ func (m *Manager) prepareUpdate(ctx context.Context, instance domain.Instance, c
 		}
 	}()
 
+	if err := m.createMountSources(cfg); err != nil {
+		return "", err
+	}
+
 	template, err := m.generations.prepare(ctx, instance, cfg, sshPort)
 	if err != nil {
 		return "", err

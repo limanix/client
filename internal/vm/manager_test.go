@@ -326,6 +326,87 @@ func (f fixtureData) writeConfig(t *testing.T, cfg config.Config) string {
 	return path
 }
 
+func TestCreateAndUpdateCreateMissingMountSources(t *testing.T) {
+	f := fixture(t)
+	t.Setenv("HOME", f.root)
+
+	var notices []string
+	f.manager.Notice = func(format string, args ...any) { notices = append(notices, fmt.Sprintf(format, args...)) }
+
+	cfg := f.configuration("sandbox")
+	cfg.Mounts = append(cfg.Mounts, config.Mount{Source: "~/agents/claude", Target: "/mnt/claude", Mode: "rw"})
+
+	checkDirectory := func(path string) {
+		t.Helper()
+		info, err := os.Stat(path)
+		if err != nil || !info.IsDir() || info.Mode().Perm()&0o077 != 0 {
+			t.Fatalf("expected private mount source directory at %q, got %v: %v", path, info, err)
+		}
+	}
+
+	if _, err := f.manager.Create(context.Background(), f.writeConfig(t, cfg)); err != nil {
+		t.Fatal(err)
+	}
+	claude := filepath.Join(f.root, "agents", "claude")
+	checkDirectory(claude)
+	if want := "created " + claude + " for mounts[1].source"; len(notices) != 1 || notices[0] != want {
+		t.Fatalf("expected one notice %q, got %q", want, notices)
+	}
+
+	notices = nil
+	cfg.Mounts = append(cfg.Mounts, config.Mount{Source: "./data/fixtures", Target: "/mnt/fixtures", Mode: "rw"})
+	if _, err := f.manager.Update(context.Background(), f.writeConfig(t, cfg)); err != nil {
+		t.Fatal(err)
+	}
+	fixtures := filepath.Join(f.root, "data", "fixtures")
+	checkDirectory(fixtures)
+	if want := "created " + fixtures + " for mounts[2].source"; len(notices) != 1 || notices[0] != want {
+		t.Fatalf("existing sources must not be reported, expected one notice %q, got %q", want, notices)
+	}
+}
+
+func TestReadOnlyMountSourceMustExist(t *testing.T) {
+	f := fixture(t)
+	t.Setenv("HOME", f.root)
+
+	var notices []string
+	f.manager.Notice = func(format string, args ...any) { notices = append(notices, fmt.Sprintf(format, args...)) }
+
+	cfg := f.configuration("sandbox")
+	cfg.Mounts = append(cfg.Mounts, config.Mount{Source: "~/keys", Target: "/mnt/keys", Mode: "ro"})
+
+	_, err := f.manager.Create(context.Background(), f.writeConfig(t, cfg))
+	if err == nil || !strings.Contains(err.Error(), "mounts[1].source") {
+		t.Fatalf("expected mount source error, got %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(f.root, "keys")); !errors.Is(statErr, fs.ErrNotExist) {
+		t.Fatalf("read-only source was created: %v", statErr)
+	}
+	if len(notices) != 0 {
+		t.Fatalf("unexpected notices: %q", notices)
+	}
+	if _, loadErr := f.store.Load(cfg.Name); loadErr == nil {
+		t.Fatal("a rejected configuration left a VM record")
+	}
+
+	if err = os.Mkdir(filepath.Join(f.root, "keys"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.manager.Create(context.Background(), f.writeConfig(t, cfg)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCreateRejectsFileMountSource(t *testing.T) {
+	f := fixture(t)
+	cfg := f.configuration("sandbox")
+	cfg.Mounts[0].Source = filepath.Join(f.project, "keep.txt")
+
+	if _, err := f.manager.Create(context.Background(), f.writeConfig(t, cfg)); err == nil || !strings.Contains(err.Error(), "mounts[0].source") {
+		t.Fatalf("expected mount source error, got %v", err)
+	}
+}
+
 func TestSocketPreflightLeavesHomeAndStateUnallocated(t *testing.T) {
 	for _, test := range []struct {
 		length int

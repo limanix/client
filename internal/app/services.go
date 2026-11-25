@@ -89,6 +89,7 @@ func (s *Services) Manager() (*vm.Manager, error) {
 		SSHConfig: filepath.Join(store.Root(), "ssh", "config"),
 	})
 	manager.Warn = warn
+	manager.Notice = log.New(s.diagnostics, "limanix: ", 0).Printf
 
 	return manager, nil
 }
