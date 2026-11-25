@@ -11,6 +11,7 @@ import (
 	"net"
 	"slices"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -39,6 +40,27 @@ type tunnel struct {
 	remote    uint16
 	local     uint16
 	listeners []net.Listener
+
+	mu     sync.Mutex
+	target string
+}
+
+func (t *tunnel) destination() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	return t.target
+}
+
+// retarget points new connections to the first of listening unless the tunnel already reaches one of them, so that a
+// port that is open on several addresses does not make the destination flap between polls.
+func (t *tunnel) retarget(listening []string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if !slices.Contains(listening, t.target) {
+		t.target = listening[0]
+	}
 }
 
 func (t *tunnel) close() {
@@ -145,16 +167,21 @@ func (f *forwarder) sockets() ([]socket, error) {
 }
 
 func (f *forwarder) sync(sockets []socket) error {
-	targets := map[uint16]string{}
+	targets := map[uint16][]string{}
 
 	for _, s := range sockets {
-		if _, seen := targets[s.port]; !seen && !slices.Contains(systemPorts, s.port) {
-			targets[s.port] = s.target()
+		if slices.Contains(systemPorts, s.port) {
+			continue
+		}
+
+		if target := s.target(); !slices.Contains(targets[s.port], target) {
+			targets[s.port] = append(targets[s.port], target)
 		}
 	}
 
 	f.tunnels = slices.DeleteFunc(f.tunnels, func(t *tunnel) bool {
-		if _, listening := targets[t.remote]; listening {
+		if listening, ok := targets[t.remote]; ok {
+			t.retarget(listening)
 			return false
 		}
 
@@ -170,7 +197,7 @@ func (f *forwarder) sync(sockets []socket) error {
 			continue
 		}
 
-		if err := f.open(remote, remote, targets[remote], true); err != nil {
+		if err := f.open(remote, remote, targets[remote][0], true); err != nil {
 			return err
 		}
 	}
@@ -184,10 +211,11 @@ func (f *forwarder) open(remote, local uint16, target string, shift bool) error 
 		return err
 	}
 
-	f.tunnels = append(f.tunnels, &tunnel{remote: remote, local: bound, listeners: listeners})
+	t := &tunnel{remote: remote, local: bound, listeners: listeners, target: target}
+	f.tunnels = append(f.tunnels, t)
 
 	for _, listener := range listeners {
-		go f.accept(listener, target)
+		go f.accept(listener, t)
 	}
 
 	note := ""
@@ -206,14 +234,14 @@ func (f *forwarder) closeAll() {
 	}
 }
 
-func (f *forwarder) accept(listener net.Listener, target string) {
+func (f *forwarder) accept(listener net.Listener, t *tunnel) {
 	for {
 		connection, err := listener.Accept()
 		if err != nil {
 			return
 		}
 
-		go f.pipe(connection, target)
+		go f.pipe(connection, t.destination())
 	}
 }
 
