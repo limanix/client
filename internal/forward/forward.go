@@ -322,29 +322,67 @@ func (f *forwarder) accept(listener net.Listener, t *tunnel) {
 func (f *forwarder) pipe(local net.Conn, target string) {
 	defer func() { _ = local.Close() }()
 
-	remote, err := f.client.Dial("tcp", target)
+	remote, requests, err := f.openChannel(target)
 	if err != nil {
 		return
 	}
 	defer func() { _ = remote.Close() }()
 
-	done := make(chan struct{}, 2)
+	closed := make(chan struct{})
 
-	go copyHalf(remote, local, done)
-	go copyHalf(local, remote, done)
+	go func() {
+		ssh.DiscardRequests(requests)
+		close(closed)
+	}()
 
-	<-done
-	<-done
+	toRemote, fromRemote := make(chan struct{}), make(chan struct{})
+
+	go copyHalf(remote, local, toRemote)
+	go copyHalf(local, remote, fromRemote)
+
+	select {
+	case <-toRemote:
+		// The client has sent everything, and the service may still answer.
+		<-fromRemote
+	case <-fromRemote:
+		// The service has sent everything. If it closed the channel too, nothing can reach it any more, and the client
+		// is closed here instead of being waited for. With the end of the data only, the client may still send.
+		select {
+		case <-closed:
+		case <-toRemote:
+		}
+	}
 }
 
-func copyHalf(to, from net.Conn, done chan<- struct{}) {
+// openChannel opens the channel that ssh.Client.Dial opens, but keeps its requests, which end when the channel is
+// closed. The net.Conn of Dial does not show that.
+func (f *forwarder) openChannel(target string) (ssh.Channel, <-chan *ssh.Request, error) {
+	host, portText, err := net.SplitHostPort(target)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	port, err := strconv.ParseUint(portText, 10, 16)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return f.client.OpenChannel("direct-tcpip", ssh.Marshal(struct {
+		Host       string
+		Port       uint32
+		OriginHost string
+		OriginPort uint32
+	}{Host: host, Port: uint32(port), OriginHost: "0.0.0.0"}))
+}
+
+func copyHalf(to io.Writer, from io.Reader, done chan<- struct{}) {
 	_, _ = io.Copy(to, from)
 
 	if half, ok := to.(interface{ CloseWrite() error }); ok {
 		_ = half.CloseWrite()
 	}
 
-	done <- struct{}{}
+	close(done)
 }
 
 func listenLocal(port uint16, shift bool) ([]net.Listener, uint16, error) {
