@@ -4,7 +4,7 @@
 //
 // [Parse] validates literal input without filesystem access.
 // [Load] resolves relative host paths from the real configuration file's directory.
-// Mount sources need not exist until VM preflight.
+// Loading accepts missing mount sources: the VM manager creates them for rw mounts and rejects them for ro mounts.
 // Environment values remain literal strings.
 // Module availability is checked by the module registry, after configuration validation.
 //

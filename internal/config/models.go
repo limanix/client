@@ -74,7 +74,7 @@ type Network struct {
 // Mount maps a host directory to a checked guest destination.
 type Mount struct {
 	Mode   string           `toml:"mode" json:"mode" doc:"Mount access: rw or ro." choices:"rw,ro" default:"rw"`
-	Source string           `toml:"source" json:"source" doc:"Host directory to mount inside the guest." required:"true"`
+	Source string           `toml:"source" json:"source" doc:"Host directory to mount inside the guest. A missing directory is created during create or update when mode is rw, and is an error when mode is ro." required:"true"`
 	Target domain.GuestPath `toml:"target" json:"target" doc:"Mount destination inside the guest." required:"true"`
 }
 

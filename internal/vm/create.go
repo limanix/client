@@ -116,6 +116,10 @@ func newInstance(cfg config.Config) (domain.Instance, error) {
 }
 
 func (m *Manager) prepareCreation(ctx context.Context, instance domain.Instance, cfg config.Config, sshPort int) (string, error) {
+	if err := m.createMountSources(cfg); err != nil {
+		return "", errors.Join(err, m.store.Remove(instance.Identity.Name))
+	}
+
 	template, err := m.generations.prepare(ctx, instance, cfg, sshPort)
 	if err != nil {
 		return "", errors.Join(err, m.store.Remove(instance.Identity.Name))

@@ -1566,7 +1566,7 @@
       "update": null,
       "format": null,
       "example": null,
-      "doc": "Host directory to mount inside the guest."
+      "doc": "Host directory to mount inside the guest. A missing directory is created during create or update when mode is rw, and is an error when mode is ro."
     },
     {
       "key": "mounts[].target",
