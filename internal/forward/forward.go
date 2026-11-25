@@ -21,7 +21,6 @@ import (
 
 const (
 	pollInterval    = time.Second
-	probeTimeout    = 200 * time.Millisecond
 	spareLocalPorts = 100
 	socketTables    = "/run/current-system/sw/bin/cat /proc/net/tcp /proc/net/tcp6"
 	tableHeader     = "local_address"
@@ -430,16 +429,4 @@ func listenLoopback(port uint16) ([]net.Listener, error) {
 	default:
 		return []net.Listener{v4}, nil
 	}
-}
-
-func inUse(port uint16) bool {
-	for _, host := range []string{"127.0.0.1", "::1"} {
-		connection, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(int(port))), probeTimeout)
-		if err == nil {
-			_ = connection.Close()
-			return true
-		}
-	}
-
-	return false
 }
