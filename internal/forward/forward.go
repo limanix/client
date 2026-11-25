@@ -75,6 +75,10 @@ type forwarder struct {
 	client  *ssh.Client
 	out     io.Writer
 	tunnels []*tunnel
+
+	// refused holds the ports of the VM that have no tunnel because the Mac has no port for them, so that the warning
+	// is printed once while the conflict lasts.
+	refused map[uint16]bool
 }
 
 // Run forwards ports until ctx ends or the connection is lost. Without ports, it forwards every port that a program
@@ -205,6 +209,16 @@ func (f *forwarder) sync(sockets []socket) error {
 		}
 	}
 
+	if f.refused == nil {
+		f.refused = map[uint16]bool{}
+	}
+
+	for remote := range f.refused {
+		if _, listening := targets[remote]; !listening {
+			delete(f.refused, remote)
+		}
+	}
+
 	f.tunnels = slices.DeleteFunc(f.tunnels, func(t *tunnel) bool {
 		if listening, ok := targets[t.remote]; ok {
 			t.retarget(listening)
@@ -223,9 +237,19 @@ func (f *forwarder) sync(sockets []socket) error {
 			continue
 		}
 
+		// One port without a local port must not take the other tunnels down: they stay, and the port is tried again
+		// on the next poll.
 		if err := f.open(remote, remote, targets[remote][0], true); err != nil {
-			return err
+			if !f.refused[remote] {
+				_, _ = fmt.Fprintf(f.out, "VM port %d is not forwarded: %v\n", remote, err)
+			}
+
+			f.refused[remote] = true
+
+			continue
 		}
+
+		delete(f.refused, remote)
 	}
 
 	return nil
