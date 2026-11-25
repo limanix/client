@@ -22,8 +22,12 @@ import (
 const (
 	pollInterval    = time.Second
 	spareLocalPorts = 100
-	socketTables    = "/run/current-system/sw/bin/cat /proc/net/tcp /proc/net/tcp6"
-	tableHeader     = "local_address"
+	systemBin       = "/run/current-system/sw/bin/"
+
+	// socketTables prints both tables and exits with 0 only when it printed all of them. Without IPv6 there is no
+	// tcp6 table, and that is not a failure, but a table that cannot be read is.
+	socketTables = systemBin + "sh -c '" + systemBin + "cat /proc/net/tcp && if [ -e /proc/net/tcp6 ]; then " +
+		systemBin + "cat /proc/net/tcp6; fi'"
 )
 
 var systemPorts = []uint16{22, 53}
@@ -198,10 +202,7 @@ func (f *forwarder) sockets() ([]socket, error) {
 	session.Stderr = &stderr
 
 	output, err := session.Output(socketTables)
-
-	// Without /proc/net/tcp6, i.e. with IPv6 off, cat prints the IPv4 table and still exits with 1.
-	var exit *ssh.ExitError
-	if err != nil && !(errors.As(err, &exit) && strings.Contains(string(output), tableHeader)) {
+	if err != nil {
 		if reason := strings.TrimSpace(stderr.String()); reason != "" {
 			err = fmt.Errorf("%w: %s", err, reason)
 		}
