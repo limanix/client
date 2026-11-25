@@ -60,6 +60,10 @@ func (client *fakeClient) Shell(_ context.Context, _ string, args []string) (int
 	return client.shellStatus, nil
 }
 
+func (*fakeClient) ShellWithAgent(context.Context, string, string, []string) (int, error) {
+	return 0, errors.New("unexpected shell with agent")
+}
+
 // example reads a copy of a contract example of the pinned lmx release.
 func example(t *testing.T, name string) string {
 	t.Helper()

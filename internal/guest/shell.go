@@ -12,6 +12,11 @@ func (guest *Guest) Shell(ctx context.Context, name string, user domain.Username
 	return guest.client.Shell(ctx, name, userCommand(user, os.Getenv("COLORTERM"), command))
 }
 
+// ShellWithAgent connects directly as the development user so that user owns the forwarded socket.
+func (guest *Guest) ShellWithAgent(ctx context.Context, name string, user domain.Username, command []string) (int, error) {
+	return guest.client.ShellWithAgent(ctx, name, string(user), command)
+}
+
 func userCommand(user domain.Username, colorterm string, command []string) []string {
 	sudo := []string{"sudo"}
 	// SSH does not forward COLORTERM and sudo resets it, so a 24-bit terminal on the Mac passes it on.

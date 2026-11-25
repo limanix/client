@@ -18,6 +18,9 @@ var (
 	errMissingSession       = errors.New("--session requires a session name")
 	errEmptySession         = errors.New("--session requires a nonempty session name")
 	errSessionCommand       = errors.New("--session cannot be combined with a guest command")
+	errDuplicateAgentFlag   = errors.New("--forward-agent may only be specified once")
+	errInvalidAgentFlag     = errors.New("--forward-agent requires a boolean value")
+	errSessionAgent         = errors.New("--session cannot be combined with --forward-agent")
 )
 
 // exitError carries either a usage failure or an unmodified guest exit status.

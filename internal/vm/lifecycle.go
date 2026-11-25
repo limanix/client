@@ -48,6 +48,15 @@ func (m *Manager) lifecycle(ctx context.Context, name domain.VMName, operation f
 
 // Shell passes command arguments unchanged to the configured development user.
 func (m *Manager) Shell(ctx context.Context, name domain.VMName, command []string) (int, error) {
+	return m.shell(ctx, name, command, false)
+}
+
+// ShellWithAgent opens a development session with access to the Mac's SSH agent.
+func (m *Manager) ShellWithAgent(ctx context.Context, name domain.VMName, command []string) (int, error) {
+	return m.shell(ctx, name, command, true)
+}
+
+func (m *Manager) shell(ctx context.Context, name domain.VMName, command []string, forwardAgent bool) (int, error) {
 	identity, err := m.store.LoadIdentity(name)
 	if err != nil {
 		return 1, err
@@ -63,6 +72,10 @@ func (m *Manager) Shell(ctx context.Context, name domain.VMName, command []strin
 			Name:  name,
 			Cause: ErrNotRunning,
 		}
+	}
+
+	if forwardAgent {
+		return m.guest.ShellWithAgent(ctx, identity.LimaName(), identity.Username, command)
 	}
 
 	return m.guest.Shell(ctx, identity.LimaName(), identity.Username, command)

@@ -74,21 +74,43 @@ func managementFailure(ctx context.Context, command *exec.Cmd, stderr *tailBuffe
 }
 
 // Shell inherits the controlling terminal and preserves the guest's exit status.
-func (client *Client) Shell(ctx context.Context, name string, args []string) (status int, failure error) {
+func (client *Client) Shell(ctx context.Context, name string, args []string) (int, error) {
+	command, err := client.session(ctx, name, args, true)
+	if err != nil {
+		return 0, wrapOperation("SSH", err)
+	}
+
+	return client.runShell(ctx, command)
+}
+
+// ShellWithAgent opens an isolated SSH session as the development user and forwards the current host agent.
+func (client *Client) ShellWithAgent(ctx context.Context, name, user string, args []string) (int, error) {
+	instance, err := client.runningInstance(ctx, name)
+	if err != nil {
+		return 0, wrapOperation("SSH", err)
+	}
+
+	command, err := client.agentSSHCommand(ctx, instance, user, args)
+	if err != nil {
+		return 0, wrapOperation("SSH", err)
+	}
+	if err = checkAgentSocket(); err != nil {
+		return 0, wrapOperation("SSH", err)
+	}
+
+	return client.runShell(ctx, command)
+}
+
+func (client *Client) runShell(ctx context.Context, command *exec.Cmd) (status int, failure error) {
 	defer func() {
 		failure = wrapOperation("SSH", failure)
 	}()
-
-	command, err := client.session(ctx, name, args, true)
-	if err != nil {
-		return 0, err
-	}
 
 	command.Stdin = client.Stdin
 	command.Stdout = client.Stdout
 	command.Stderr = client.Stderr
 
-	err = command.Run()
+	err := command.Run()
 
 	switch {
 	case err == nil:

@@ -67,6 +67,7 @@ type Guest interface {
 	Doctor(context.Context, string) ([]guest.Check, error)
 	NetCheck(context.Context, string, uint16, bool) ([]guest.Check, error)
 	Shell(context.Context, string, domain.Username, []string) (int, error)
+	ShellWithAgent(context.Context, string, domain.Username, []string) (int, error)
 }
 
 // Dependencies contains the host services assembled before constructing a Manager.

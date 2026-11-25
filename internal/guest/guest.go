@@ -7,11 +7,12 @@ import (
 	"os"
 )
 
-// Client is the management connection needed for guest operations.
+// Client provides the SSH connections used for guest operations.
 type Client interface {
 	Run(context.Context, string, []string, bool) (string, error)
 	Stream(context.Context, string, []string, io.Writer) error
 	Shell(context.Context, string, []string) (int, error)
+	ShellWithAgent(context.Context, string, string, []string) (int, error)
 }
 
 // Guest uses a management connection to provision and access the regular guest account.

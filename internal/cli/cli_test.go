@@ -108,6 +108,11 @@ func (manager *fakeManager) Shell(ctx context.Context, name domain.VMName, args 
 	return manager.shellStatus, manager.failure
 }
 
+func (manager *fakeManager) ShellWithAgent(_ context.Context, name domain.VMName, args []string) (int, error) {
+	manager.calls = append(manager.calls, managerCall{operation: "shell with agent", name: name, args: args})
+	return manager.shellStatus, manager.failure
+}
+
 func (manager *fakeManager) Forward(_ context.Context, name domain.VMName, _ []forward.Port, _ io.Writer) error {
 	manager.calls = append(manager.calls, managerCall{operation: "forward", name: name})
 	return manager.failure
@@ -183,7 +188,7 @@ func TestHelpVersionAndReferenceDoNotInitializeHostServices(t *testing.T) {
 	if strings.Contains(reference, "hostagent") || strings.Contains(reference, "vmnet-install") || strings.Contains(reference, "--debug") {
 		t.Fatal("internal Lima subprocess interface entered the public reference")
 	}
-	for _, fragment := range []string{`"limanix create"`, `"--config"`, `"limanix update"`, `"limanix modules add"`, `"--remove-home"`, "shell NAME [--session SESSION | -- COMMAND ...]"} {
+	for _, fragment := range []string{`"limanix create"`, `"--config"`, `"limanix update"`, `"limanix modules add"`, `"--remove-home"`, `"--forward-agent"`, "shell NAME [--session SESSION | [--forward-agent] [-- COMMAND ...]]"} {
 		if !strings.Contains(reference, fragment) {
 			t.Fatalf("actual CLI missing from reference: %s", fragment)
 		}
@@ -255,7 +260,7 @@ func TestVMCommandsPassConfigurationAndDeleteFlags(t *testing.T) {
 }
 
 func TestShellPreservesLiteralArgumentsFlagsAndChildExit(t *testing.T) {
-	values := []string{"printf", "--help", "--unknown", "--session", "work", "-n", `spaces; $(touch unwanted) "quotes"`, "", "line one\nline two", "--"}
+	values := []string{"printf", "--help", "--unknown", "--session", "work", "--forward-agent", "-n", `spaces; $(touch unwanted) "quotes"`, "", "line one\nline two", "--"}
 	for _, separator := range [][]string{nil, {"--"}} {
 		manager := &fakeManager{shellStatus: 17}
 		args := append([]string{"shell", "sandbox"}, separator...)
@@ -315,6 +320,56 @@ func TestShellSessionDoesNotConsumeGuestFlagsAfterSeparator(t *testing.T) {
 	status, _, diagnostics := runCLI(append([]string{"shell", "sandbox", "--"}, values...), fakeDependencies(manager, &fakeRegistry{}))
 	if status != 0 || diagnostics != "" || !reflect.DeepEqual(manager.calls[0].args, values) {
 		t.Fatalf("guest flags were consumed: %d %q %#v", status, diagnostics, manager.calls)
+	}
+}
+
+func TestShellForwardAgentScopesTheFlagToTheHost(t *testing.T) {
+	for _, test := range []struct {
+		args      []string
+		operation string
+		command   []string
+	}{
+		{[]string{"sandbox", "--forward-agent"}, "shell with agent", nil},
+		{[]string{"--forward-agent", "sandbox"}, "shell with agent", nil},
+		{[]string{"sandbox", "--forward-agent=true"}, "shell with agent", nil},
+		{[]string{"sandbox", "--forward-agent=false"}, "shell", nil},
+		{[]string{"sandbox", "--forward-agent", "--", "git", "ls-remote", "origin", "HEAD"}, "shell with agent", []string{"git", "ls-remote", "origin", "HEAD"}},
+		{[]string{"sandbox", "--", "--forward-agent", "--forward-agent=true", "--forward-agent=false"}, "shell", []string{"--forward-agent", "--forward-agent=true", "--forward-agent=false"}},
+	} {
+		manager := &fakeManager{shellStatus: 17}
+		status, output, diagnostics := runCLI(append([]string{"shell"}, test.args...), fakeDependencies(manager, &fakeRegistry{}))
+		if status != 17 || output != "" || diagnostics != "" || len(manager.calls) != 1 {
+			t.Fatalf("agent option %v changed: %d %q %q %#v", test.args, status, output, diagnostics, manager.calls)
+		}
+		call := manager.calls[0]
+		if call.operation != test.operation || call.name != "sandbox" || !slices.Equal(call.args, test.command) {
+			t.Fatalf("agent option %v invoked %#v", test.args, call)
+		}
+	}
+}
+
+func TestShellRejectsInvalidAgentOptionsBeforeOpeningVM(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		err  string
+	}{
+		{[]string{"--forward-agent"}, "a VM name is required"},
+		{[]string{"sandbox", "--forward-agent", "--forward-agent"}, "may only be specified once"},
+		{[]string{"sandbox", "--forward-agent=false", "--forward-agent=true"}, "may only be specified once"},
+		{[]string{"sandbox", "--forward-agent="}, "requires a boolean value"},
+		{[]string{"sandbox", "--forward-agent=invalid"}, "requires a boolean value"},
+		{[]string{"sandbox", "--session", "work", "--forward-agent"}, "--session cannot be combined with --forward-agent"},
+		{[]string{"sandbox", "--forward-agent", "--session=work"}, "--session cannot be combined with --forward-agent"},
+		{[]string{"sandbox", "--forward-agent=false", "--session=work"}, "--session cannot be combined with --forward-agent"},
+	} {
+		dependencies := Dependencies{Manager: func() (Manager, error) {
+			t.Fatal("invalid agent options initialized VM services")
+			return nil, nil
+		}}
+		status, output, diagnostics := runCLI(append([]string{"shell"}, test.args...), dependencies)
+		if status != 2 || output != "" || !strings.Contains(diagnostics, test.err) {
+			t.Fatalf("invalid agent options %v: %d %q %q", test.args, status, output, diagnostics)
+		}
 	}
 }
 
