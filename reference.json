@@ -266,6 +266,42 @@
       "json": []
     },
     {
+      "name": "limanix forward",
+      "usage": "limanix forward NAME [PORT ...]",
+      "about": "Bring VM ports to localhost on the Mac until you press Ctrl-C.",
+      "details": "Bring ports of a running VM to localhost on the Mac while the command runs. Without PORT, every port that a program in the VM listens on is forwarded while it listens, to the same port on the Mac or, when that is in use, the next free one. PORT forwards one VM port to the same port on the Mac, and LOCAL:REMOTE to another one. Nothing stays forwarded after Ctrl-C or when the VM stops.",
+      "args": [
+        {
+          "name": "NAME",
+          "short": null,
+          "value": "string",
+          "required": true,
+          "default": null,
+          "values": [],
+          "about": "VM name.",
+          "details": null
+        },
+        {
+          "name": "PORT ...",
+          "short": null,
+          "value": "strings",
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "VM port, or `LOCAL:REMOTE` to use another port on the Mac. Without a port, every port that a program in the VM listens on is forwarded while it listens.",
+          "details": null
+        }
+      ],
+      "checks": [],
+      "output": [
+        "Forwarding ports of NAME to localhost. Press Ctrl-C to stop.",
+        "localhost:PORT -> VM port PORT",
+        "localhost:PORT closed"
+      ],
+      "columns": [],
+      "json": []
+    },
+    {
       "name": "limanix help",
       "usage": "limanix help [COMMAND ...]",
       "about": "Print the help of a command.",

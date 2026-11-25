@@ -11,6 +11,7 @@ import (
 	"github.com/limanix/client/internal/lima"
 	"github.com/limanix/client/internal/modules"
 	"github.com/limanix/client/internal/state"
+	"golang.org/x/crypto/ssh"
 )
 
 // Backend is the VM lifecycle contract implemented by the Lima adapter.
@@ -26,6 +27,7 @@ type Backend interface {
 	PruneImages(context.Context) error
 	Edit(context.Context, string, string) error
 	UserKey(context.Context) (lima.UserKey, error)
+	Dial(context.Context, string) (*ssh.Client, error)
 }
 
 // Store owns persisted VM records, operation locks and input-generation paths.

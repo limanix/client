@@ -7,6 +7,7 @@ import (
 
 	"github.com/limanix/client/internal/app"
 	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/forward"
 	"github.com/limanix/client/internal/modules"
 	"github.com/limanix/client/internal/vm"
 )
@@ -44,6 +45,7 @@ type Manager interface {
 	KeptHomes(context.Context) ([]vm.KeptHome, error)
 	RemoveHome(context.Context, string) error
 	Shell(context.Context, domain.VMName, []string) (int, error)
+	Forward(context.Context, domain.VMName, []forward.Port, io.Writer) error
 	Doctor(context.Context, domain.VMName) (vm.Report, error)
 	NetworkCheck(context.Context, domain.VMName, uint16, vm.Protocol) (vm.Report, error)
 }

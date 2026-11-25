@@ -21,6 +21,7 @@ import (
 	"github.com/limanix/client/internal/buildinfo"
 	"github.com/limanix/client/internal/config"
 	"github.com/limanix/client/internal/domain"
+	"github.com/limanix/client/internal/forward"
 	"github.com/limanix/client/internal/guest"
 	"github.com/limanix/client/internal/lima"
 	"github.com/limanix/client/internal/modules"
@@ -105,6 +106,11 @@ func (manager *fakeManager) Shell(ctx context.Context, name domain.VMName, args 
 		return manager.shell(ctx)
 	}
 	return manager.shellStatus, manager.failure
+}
+
+func (manager *fakeManager) Forward(_ context.Context, name domain.VMName, _ []forward.Port, _ io.Writer) error {
+	manager.calls = append(manager.calls, managerCall{operation: "forward", name: name})
+	return manager.failure
 }
 
 func (manager *fakeManager) Doctor(_ context.Context, name domain.VMName) (vm.Report, error) {
