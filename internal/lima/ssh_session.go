@@ -31,6 +31,15 @@ func remoteScript(args []string) string {
 }
 
 func (client *Client) session(ctx context.Context, name string, args []string, interactive bool) (*exec.Cmd, error) {
+	inst, err := client.runningInstance(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.sshCommand(ctx, inst, args, interactive)
+}
+
+func (client *Client) runningInstance(ctx context.Context, name string) (*limatype.Instance, error) {
 	inst, err := client.inspectInstance(ctx, name)
 	if err != nil {
 		return nil, err
@@ -40,7 +49,7 @@ func (client *Client) session(ctx context.Context, name string, args []string, i
 		return nil, fmt.Errorf("VM %s is not running", name)
 	}
 
-	return client.sshCommand(ctx, inst, args, interactive)
+	return inst, nil
 }
 
 func (client *Client) newSSHCommand(ctx context.Context, inst *limatype.Instance, args []string, interactive bool) (*exec.Cmd, error) {
@@ -68,6 +77,10 @@ func (client *Client) newSSHCommand(ctx context.Context, inst *limatype.Instance
 		return nil, err
 	}
 
+	return client.sshExecCommand(ctx, sshExe, inst, opts, remoteScript(args), interactive), nil
+}
+
+func (client *Client) sshExecCommand(ctx context.Context, sshExe sshutil.SSHExe, inst *limatype.Instance, opts []string, script string, interactive bool) *exec.Cmd {
 	opts = append(opts, "ConnectTimeout=10")
 	arguments := append(slices.Clone(sshExe.Args), sshutil.SSHArgsFromOpts(opts)...)
 
@@ -83,10 +96,10 @@ func (client *Client) newSSHCommand(ctx context.Context, inst *limatype.Instance
 		"-o", "LogLevel=ERROR",
 		"-p", strconv.Itoa(inst.SSHLocalPort),
 		inst.SSHAddress,
-		"--", remoteScript(args),
+		"--", script,
 	)
 
-	return exec.CommandContext(ctx, sshExe.Exe, arguments...), nil
+	return exec.CommandContext(ctx, sshExe.Exe, arguments...)
 }
 
 func validateSSHMetadata(inst *limatype.Instance) error {

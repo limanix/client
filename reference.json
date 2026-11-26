@@ -776,9 +776,9 @@
     },
     {
       "name": "limanix shell",
-      "usage": "limanix shell NAME [--session SESSION | -- COMMAND ...] [flags]",
+      "usage": "limanix shell NAME [--session SESSION | [--forward-agent] [-- COMMAND ...]] [flags]",
       "about": "Connect as the configured development user.",
-      "details": "Connect as the configured development user. With --session, create or attach to a named persistent session. Select a session provider in the VM configuration. --session cannot be combined with a guest command.",
+      "details": "Connect as the configured development user. With --session, create or attach to a named persistent session. Select a session provider in the VM configuration. --session cannot be combined with a guest command or --forward-agent. With --forward-agent, make the Mac's active SSH agent available for this connection after verifying the VM's SSH host key.",
       "args": [
         {
           "name": "NAME",
@@ -798,6 +798,16 @@
           "default": null,
           "values": [],
           "about": "Guest command and its arguments, after `--`. They reach the guest unchanged; no guest shell parses them.",
+          "details": null
+        },
+        {
+          "name": "--forward-agent",
+          "short": null,
+          "value": null,
+          "required": false,
+          "default": null,
+          "values": [],
+          "about": "Forward the Mac's SSH agent for this connection. Requires a pinned VM SSH host key.",
           "details": null
         },
         {

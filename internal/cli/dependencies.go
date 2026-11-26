@@ -45,6 +45,7 @@ type Manager interface {
 	KeptHomes(context.Context) ([]vm.KeptHome, error)
 	RemoveHome(context.Context, string) error
 	Shell(context.Context, domain.VMName, []string) (int, error)
+	ShellWithAgent(context.Context, domain.VMName, []string) (int, error)
 	Forward(context.Context, domain.VMName, []forward.Port, io.Writer) error
 	Doctor(context.Context, domain.VMName) (vm.Report, error)
 	NetworkCheck(context.Context, domain.VMName, uint16, vm.Protocol) (vm.Report, error)

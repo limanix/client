@@ -273,6 +273,13 @@ func (f *fakeBackend) Shell(_ context.Context, name string, args []string) (int,
 	return f.shellExit, nil
 }
 
+func (f *fakeBackend) ShellWithAgent(_ context.Context, name, user string, args []string) (int, error) {
+	if err := f.called("shell_with_agent", name, false, append([]string{user}, args...)); err != nil {
+		return 1, err
+	}
+	return f.shellExit, nil
+}
+
 type fixtureData struct {
 	root    string
 	project string
@@ -1206,6 +1213,23 @@ func TestShellPreservesArgumentsAndChildExitStatus(t *testing.T) {
 	}
 	if _, err := f.manager.Shell(context.Background(), instance.Identity.Name, nil); err == nil || !strings.Contains(err.Error(), "not running") {
 		t.Fatalf("entered a stopped VM: %v", err)
+	}
+}
+
+func TestShellWithAgentUsesDevelopmentUserAndUnwrappedCommand(t *testing.T) {
+	f := fixture(t)
+	instance, _ := f.create(t, "sandbox")
+	f.backend.shellExit = 7
+	command := []string{"printf", "%s", "a b"}
+
+	code, err := f.manager.ShellWithAgent(context.Background(), instance.Identity.Name, command)
+	if err != nil || code != 7 {
+		t.Fatalf("child exit status changed: %d %v", code, err)
+	}
+	call := f.backend.calls[len(f.backend.calls)-1]
+	want := append([]string{string(instance.Identity.Username)}, command...)
+	if call.Operation != "shell_with_agent" || call.Name != instance.Identity.LimaName() || !slices.Equal(call.Arguments, want) {
+		t.Fatalf("direct shell not called with %q: %+v", want, call)
 	}
 }
 
